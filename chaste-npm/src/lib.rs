@@ -38,6 +38,7 @@ pub enum Error {
 struct DependencyTreePackage {
     name: Option<String>,
     version: Option<String>,
+    integrity: Option<String>,
     #[serde(default)]
     dependencies: HashMap<String, String>,
     #[serde(default)]
@@ -84,7 +85,10 @@ fn parse_package<'a>(
             name = Some(path[start..end].to_string());
         }
     }
-    Ok(PackageBuilder::new(name, tree_package.version.clone()))
+    let mut pkg = PackageBuilder::new(name, tree_package.version.clone());
+    pkg.integrity(tree_package.integrity.clone());
+    pkg.expected_path(Some(path.to_string()));
+    Ok(pkg)
 }
 
 fn find_pid<'a>(
