@@ -19,6 +19,8 @@ mod error;
 mod parsers;
 mod types;
 
+pub static LOCKFILE_NAME: &'static str = "package-lock.json";
+
 struct PackageParser<'a> {
     package_lock: &'a PackageLock<'a>,
     chastefile_builder: ChastefileBuilder,

@@ -15,6 +15,7 @@ dependencies = [
  "chaste-npm",
  "chaste-types",
  "chaste-yarn",
+ "thiserror 2.0.3",
 ]
 
 [[package]]

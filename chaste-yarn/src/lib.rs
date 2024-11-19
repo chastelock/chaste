@@ -15,6 +15,8 @@ pub use crate::error::{Error, Result};
 mod error;
 mod types;
 
+pub static LOCKFILE_NAME: &'static str = "yarn.lock";
+
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     let mut pkg = PackageBuilder::new(
         Some(entry.name.to_string()),

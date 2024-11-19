@@ -16,6 +16,7 @@ yarn = ["chaste-yarn"]
 
 [dependencies]
 chaste-types.workspace = true
+thiserror.workspace = true
 
 [dependencies.chaste-npm]
 workspace = true
