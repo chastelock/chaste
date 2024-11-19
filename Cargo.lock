@@ -31,6 +31,9 @@ dependencies = [
 [[package]]
 name = "chaste-types"
 version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.3",
+]
 
 [[package]]
 name = "chaste-yarn"

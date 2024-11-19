@@ -16,6 +16,9 @@ pub enum Error {
     #[error("Unknown lockfile version: {0}")]
     UnknownLockVersion(u8),
 
+    #[error("Chaste error: {0:?}")]
+    ChasteError(#[from] chaste_types::Error),
+
     #[error("I/O error: {0:?}")]
     IoError(#[from] io::Error),
 

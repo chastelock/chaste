@@ -14,6 +14,9 @@ pub enum Error {
     #[error("The root package uses workspaces. This is not handled yet")]
     RootHasWorkspaces(),
 
+    #[error("Chaste error: {0:?}")]
+    ChasteError(#[from] chaste_types::Error),
+
     #[error("I/O error: {0:?}")]
     IoError(#[from] io::Error),
 

@@ -3,6 +3,10 @@
 
 use std::collections::HashMap;
 
+pub use crate::error::{Error, Result};
+
+pub mod error;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum DependencyKind {
@@ -116,6 +120,7 @@ pub struct Dependency {
 pub struct Chastefile {
     packages: HashMap<PackageID, Package>,
     dependencies: Vec<Dependency>,
+    root_package_id: PackageID,
 }
 
 impl<'a> Chastefile {
@@ -136,6 +141,14 @@ impl<'a> Chastefile {
             .filter(|d| d.from == package_id)
             .collect()
     }
+
+    pub fn root_package_id(&'a self) -> PackageID {
+        self.root_package_id
+    }
+
+    pub fn root_package(&'a self) -> &'a Package {
+        self.packages.get(&self.root_package_id).unwrap()
+    }
 }
 
 #[derive(Debug)]
@@ -143,6 +156,7 @@ pub struct ChastefileBuilder {
     packages: HashMap<PackageID, Package>,
     dependencies: Vec<Dependency>,
     next_pid: u64,
+    root_package_id: Option<PackageID>,
 }
 
 impl ChastefileBuilder {
@@ -151,6 +165,7 @@ impl ChastefileBuilder {
             packages: HashMap::new(),
             dependencies: Vec::new(),
             next_pid: 0,
+            root_package_id: None,
         }
     }
 
@@ -174,10 +189,16 @@ impl ChastefileBuilder {
         self.dependencies.extend(dependencies);
     }
 
-    pub fn build(self) -> Chastefile {
-        Chastefile {
+    pub fn set_root_package_id(&mut self, root_pid: PackageID) -> Result<()> {
+        self.root_package_id = Some(root_pid);
+        Ok(())
+    }
+
+    pub fn build(self) -> Result<Chastefile> {
+        Ok(Chastefile {
             packages: self.packages,
             dependencies: self.dependencies,
-        }
+            root_package_id: self.root_package_id.ok_or(Error::MissingRootPackageID)?,
+        })
     }
 }

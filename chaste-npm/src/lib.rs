@@ -140,6 +140,9 @@ impl<'a> PackageParser<'a> {
             }
             let pid = self.chastefile_builder.add_package(package.build());
             self.path_pid.insert(package_path, pid);
+            if package_path == "" {
+                self.chastefile_builder.set_root_package_id(pid)?;
+            }
         }
         for (package_path, tree_package) in self.package_lock.packages.iter() {
             let pid = self.path_pid.get(package_path).unwrap().clone();
@@ -147,7 +150,7 @@ impl<'a> PackageParser<'a> {
             self.chastefile_builder
                 .add_dependencies(dependencies.into_iter());
         }
-        Ok(self.chastefile_builder.build())
+        Ok(self.chastefile_builder.build()?)
     }
 }
 

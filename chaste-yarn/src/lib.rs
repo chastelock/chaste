@@ -64,6 +64,7 @@ fn resolve<'a>(
     );
     root_package.expected_path(Some("".to_string()));
     let root_pid = chastefile_builder.add_package(root_package.build());
+    chastefile_builder.set_root_package_id(root_pid)?;
 
     // Now, add everything else.
     for (index, entry) in yarn_lock.iter().enumerate() {
@@ -126,7 +127,7 @@ fn resolve<'a>(
             });
         }
     }
-    Ok(chastefile_builder.build())
+    Ok(chastefile_builder.build()?)
 }
 
 pub fn from_str(package_json_contents: &str, yarn_lock_contents: &str) -> Result<Chastefile> {
