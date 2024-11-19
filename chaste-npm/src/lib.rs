@@ -45,6 +45,16 @@ struct DependencyTreePackage {
     dev_dependencies: HashMap<String, String>,
     #[serde(default)]
     peer_dependencies: HashMap<String, String>,
+    #[serde(default)]
+    peer_dependencies_meta: HashMap<String, PeerDependencyMeta>,
+    #[serde(default)]
+    optional_dependencies: HashMap<String, String>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct PeerDependencyMeta {
+    optional: Option<bool>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -134,16 +144,38 @@ fn parse_dependencies<'a>(
         });
     }
     for n in tree_package.peer_dependencies.keys() {
+        let is_optional = match tree_package.peer_dependencies_meta.get(n) {
+            Some(PeerDependencyMeta {
+                optional: Some(true),
+            }) => true,
+            _ => false,
+        };
         match find_pid(path, n, path_pid) {
             Ok(pid) => dependencies.push(Dependency {
-                kind: DependencyKind::PeerDependency,
+                kind: if is_optional {
+                    DependencyKind::OptionalPeerDependency
+                } else {
+                    DependencyKind::PeerDependency
+                },
                 from: self_pid,
                 on: pid,
             }),
-            Err(Error::DependencyNotFound(_)) => {
-                // It might be an optional dependency, ignore.
-                // TODO: check in "peerDependenciesMeta"
-            }
+            // It's optional, ignore.
+            Err(Error::DependencyNotFound(_)) if is_optional => {}
+
+            Err(e) => return Err(e),
+        }
+    }
+    for n in tree_package.optional_dependencies.keys() {
+        match find_pid(path, n, path_pid) {
+            Ok(pid) => dependencies.push(Dependency {
+                kind: DependencyKind::OptionalDependency,
+                from: self_pid,
+                on: pid,
+            }),
+            // It's optional, ignore.
+            Err(Error::DependencyNotFound(_)) => {}
+
             Err(e) => return Err(e),
         }
     }

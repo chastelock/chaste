@@ -6,12 +6,27 @@ use std::collections::HashMap;
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum DependencyKind {
-    WorkspaceMember,
     Dependency,
     DevDependency,
     PeerDependency,
     OptionalDependency,
-    BundleDependency,
+    OptionalPeerDependency,
+}
+
+impl DependencyKind {
+    pub fn is_dev(self) -> bool {
+        match self {
+            DependencyKind::DevDependency => true,
+            _ => false,
+        }
+    }
+    pub fn is_optional(self) -> bool {
+        match self {
+            DependencyKind::OptionalDependency => true,
+            DependencyKind::OptionalPeerDependency => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
