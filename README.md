@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2024 The Chaste Authors
+SPDX-License-Identifier: CC0-1.0
+-->
+
 # Chaste
 
 Chaste parses npmjs lockfiles.
