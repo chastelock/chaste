@@ -4,7 +4,9 @@
 use std::collections::HashMap;
 use std::io;
 
-use chaste_types::{Chastefile, ChastefileBuilder, Dependency, DependencyKind, Package, PackageID};
+use chaste_types::{
+    Chastefile, ChastefileBuilder, Dependency, DependencyKind, PackageBuilder, PackageID,
+};
 use logos::Logos;
 use serde::Deserialize;
 use thiserror::Error;
@@ -61,7 +63,7 @@ struct PackageParser<'a> {
 fn parse_package<'a>(
     path: &str,
     tree_package: &'a DependencyTreePackage,
-) -> Result<Package, Error> {
+) -> Result<PackageBuilder, Error> {
     let mut name = tree_package.name.clone();
     // Most packages don't have it as it's implied by the path.
     // So now we have to unimply it.
@@ -82,10 +84,7 @@ fn parse_package<'a>(
             name = Some(path[start..end].to_string());
         }
     }
-    Ok(Package {
-        name,
-        version: tree_package.version.clone(),
-    })
+    Ok(PackageBuilder::new(name, tree_package.version.clone()))
 }
 
 fn find_pid<'a>(
@@ -160,10 +159,10 @@ impl<'a> PackageParser<'a> {
     fn resolve(mut self) -> Result<Chastefile, Error> {
         for (package_path, tree_package) in self.package_lock.packages.iter() {
             let mut package = parse_package(package_path, tree_package)?;
-            if package_path == "" && package.name.is_none() {
-                package.name = Some(self.package_lock.name.clone());
+            if package_path == "" && package.get_name().is_none() {
+                package.name(Some(self.package_lock.name.clone()));
             }
-            let pid = self.chastefile_builder.add_package(package);
+            let pid = self.chastefile_builder.add_package(package.build());
             self.path_pid.insert(package_path, pid);
         }
         for (package_path, tree_package) in self.package_lock.packages.iter() {

@@ -16,8 +16,44 @@ pub enum DependencyKind {
 
 #[derive(Debug)]
 pub struct Package {
-    pub name: Option<String>,
-    pub version: Option<String>,
+    name: Option<String>,
+    version: Option<String>,
+}
+
+impl Package {
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    pub fn version(&self) -> Option<&str> {
+        self.version.as_deref()
+    }
+}
+
+pub struct PackageBuilder {
+    name: Option<String>,
+    version: Option<String>,
+}
+
+impl PackageBuilder {
+    pub fn new(name: Option<String>, version: Option<String>) -> Self {
+        PackageBuilder { name, version }
+    }
+
+    pub fn get_name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    pub fn name(&mut self, new_name: Option<String>) {
+        self.name = new_name;
+    }
+
+    pub fn build(self) -> Package {
+        Package {
+            name: self.name,
+            version: self.version,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -34,6 +70,26 @@ pub struct Dependency {
 pub struct Chastefile {
     packages: HashMap<PackageID, Package>,
     dependencies: Vec<Dependency>,
+}
+
+impl<'a> Chastefile {
+    pub fn packages(&'a self) -> Vec<&'a Package> {
+        self.packages.values().collect()
+    }
+
+    pub fn packages_with_ids(&'a self) -> Vec<(PackageID, &'a Package)> {
+        self.packages
+            .iter()
+            .map(|(pid, pkg)| (pid.clone(), pkg))
+            .collect()
+    }
+
+    pub fn package_dependencies(&'a self, package_id: PackageID) -> Vec<&'a Dependency> {
+        self.dependencies
+            .iter()
+            .filter(|d| d.from == package_id)
+            .collect()
+    }
 }
 
 #[derive(Debug)]
