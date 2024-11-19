@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io;
 
@@ -35,20 +36,20 @@ pub enum Error {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct DependencyTreePackage {
-    name: Option<String>,
-    version: Option<String>,
-    integrity: Option<String>,
+struct DependencyTreePackage<'a> {
+    name: Option<Cow<'a, str>>,
+    version: Option<Cow<'a, str>>,
+    integrity: Option<Cow<'a, str>>,
     #[serde(default)]
-    dependencies: HashMap<String, String>,
+    dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
     #[serde(default)]
-    dev_dependencies: HashMap<String, String>,
+    dev_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
     #[serde(default)]
-    peer_dependencies: HashMap<String, String>,
+    peer_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
     #[serde(default)]
-    peer_dependencies_meta: HashMap<String, PeerDependencyMeta>,
+    peer_dependencies_meta: HashMap<Cow<'a, str>, PeerDependencyMeta>,
     #[serde(default)]
-    optional_dependencies: HashMap<String, String>,
+    optional_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -59,23 +60,23 @@ struct PeerDependencyMeta {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-struct PackageLock {
-    name: String,
+struct PackageLock<'a> {
+    name: Cow<'a, str>,
     lockfile_version: u8,
-    packages: HashMap<String, DependencyTreePackage>,
+    packages: HashMap<Cow<'a, str>, DependencyTreePackage<'a>>,
 }
 
 struct PackageParser<'a> {
-    package_lock: &'a PackageLock,
+    package_lock: &'a PackageLock<'a>,
     chastefile_builder: ChastefileBuilder,
-    path_pid: HashMap<&'a String, PackageID>,
+    path_pid: HashMap<&'a Cow<'a, str>, PackageID>,
 }
 
 fn parse_package<'a>(
     path: &str,
     tree_package: &'a DependencyTreePackage,
 ) -> Result<PackageBuilder, Error> {
-    let mut name = tree_package.name.clone();
+    let mut name = tree_package.name.as_ref().map(|s| s.to_string());
     // Most packages don't have it as it's implied by the path.
     // So now we have to unimply it.
     if name.is_none() {
@@ -95,8 +96,8 @@ fn parse_package<'a>(
             name = Some(path[start..end].to_string());
         }
     }
-    let mut pkg = PackageBuilder::new(name, tree_package.version.clone());
-    pkg.integrity(tree_package.integrity.clone());
+    let mut pkg = PackageBuilder::new(name, tree_package.version.as_ref().map(|s| s.to_string()));
+    pkg.integrity(tree_package.integrity.as_ref().map(|s| s.to_string()));
     pkg.expected_path(Some(path.to_string()));
     Ok(pkg)
 }
@@ -104,13 +105,13 @@ fn parse_package<'a>(
 fn find_pid<'a>(
     path: &str,
     name: &str,
-    path_pid: &HashMap<&'a String, PackageID>,
+    path_pid: &HashMap<&'a Cow<'a, str>, PackageID>,
 ) -> Result<PackageID, Error> {
     let potential_path = match path {
         "" => format!("node_modules/{name}"),
         p => format!("{p}/node_modules/{name}"),
     };
-    if let Some(pid) = path_pid.get(&potential_path) {
+    if let Some(pid) = path_pid.get(&Cow::Borrowed(potential_path.as_str())) {
         return Ok(pid.clone());
     }
     if let Some((parent_path, _)) = path.rsplit_once('/') {
@@ -125,7 +126,7 @@ fn find_pid<'a>(
 fn parse_dependencies<'a>(
     path: &str,
     tree_package: &'a DependencyTreePackage,
-    path_pid: &HashMap<&'a String, PackageID>,
+    path_pid: &HashMap<&'a Cow<'a, str>, PackageID>,
     self_pid: PackageID,
 ) -> Result<Vec<Dependency>, Error> {
     let mut dependencies = Vec::new();
@@ -196,7 +197,7 @@ impl<'a> PackageParser<'a> {
         for (package_path, tree_package) in self.package_lock.packages.iter() {
             let mut package = parse_package(package_path, tree_package)?;
             if package_path == "" && package.get_name().is_none() {
-                package.name(Some(self.package_lock.name.clone()));
+                package.name(Some(self.package_lock.name.to_string()));
             }
             let pid = self.chastefile_builder.add_package(package.build());
             self.path_pid.insert(package_path, pid);
