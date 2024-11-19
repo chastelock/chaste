@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2024 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "chaste"
+edition = "2021"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[features]
+default = ["npm"]
+
+npm = ["chaste-npm"]
+
+[dependencies]
+chaste-types.workspace = true
+
+[dependencies.chaste-npm]
+workspace = true
+optional = true

@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2024 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+[workspace]
+resolver = "2"
+members = ["chaste", "chaste-npm", "chaste-types"]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["The Chaste Authors"]
+license = "Apache-2.0 OR BSD-2-Clause"
+
+[workspace.dependencies]
+chaste-npm = { path = "chaste-npm" }
+chaste-types = { path = "chaste-types" }
+logos = "0.14.2"
+serde = "1.0.185"
+serde_json = "1.0"
+thiserror = "2.0"
