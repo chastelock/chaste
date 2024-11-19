@@ -2,25 +2,18 @@
 # SPDX-License-Identifier: CC0-1.0
 
 [package]
-name = "chaste"
+name = "chaste-yarn"
 edition = "2021"
 version.workspace = true
 authors.workspace = true
 license.workspace = true
 
-[features]
-default = ["npm", "yarn"]
-
-npm = ["chaste-npm"]
-yarn = ["chaste-yarn"]
-
 [dependencies]
 chaste-types.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+yarn-lock-parser.workspace = true
 
-[dependencies.chaste-npm]
+[dependencies.serde]
 workspace = true
-optional = true
-
-[dependencies.chaste-yarn]
-workspace = true
-optional = true
+features = ["derive"]

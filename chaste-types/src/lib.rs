@@ -166,6 +166,10 @@ impl ChastefileBuilder {
         pid
     }
 
+    pub fn add_dependency(&mut self, dependency: Dependency) {
+        self.dependencies.push(dependency);
+    }
+
     pub fn add_dependencies(&mut self, dependencies: impl Iterator<Item = Dependency>) {
         self.dependencies.extend(dependencies);
     }

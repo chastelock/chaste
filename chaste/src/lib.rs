@@ -3,5 +3,7 @@
 
 #[cfg(feature = "npm")]
 pub use chaste_npm as npm;
+#[cfg(feature = "yarn")]
+pub use chaste_yarn as yarn;
 
 pub use chaste_types::{Chastefile, Dependency, DependencyKind, Package, PackageID};

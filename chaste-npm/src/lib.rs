@@ -160,6 +160,7 @@ fn parse_lock(package_lock: &PackageLock) -> Result<Chastefile> {
     Ok(chastefile)
 }
 
+/// Discouraged over [from_str] and [from_slice] as it clones all the strings.
 pub fn from_reader<R>(read: R) -> Result<Chastefile>
 where
     R: io::Read,
