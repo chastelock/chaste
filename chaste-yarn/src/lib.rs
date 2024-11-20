@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::str;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, Dependency, DependencyKind, PackageBuilder, PackageID,
+    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageID,
 };
 use types::PackageJson;
 use yarn_lock_parser as yarn;
@@ -79,38 +79,30 @@ fn resolve<'a>(
     for dep_descriptor in &package_json.dependencies {
         let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
         let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        chastefile_builder.add_dependency(Dependency {
-            kind: DependencyKind::Dependency,
-            from: root_pid,
-            on: *dep_pid,
-        });
+        chastefile_builder.add_dependency(
+            DependencyBuilder::new(DependencyKind::Dependency, root_pid, *dep_pid).build(),
+        );
     }
     for dep_descriptor in &package_json.dev_dependencies {
         let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
         let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        chastefile_builder.add_dependency(Dependency {
-            kind: DependencyKind::DevDependency,
-            from: root_pid,
-            on: *dep_pid,
-        });
+        chastefile_builder.add_dependency(
+            DependencyBuilder::new(DependencyKind::DevDependency, root_pid, *dep_pid).build(),
+        );
     }
     for dep_descriptor in &package_json.peer_dependencies {
         let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
         let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        chastefile_builder.add_dependency(Dependency {
-            kind: DependencyKind::PeerDependency,
-            from: root_pid,
-            on: *dep_pid,
-        });
+        chastefile_builder.add_dependency(
+            DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, *dep_pid).build(),
+        );
     }
     for dep_descriptor in &package_json.optional_dependencies {
         let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
         let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        chastefile_builder.add_dependency(Dependency {
-            kind: DependencyKind::OptionalDependency,
-            from: root_pid,
-            on: *dep_pid,
-        });
+        chastefile_builder.add_dependency(
+            DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, *dep_pid).build(),
+        );
     }
 
     // Finally, dependencies of dependencies.
@@ -119,14 +111,17 @@ fn resolve<'a>(
         for dep_descriptor in &entry.dependencies {
             let dep_index = find_dep_index(&yarn_lock, dep_descriptor)?;
             let dep_pid = index_to_pid.get(&dep_index).unwrap();
-            chastefile_builder.add_dependency(Dependency {
-                // devDependencies of non-root packages are not written to the lockfile.
-                // It might be peer and/or optional. But in that case, it got added here
-                // by root and/or another dependency.
-                kind: DependencyKind::Dependency,
-                from: *from_pid,
-                on: *dep_pid,
-            });
+            chastefile_builder.add_dependency(
+                DependencyBuilder::new(
+                    // devDependencies of non-root packages are not written to the lockfile.
+                    // It might be peer and/or optional. But in that case, it got added here
+                    // by root and/or another dependency.
+                    DependencyKind::Dependency,
+                    *from_pid,
+                    *dep_pid,
+                )
+                .build(),
+            );
         }
     }
     Ok(chastefile_builder.build()?)

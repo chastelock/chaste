@@ -40,4 +40,26 @@ pub struct Dependency {
     pub kind: DependencyKind,
     pub from: PackageID,
     pub on: PackageID,
+    _private_field: (),
+}
+
+pub struct DependencyBuilder {
+    kind: DependencyKind,
+    of: PackageID,
+    on: PackageID,
+}
+
+impl DependencyBuilder {
+    pub fn new(kind: DependencyKind, of: PackageID, on: PackageID) -> DependencyBuilder {
+        DependencyBuilder { kind, of, on }
+    }
+
+    pub fn build(self) -> Dependency {
+        Dependency {
+            kind: self.kind,
+            from: self.of,
+            on: self.on,
+            _private_field: (),
+        }
+    }
 }

@@ -6,7 +6,8 @@ use std::collections::HashMap;
 use std::io;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, Dependency, DependencyKind, PackageBuilder, PackageID,
+    Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind, PackageBuilder,
+    PackageID,
 };
 
 pub use crate::error::{Error, Result};
@@ -72,18 +73,24 @@ fn parse_dependencies<'a>(
 ) -> Result<Vec<Dependency>> {
     let mut dependencies = Vec::new();
     for n in tree_package.dependencies.keys() {
-        dependencies.push(Dependency {
-            kind: DependencyKind::Dependency,
-            from: self_pid,
-            on: find_pid(path, n, path_pid)?,
-        });
+        dependencies.push(
+            DependencyBuilder::new(
+                DependencyKind::Dependency,
+                self_pid,
+                find_pid(path, n, path_pid)?,
+            )
+            .build(),
+        );
     }
     for n in tree_package.dev_dependencies.keys() {
-        dependencies.push(Dependency {
-            kind: DependencyKind::DevDependency,
-            from: self_pid,
-            on: find_pid(path, n, path_pid)?,
-        });
+        dependencies.push(
+            DependencyBuilder::new(
+                DependencyKind::DevDependency,
+                self_pid,
+                find_pid(path, n, path_pid)?,
+            )
+            .build(),
+        );
     }
     for n in tree_package.peer_dependencies.keys() {
         let is_optional = match tree_package.peer_dependencies_meta.get(n) {
@@ -93,15 +100,18 @@ fn parse_dependencies<'a>(
             _ => false,
         };
         match find_pid(path, n, path_pid) {
-            Ok(pid) => dependencies.push(Dependency {
-                kind: if is_optional {
-                    DependencyKind::OptionalPeerDependency
-                } else {
-                    DependencyKind::PeerDependency
-                },
-                from: self_pid,
-                on: pid,
-            }),
+            Ok(pid) => dependencies.push(
+                DependencyBuilder::new(
+                    if is_optional {
+                        DependencyKind::OptionalPeerDependency
+                    } else {
+                        DependencyKind::PeerDependency
+                    },
+                    self_pid,
+                    pid,
+                )
+                .build(),
+            ),
             // It's optional, ignore.
             Err(Error::DependencyNotFound(_)) if is_optional => {}
 
@@ -110,11 +120,9 @@ fn parse_dependencies<'a>(
     }
     for n in tree_package.optional_dependencies.keys() {
         match find_pid(path, n, path_pid) {
-            Ok(pid) => dependencies.push(Dependency {
-                kind: DependencyKind::OptionalDependency,
-                from: self_pid,
-                on: pid,
-            }),
+            Ok(pid) => dependencies.push(
+                DependencyBuilder::new(DependencyKind::OptionalDependency, self_pid, pid).build(),
+            ),
             // It's optional, ignore.
             Err(Error::DependencyNotFound(_)) => {}
 
