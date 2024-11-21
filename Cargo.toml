@@ -11,9 +11,9 @@ authors = ["The Chaste Authors"]
 license = "Apache-2.0 OR BSD-2-Clause"
 
 [workspace.dependencies]
-chaste-npm = { path = "chaste-npm" }
-chaste-types = { path = "chaste-types" }
-chaste-yarn = { path = "chaste-yarn" }
+chaste-npm = { version = "=0.1.0", path = "chaste-npm" }
+chaste-types = { version = "=0.1.0", path = "chaste-types" }
+chaste-yarn = { version = "=0.1.0", path = "chaste-yarn" }
 logos = "0.14.2"
 nodejs-semver = "4.1.0"
 serde = "1.0.185"
