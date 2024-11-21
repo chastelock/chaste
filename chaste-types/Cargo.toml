@@ -3,6 +3,7 @@
 
 [package]
 name = "chaste-types"
+description = "Parser for npmjs lockfiles (types package)"
 edition = "2021"
 version.workspace = true
 authors.workspace = true
