@@ -65,13 +65,13 @@ fn resolve<'a>(
         package_json.version.as_ref().map(|s| s.to_string()),
     );
     root_package.expected_path(Some("".to_string()));
-    let root_pid = chastefile_builder.add_package(root_package.build());
+    let root_pid = chastefile_builder.add_package(root_package.build()?);
     chastefile_builder.set_root_package_id(root_pid)?;
 
     // Now, add everything else.
     for (index, entry) in yarn_lock.iter().enumerate() {
         let pkg = parse_package(entry)?;
-        let pid = chastefile_builder.add_package(pkg.build());
+        let pid = chastefile_builder.add_package(pkg.build()?);
         index_to_pid.insert(index, pid);
     }
 

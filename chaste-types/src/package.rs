@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+pub use nodejs_semver::Version as PackageVersion;
+
+use crate::error::Result;
+
 #[derive(Debug)]
 pub struct Package {
     name: Option<String>,
-    version: Option<String>,
+    version: Option<PackageVersion>,
     integrity: Option<String>,
     /// Complicated. Some lockfiles (npm) say it, but this depends on CLI and config options,
     /// as package managers implement multiple strategies.
@@ -16,8 +20,8 @@ impl Package {
         self.name.as_deref()
     }
 
-    pub fn version(&self) -> Option<&str> {
-        self.version.as_deref()
+    pub fn version(&self) -> Option<&PackageVersion> {
+        self.version.as_ref()
     }
 
     pub fn integrity(&self) -> Option<&str> {
@@ -64,13 +68,13 @@ impl PackageBuilder {
         self.expected_path = new_path;
     }
 
-    pub fn build(self) -> Package {
-        Package {
+    pub fn build(self) -> Result<Package> {
+        Ok(Package {
             name: self.name,
-            version: self.version,
+            version: self.version.map(PackageVersion::parse).transpose()?,
             integrity: self.integrity,
             expected_path: self.expected_path,
-        }
+        })
     }
 }
 

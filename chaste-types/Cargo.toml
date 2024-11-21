@@ -9,4 +9,5 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+nodejs-semver.workspace = true
 thiserror.workspace = true

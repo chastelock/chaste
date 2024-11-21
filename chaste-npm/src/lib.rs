@@ -148,7 +148,7 @@ impl<'a> PackageParser<'a> {
             if package_path == "" && package.get_name().is_none() {
                 package.name(Some(self.package_lock.name.to_string()));
             }
-            let pid = self.chastefile_builder.add_package(package.build());
+            let pid = self.chastefile_builder.add_package(package.build()?);
             self.path_pid.insert(package_path, pid);
             if package_path == "" {
                 self.chastefile_builder.set_root_package_id(pid)?;
