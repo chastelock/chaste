@@ -196,11 +196,12 @@ pub fn from_str(v: &str) -> Result<Chastefile> {
 mod tests {
     use std::fs;
 
-    use super::{from_reader, Result};
+    use super::{from_str, Result};
 
     #[test]
-    fn test() -> Result<()> {
-        let chastefile = from_reader(fs::File::open("./package-lock.json")?)?;
+    fn test_basic() -> Result<()> {
+        let package_json = fs::read_to_string("test_workspaces/basic/package-lock.json")?;
+        let chastefile = from_str(&package_json)?;
         dbg!(&chastefile);
         Ok(())
     }
