@@ -26,15 +26,13 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     Ok(pkg)
 }
 
-fn find_dep_index<'a, S>(
-    yarn_lock: &'a Vec<yarn::Entry<'a>>,
-    descriptor: &'a (S, S),
-) -> Result<usize>
+fn find_dep_index<'a, S>(yarn_lock: &'a yarn::Lockfile<'a>, descriptor: &'a (S, S)) -> Result<usize>
 where
     S: AsRef<str>,
 {
     let real_descriptor = (descriptor.0.as_ref(), descriptor.1.as_ref());
     let Some((dep_index, _)) = yarn_lock
+        .entries
         .iter()
         .enumerate()
         .find(|(_, e)| e.descriptors.contains(&real_descriptor))
@@ -49,14 +47,18 @@ where
 
 fn resolve<'a>(
     package_json: &'a PackageJson<'a>,
-    yarn_lock: Vec<yarn::Entry<'a>>,
+    yarn_lock: yarn::Lockfile<'a>,
 ) -> Result<Chastefile> {
     if package_json.workspaces.is_some() {
         return Err(Error::RootHasWorkspaces());
     }
+    if yarn_lock.version != 1 {
+        return Err(Error::UnknownLockfileVersion(yarn_lock.version));
+    }
 
     let mut chastefile_builder = ChastefileBuilder::new();
-    let mut index_to_pid: HashMap<usize, PackageID> = HashMap::with_capacity(yarn_lock.len());
+    let mut index_to_pid: HashMap<usize, PackageID> =
+        HashMap::with_capacity(yarn_lock.entries.len());
 
     // The funny part of this is that the root package is not checked in.
     // So we have to parse package.json and add it manually.
@@ -67,9 +69,10 @@ fn resolve<'a>(
     root_package.expected_path(Some("".to_string()));
     let root_pid = chastefile_builder.add_package(root_package.build()?);
     chastefile_builder.set_root_package_id(root_pid)?;
+    dbg!(&yarn_lock);
 
     // Now, add everything else.
-    for (index, entry) in yarn_lock.iter().enumerate() {
+    for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let pkg = parse_package(entry)?;
         let pid = chastefile_builder.add_package(pkg.build()?);
         index_to_pid.insert(index, pid);
@@ -106,7 +109,7 @@ fn resolve<'a>(
     }
 
     // Finally, dependencies of dependencies.
-    for (index, entry) in yarn_lock.iter().enumerate() {
+    for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
         for dep_descriptor in &entry.dependencies {
             let dep_index = find_dep_index(&yarn_lock, dep_descriptor)?;
@@ -144,9 +147,9 @@ mod tests {
     use super::{from_str, Result};
 
     #[test]
-    fn test() -> Result<()> {
-        let package_json = fs::read_to_string("./package.json")?;
-        let yarn_lock = fs::read_to_string("./yarn.lock")?;
+    fn test_basic_v1() -> Result<()> {
+        let package_json = fs::read_to_string("test_workspaces/basic-v1/package.json")?;
+        let yarn_lock = fs::read_to_string("test_workspaces/basic-v1/yarn.lock")?;
         let chastefile = from_str(&package_json, &yarn_lock)?;
         dbg!(&chastefile);
         Ok(())

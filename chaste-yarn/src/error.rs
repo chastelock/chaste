@@ -14,6 +14,9 @@ pub enum Error {
     #[error("The root package uses workspaces. This is not handled yet")]
     RootHasWorkspaces(),
 
+    #[error("Unknown yarn.lock version: {0:?}")]
+    UnknownLockfileVersion(u8),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 
