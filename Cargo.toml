@@ -21,7 +21,9 @@ serde_json = "1.0"
 thiserror = "2.0"
 yarn-lock-parser = "0.7.0"
 
-# FIXME: Submitted to upstream at https://github.com/robertohuertasm/yarn-lock-parser/pull/20
+# FIXME: Submitted to upstream at:
+#   - https://github.com/robertohuertasm/yarn-lock-parser/pull/20
+#   - https://github.com/robertohuertasm/yarn-lock-parser/pull/21
 [patch.crates-io.yarn-lock-parser]
 git = "https://github.com/selfisekai/yarn-lock-parser.git"
-branch = "lockfile-meta"
+branch = "chaste-dev"

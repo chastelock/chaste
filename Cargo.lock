@@ -305,7 +305,7 @@ dependencies = [
 [[package]]
 name = "yarn-lock-parser"
 version = "0.7.0"
-source = "git+https://github.com/selfisekai/yarn-lock-parser.git?branch=lockfile-meta#8280271bfb9e4d929afab16df51119decc1b8403"
+source = "git+https://github.com/selfisekai/yarn-lock-parser.git?branch=chaste-dev#803654dd59f21cffbc99ade220e610d63f0f80dd"
 dependencies = [
  "nom",
  "thiserror 1.0.69",
