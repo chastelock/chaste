@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use std::io;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind, PackageBuilder,
-    PackageID,
+    Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
+    InstallationBuilder, PackageBuilder, PackageID,
 };
 
 pub use crate::error::{Error, Result};
@@ -40,7 +40,6 @@ fn parse_package<'a>(
     }
     let mut pkg = PackageBuilder::new(name, tree_package.version.as_ref().map(|s| s.to_string()));
     pkg.integrity(tree_package.integrity.as_ref().map(|s| s.to_string()));
-    pkg.expected_path(Some(path.to_string()));
     Ok(pkg)
 }
 
@@ -150,6 +149,9 @@ impl<'a> PackageParser<'a> {
             }
             let pid = self.chastefile_builder.add_package(package.build()?);
             self.path_pid.insert(package_path, pid);
+            let installation = InstallationBuilder::new(pid, package_path.to_string()).build()?;
+            self.chastefile_builder
+                .add_package_installation(installation);
             if package_path == "" {
                 self.chastefile_builder.set_root_package_id(pid)?;
             }

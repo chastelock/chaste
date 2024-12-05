@@ -10,9 +10,6 @@ pub struct Package {
     name: Option<String>,
     version: Option<PackageVersion>,
     integrity: Option<String>,
-    /// Complicated. Some lockfiles (npm) say it, but this depends on CLI and config options,
-    /// as package managers implement multiple strategies.
-    expected_path: Option<String>,
 }
 
 impl Package {
@@ -27,19 +24,12 @@ impl Package {
     pub fn integrity(&self) -> Option<&str> {
         self.integrity.as_deref()
     }
-
-    /// Complicated. Some lockfiles (npm) say it, but this depends on CLI and config options,
-    /// as package managers implement multiple strategies.
-    pub fn expected_path(&self) -> Option<&str> {
-        self.expected_path.as_deref()
-    }
 }
 
 pub struct PackageBuilder {
     name: Option<String>,
     version: Option<String>,
     integrity: Option<String>,
-    expected_path: Option<String>,
 }
 
 impl PackageBuilder {
@@ -48,7 +38,6 @@ impl PackageBuilder {
             name,
             version,
             integrity: None,
-            expected_path: None,
         }
     }
 
@@ -64,16 +53,11 @@ impl PackageBuilder {
         self.integrity = new_integrity;
     }
 
-    pub fn expected_path(&mut self, new_path: Option<String>) {
-        self.expected_path = new_path;
-    }
-
     pub fn build(self) -> Result<Package> {
         Ok(Package {
             name: self.name,
             version: self.version.map(PackageVersion::parse).transpose()?,
             integrity: self.integrity,
-            expected_path: self.expected_path,
         })
     }
 }

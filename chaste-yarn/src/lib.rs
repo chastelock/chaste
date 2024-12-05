@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use std::str;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageID,
+    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
+    PackageBuilder, PackageID,
 };
 use types::PackageJson;
 use yarn_lock_parser as yarn;
@@ -62,13 +63,14 @@ fn resolve<'a>(
 
     // The funny part of this is that the root package is not checked in.
     // So we have to parse package.json and add it manually.
-    let mut root_package = PackageBuilder::new(
+    let root_package = PackageBuilder::new(
         package_json.name.as_ref().map(|s| s.to_string()),
         package_json.version.as_ref().map(|s| s.to_string()),
     );
-    root_package.expected_path(Some("".to_string()));
     let root_pid = chastefile_builder.add_package(root_package.build()?);
     chastefile_builder.set_root_package_id(root_pid)?;
+    let root_install = InstallationBuilder::new(root_pid, "".to_string()).build()?;
+    chastefile_builder.add_package_installation(root_install);
     dbg!(&yarn_lock);
 
     // Now, add everything else.

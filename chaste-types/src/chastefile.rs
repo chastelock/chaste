@@ -5,11 +5,13 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::dependency::Dependency;
 use crate::error::{Error, Result};
+use crate::installation::Installation;
 use crate::package::{Package, PackageID};
 
 #[derive(Debug)]
 pub struct Chastefile {
     packages: HashMap<PackageID, Package>,
+    installations: Vec<Installation>,
     dependencies: Vec<Dependency>,
     root_package_id: PackageID,
 }
@@ -112,12 +114,20 @@ impl<'a> Chastefile {
     pub fn root_package_prod_dependencies(&'a self) -> Vec<&'a Dependency> {
         self.package_prod_dependencies(self.root_package_id)
     }
+
+    pub fn package_installations(&'a self, package_id: PackageID) -> Vec<&'a Installation> {
+        self.installations
+            .iter()
+            .filter(|i| i.package_id() == package_id)
+            .collect()
+    }
 }
 
 #[derive(Debug)]
 pub struct ChastefileBuilder {
     packages: HashMap<PackageID, Package>,
     dependencies: Vec<Dependency>,
+    installations: Vec<Installation>,
     next_pid: u64,
     root_package_id: Option<PackageID>,
 }
@@ -127,6 +137,7 @@ impl ChastefileBuilder {
         Self {
             packages: HashMap::new(),
             dependencies: Vec::new(),
+            installations: Vec::new(),
             next_pid: 0,
             root_package_id: None,
         }
@@ -142,6 +153,10 @@ impl ChastefileBuilder {
         let pid = self.new_pid();
         self.packages.insert(pid, package);
         pid
+    }
+
+    pub fn add_package_installation(&mut self, installation: Installation) {
+        self.installations.push(installation);
     }
 
     pub fn add_dependency(&mut self, dependency: Dependency) {
@@ -161,6 +176,7 @@ impl ChastefileBuilder {
         Ok(Chastefile {
             packages: self.packages,
             dependencies: self.dependencies,
+            installations: self.installations,
             root_package_id: self.root_package_id.ok_or(Error::MissingRootPackageID)?,
         })
     }
