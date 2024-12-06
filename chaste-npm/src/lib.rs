@@ -39,7 +39,9 @@ fn parse_package<'a>(
         name = package_name_from_path(path)?.map(|s| s.to_string());
     }
     let mut pkg = PackageBuilder::new(name, tree_package.version.as_ref().map(|s| s.to_string()));
-    pkg.integrity(tree_package.integrity.as_ref().map(|s| s.to_string()));
+    if let Some(integrity) = &tree_package.integrity {
+        pkg.integrity(integrity.parse()?);
+    }
     Ok(pkg)
 }
 

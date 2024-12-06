@@ -11,4 +11,5 @@ license.workspace = true
 
 [dependencies]
 nodejs-semver.workspace = true
+ssri.workspace = true
 thiserror.workspace = true

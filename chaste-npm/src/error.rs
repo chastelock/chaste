@@ -25,6 +25,9 @@ pub enum Error {
     #[error("Serde error: {0:?}")]
     SerdeError(#[from] serde_json::Error),
 
+    #[error("SSRI error: {0:?}")]
+    SSRIError(#[from] chaste_types::SSRIError),
+
     #[error("Path lexing error: {0:?}")]
     LogosError(#[from] PathLexingError),
 }

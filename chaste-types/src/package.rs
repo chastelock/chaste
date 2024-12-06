@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 pub use nodejs_semver::Version as PackageVersion;
+pub use ssri::{Error as SSRIError, Integrity};
 
 use crate::error::Result;
 
@@ -9,7 +10,7 @@ use crate::error::Result;
 pub struct Package {
     name: Option<String>,
     version: Option<PackageVersion>,
-    integrity: Option<String>,
+    integrity: Integrity,
 }
 
 impl Package {
@@ -21,15 +22,15 @@ impl Package {
         self.version.as_ref()
     }
 
-    pub fn integrity(&self) -> Option<&str> {
-        self.integrity.as_deref()
+    pub fn integrity(&self) -> &Integrity {
+        &self.integrity
     }
 }
 
 pub struct PackageBuilder {
     name: Option<String>,
     version: Option<String>,
-    integrity: Option<String>,
+    integrity: Option<Integrity>,
 }
 
 impl PackageBuilder {
@@ -49,15 +50,15 @@ impl PackageBuilder {
         self.name = new_name;
     }
 
-    pub fn integrity(&mut self, new_integrity: Option<String>) {
-        self.integrity = new_integrity;
+    pub fn integrity(&mut self, new_integrity: Integrity) {
+        self.integrity = Some(new_integrity);
     }
 
     pub fn build(self) -> Result<Package> {
         Ok(Package {
             name: self.name,
             version: self.version.map(PackageVersion::parse).transpose()?,
-            integrity: self.integrity,
+            integrity: self.integrity.unwrap_or_else(|| Integrity::from("")),
         })
     }
 }

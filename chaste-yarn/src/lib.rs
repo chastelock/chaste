@@ -23,7 +23,7 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
         Some(entry.name.to_string()),
         Some(entry.version.to_string()),
     );
-    pkg.integrity(Some(entry.integrity.to_string()));
+    pkg.integrity(entry.integrity.parse()?);
     Ok(pkg)
 }
 

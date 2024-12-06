@@ -29,6 +29,9 @@ pub enum Error {
     #[error("Yarn parser error: {0:?}")]
     YarnParserError(#[from] yarn_lock_parser::YarnLockError),
 
+    #[error("SSRI error: {0:?}")]
+    SSRIError(#[from] chaste_types::SSRIError),
+
     #[error("JSON parsing error: {0:?}")]
     SerdeJsonError(#[from] serde_json::Error),
 }
