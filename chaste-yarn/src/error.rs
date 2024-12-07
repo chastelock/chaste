@@ -20,6 +20,9 @@ pub enum Error {
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 
+    #[error(transparent)]
+    PackageNameError(#[from] chaste_types::error::PackageNameError),
+
     #[error("I/O error: {0:?}")]
     IoError(#[from] io::Error),
 

@@ -7,7 +7,7 @@ use std::io;
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
-    InstallationBuilder, PackageBuilder, PackageID,
+    InstallationBuilder, PackageBuilder, PackageID, PackageName,
 };
 
 pub use crate::error::{Error, Result};
@@ -38,7 +38,10 @@ fn parse_package<'a>(
     if name.is_none() {
         name = package_name_from_path(path)?.map(|s| s.to_string());
     }
-    let mut pkg = PackageBuilder::new(name, tree_package.version.as_ref().map(|s| s.to_string()));
+    let mut pkg = PackageBuilder::new(
+        name.map(PackageName::new).transpose()?,
+        tree_package.version.as_ref().map(|s| s.to_string()),
+    );
     if let Some(integrity) = &tree_package.integrity {
         pkg.integrity(integrity.parse()?);
     }
@@ -147,7 +150,7 @@ impl<'a> PackageParser<'a> {
         for (package_path, tree_package) in self.package_lock.packages.iter() {
             let mut package = parse_package(package_path, tree_package)?;
             if package_path == "" && package.get_name().is_none() {
-                package.name(Some(self.package_lock.name.to_string()));
+                package.name(Some(PackageName::new(self.package_lock.name.to_string())?));
             }
             let pid = self.chastefile_builder.add_package(package.build()?);
             self.path_pid.insert(package_path, pid);

@@ -5,10 +5,12 @@ pub use crate::chastefile::*;
 pub use crate::dependency::*;
 pub use crate::error::{Error, Result};
 pub use crate::installation::*;
+pub use crate::name::*;
 pub use crate::package::*;
 
 mod chastefile;
 mod dependency;
 pub mod error;
 mod installation;
+mod name;
 mod package;

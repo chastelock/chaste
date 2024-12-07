@@ -6,7 +6,7 @@ use std::str;
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    PackageBuilder, PackageID,
+    PackageBuilder, PackageID, PackageName,
 };
 use types::PackageJson;
 use yarn_lock_parser as yarn;
@@ -20,7 +20,7 @@ pub static LOCKFILE_NAME: &'static str = "yarn.lock";
 
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     let mut pkg = PackageBuilder::new(
-        Some(entry.name.to_string()),
+        Some(PackageName::new(entry.name.to_string())?),
         Some(entry.version.to_string()),
     );
     pkg.integrity(entry.integrity.parse()?);
@@ -64,7 +64,11 @@ fn resolve<'a>(
     // The funny part of this is that the root package is not checked in.
     // So we have to parse package.json and add it manually.
     let root_package = PackageBuilder::new(
-        package_json.name.as_ref().map(|s| s.to_string()),
+        package_json
+            .name
+            .as_ref()
+            .map(|s| PackageName::new(s.to_string()))
+            .transpose()?,
         package_json.version.as_ref().map(|s| s.to_string()),
     );
     let root_pid = chastefile_builder.add_package(root_package.build()?);

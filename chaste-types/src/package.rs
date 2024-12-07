@@ -5,17 +5,18 @@ pub use nodejs_semver::Version as PackageVersion;
 pub use ssri::{Error as SSRIError, Integrity};
 
 use crate::error::Result;
+use crate::name::PackageName;
 
 #[derive(Debug)]
 pub struct Package {
-    name: Option<String>,
+    name: Option<PackageName>,
     version: Option<PackageVersion>,
     integrity: Integrity,
 }
 
 impl Package {
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_deref()
+    pub fn name(&self) -> Option<&PackageName> {
+        self.name.as_ref()
     }
 
     pub fn version(&self) -> Option<&PackageVersion> {
@@ -28,13 +29,13 @@ impl Package {
 }
 
 pub struct PackageBuilder {
-    name: Option<String>,
+    name: Option<PackageName>,
     version: Option<String>,
     integrity: Option<Integrity>,
 }
 
 impl PackageBuilder {
-    pub fn new(name: Option<String>, version: Option<String>) -> Self {
+    pub fn new(name: Option<PackageName>, version: Option<String>) -> Self {
         PackageBuilder {
             name,
             version,
@@ -42,11 +43,11 @@ impl PackageBuilder {
         }
     }
 
-    pub fn get_name(&self) -> Option<&str> {
-        self.name.as_deref()
+    pub fn get_name(&self) -> Option<&PackageName> {
+        self.name.as_ref()
     }
 
-    pub fn name(&mut self, new_name: Option<String>) {
+    pub fn name(&mut self, new_name: Option<PackageName>) {
         self.name = new_name;
     }
 
