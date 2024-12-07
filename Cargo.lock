@@ -42,7 +42,7 @@ dependencies = [
  "chaste-npm",
  "chaste-types",
  "chaste-yarn",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -53,7 +53,7 @@ dependencies = [
  "logos",
  "serde",
  "serde_json",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -63,7 +63,7 @@ dependencies = [
  "miette 7.4.0",
  "nodejs-semver",
  "ssri",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -73,7 +73,7 @@ dependencies = [
  "chaste-types",
  "serde",
  "serde_json",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "yarn-lock-parser",
 ]
 
@@ -387,11 +387,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+checksum = "2f49a1853cf82743e3b7950f77e0f4d622ca36cf4317cba00c767838bac8d490"
 dependencies = [
- "thiserror-impl 2.0.3",
+ "thiserror-impl 2.0.4",
 ]
 
 [[package]]
@@ -407,9 +407,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
+checksum = "8381894bb3efe0c4acac3ded651301ceee58a15d47c2e34885ed1908ad667061"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -457,9 +457,10 @@ checksum = "6a5cbf750400958819fb6178eaa83bee5cd9c29a26a40cc241df8c70fdd46984"
 
 [[package]]
 name = "yarn-lock-parser"
-version = "0.7.0"
-source = "git+https://github.com/selfisekai/yarn-lock-parser.git?branch=chaste-dev#803654dd59f21cffbc99ade220e610d63f0f80dd"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a95009588f0892ce00664e39120a29901d9930c509f3c124521f7080f1419a2c"
 dependencies = [
  "nom",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
 ]
