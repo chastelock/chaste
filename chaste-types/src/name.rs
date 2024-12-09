@@ -4,8 +4,9 @@
 use std::fmt;
 
 use crate::error::{PackageNameError, Result};
+use crate::misc::partial_eq_field;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 struct PackageNamePositions {
     scope_end: Option<usize>,
     total_length: usize,
@@ -106,11 +107,14 @@ impl PackageNamePositions {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PackageName {
     inner: String,
     positions: PackageNamePositions,
 }
+
+partial_eq_field!(PackageName, inner, String);
+partial_eq_field!(PackageName, inner, &str);
 
 macro_rules! option_segment {
     ($name:ident) => {

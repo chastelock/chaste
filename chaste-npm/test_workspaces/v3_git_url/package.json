@@ -1,4 +1,6 @@
 {
+  "name": "@chastelock/test__v3_git_url",
+  "version": "0.0.0",
   "dependencies": {
     "is-even": "1.0.0"
   },

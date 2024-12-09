@@ -6,12 +6,14 @@ pub use ssri::{Error as SSRIError, Integrity};
 
 use crate::error::Result;
 use crate::name::PackageName;
+use crate::source::{PackageSource, PackageSourceType};
 
 #[derive(Debug)]
 pub struct Package {
     name: Option<PackageName>,
     version: Option<PackageVersion>,
     integrity: Integrity,
+    source: Option<PackageSource>,
 }
 
 impl Package {
@@ -26,12 +28,21 @@ impl Package {
     pub fn integrity(&self) -> &Integrity {
         &self.integrity
     }
+
+    pub fn source(&self) -> Option<&PackageSource> {
+        self.source.as_ref()
+    }
+
+    pub fn source_type(&self) -> Option<PackageSourceType> {
+        self.source.as_ref().map(|s| s.source_type())
+    }
 }
 
 pub struct PackageBuilder {
     name: Option<PackageName>,
     version: Option<String>,
     integrity: Option<Integrity>,
+    source: Option<PackageSource>,
 }
 
 impl PackageBuilder {
@@ -40,6 +51,7 @@ impl PackageBuilder {
             name,
             version,
             integrity: None,
+            source: None,
         }
     }
 
@@ -55,11 +67,16 @@ impl PackageBuilder {
         self.integrity = Some(new_integrity);
     }
 
+    pub fn source(&mut self, new_source: PackageSource) {
+        self.source = Some(new_source);
+    }
+
     pub fn build(self) -> Result<Package> {
         Ok(Package {
             name: self.name,
             version: self.version.map(PackageVersion::parse).transpose()?,
             integrity: self.integrity.unwrap_or_else(|| Integrity::from("")),
+            source: self.source,
         })
     }
 }

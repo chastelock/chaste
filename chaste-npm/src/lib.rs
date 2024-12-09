@@ -7,7 +7,7 @@ use std::io;
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
-    InstallationBuilder, PackageBuilder, PackageID, PackageName,
+    InstallationBuilder, PackageBuilder, PackageID, PackageName, PackageSource,
 };
 
 pub use crate::error::{Error, Result};
@@ -28,6 +28,19 @@ struct PackageParser<'a> {
     path_pid: HashMap<&'a Cow<'a, str>, PackageID>,
 }
 
+fn recognize_source<'a>(resolved: &'a Cow<'a, str>) -> Option<PackageSource> {
+    match resolved {
+        // XXX: The registry can be overriden via config. https://docs.npmjs.com/cli/v10/using-npm/config#registry
+        // Also per scope (see v3_scope_registry test.)
+        // npm seems to always output npmjs instead of mirrors, even if overriden.
+        r if r.starts_with("https://registry.npmjs.org/") => Some(PackageSource::Npm),
+
+        r if r.starts_with("git+") => Some(PackageSource::Git { url: r.to_string() }),
+
+        _ => None,
+    }
+}
+
 fn parse_package<'a>(
     path: &str,
     tree_package: &'a DependencyTreePackage,
@@ -44,6 +57,11 @@ fn parse_package<'a>(
     );
     if let Some(integrity) = &tree_package.integrity {
         pkg.integrity(integrity.parse()?);
+    }
+    if let Some(resolved) = &tree_package.resolved {
+        if let Some(source) = recognize_source(resolved) {
+            pkg.source(source);
+        }
     }
     Ok(pkg)
 }
@@ -203,13 +221,61 @@ pub fn from_str(v: &str) -> Result<Chastefile> {
 mod tests {
     use std::fs;
 
+    use chaste_types::{Chastefile, PackageSourceType};
+
     use super::{from_str, Result};
 
+    fn test_workspace(name: &str) -> Result<Chastefile> {
+        let package_lock_json =
+            fs::read_to_string(format!("test_workspaces/{name}/package-lock.json"))?;
+        from_str(&package_lock_json)
+    }
+
     #[test]
-    fn test_basic() -> Result<()> {
-        let package_json = fs::read_to_string("test_workspaces/basic/package-lock.json")?;
-        let chastefile = from_str(&package_json)?;
-        dbg!(&chastefile);
+    fn v3_basic() -> Result<()> {
+        let chastefile = test_workspace("v3_basic")?;
+        let root = chastefile.root_package();
+        assert_eq!(root.name().unwrap(), "@chastelock/test__v3_basic");
+        assert_eq!(root.version().unwrap().to_string(), "0.0.0");
+        assert_eq!(chastefile.packages().len(), 9);
+        assert_eq!(
+            chastefile
+                .recursive_package_dependencies(chastefile.root_package_id())
+                .len(),
+            8
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn v3_git_url() -> Result<()> {
+        let chastefile = test_workspace("v3_git_url")?;
+        let root_dev_deps: Vec<_> = chastefile
+            .root_package_dependencies()
+            .into_iter()
+            .filter(|d| d.kind.is_dev())
+            .collect();
+        assert_eq!(root_dev_deps.len(), 1);
+        let minimatch_dep = root_dev_deps.first().unwrap();
+        let minimatch = chastefile.package(minimatch_dep.on);
+        assert_eq!(minimatch.name().unwrap(), "minimatch");
+        assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
+
+        Ok(())
+    }
+
+    #[test]
+    fn v3_scope_registry() -> Result<()> {
+        let chastefile = test_workspace("v3_scope_registry")?;
+        let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
+        let empty_pkg = chastefile.package(empty_pid);
+        assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
+        assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
+        assert_eq!(empty_pkg.integrity().hashes.len(), 1);
+        // TODO: recognize custom npm registry.
+        assert_eq!(empty_pkg.source_type(), None);
+
         Ok(())
     }
 }
