@@ -150,14 +150,44 @@ pub fn from_slice(pv: &[u8], yv: &[u8]) -> Result<Chastefile> {
 mod tests {
     use std::fs;
 
+    use chaste_types::{Chastefile, PackageSourceType};
+
     use super::{from_str, Result};
 
+    fn test_workspace(name: &str) -> Result<Chastefile> {
+        let package_json = fs::read_to_string(format!("test_workspaces/{name}/package.json"))?;
+        let yarn_lock = fs::read_to_string(format!("test_workspaces/{name}/yarn.lock"))?;
+        from_str(&package_json, &yarn_lock)
+    }
+
     #[test]
-    fn test_basic_v1() -> Result<()> {
-        let package_json = fs::read_to_string("test_workspaces/basic-v1/package.json")?;
-        let yarn_lock = fs::read_to_string("test_workspaces/basic-v1/yarn.lock")?;
-        let chastefile = from_str(&package_json, &yarn_lock)?;
-        dbg!(&chastefile);
+    fn v1_basic() -> Result<()> {
+        let chastefile = test_workspace("v1_basic")?;
+        assert_eq!(
+            chastefile
+                .recursive_package_dependencies(chastefile.root_package_id())
+                .len(),
+            5
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn v1_git_url() -> Result<()> {
+        let chastefile = test_workspace("v1_git_url")?;
+        assert_eq!(
+            chastefile
+                .recursive_package_dependencies(chastefile.root_package_id())
+                .len(),
+            3
+        );
+        let root_package_dependencies = chastefile.root_package_dependencies();
+        let minimatch_dep = root_package_dependencies.first().unwrap();
+        let minimatch = chastefile.package(minimatch_dep.on);
+        assert_eq!(minimatch.name().unwrap(), "minimatch");
+        assert_eq!(minimatch.version().unwrap().to_string(), "10.0.1");
+        // TODO: mark this correctly
+        assert_eq!(minimatch.source_type(), None);
         Ok(())
     }
 }
