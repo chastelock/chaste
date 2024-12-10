@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 pub use nodejs_semver::Version as PackageVersion;
+pub use ssri;
 pub use ssri::{Error as SSRIError, Integrity};
 
 use crate::error::Result;

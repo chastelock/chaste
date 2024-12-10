@@ -71,6 +71,7 @@ name = "chaste-yarn"
 version = "0.1.0"
 dependencies = [
  "chaste-types",
+ "nom",
  "serde",
  "serde_json",
  "thiserror 2.0.4",

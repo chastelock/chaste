@@ -5,25 +5,97 @@ use std::collections::HashMap;
 use std::str;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    PackageBuilder, PackageID, PackageName,
+    ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
+    Integrity, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
 };
-use types::PackageJson;
+use nom::bytes::complete::tag;
+use nom::combinator::eof;
+use nom::sequence::tuple;
 use yarn_lock_parser as yarn;
 
 pub use crate::error::{Error, Result};
+use crate::types::PackageJson;
 
 mod error;
 mod types;
 
 pub static LOCKFILE_NAME: &'static str = "yarn.lock";
 
+fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool {
+    tuple((
+        tag::<&str, &str, ()>("https://registry.yarnpkg.com/"),
+        tag(name),
+        tag("/-/"),
+        tag(name),
+        tag("-"),
+        tag(version),
+        tag(".tgz"),
+        eof,
+    ))(input)
+    .is_ok()
+}
+
+fn parse_source_url(entry: &yarn::Entry, url: &str) -> Result<Option<PackageSource>> {
+    Ok(if is_registry_url(entry.name, entry.version, url) {
+        Some(PackageSource::Npm)
+    } else if url.ends_with(".git") {
+        Some(PackageSource::Git {
+            url: url.to_string(),
+        })
+
+    // Check descriptors whether they are a tarball URL.
+    // XXX: This might be wrong with overrides.
+    } else if entry
+        .descriptors
+        .iter()
+        .all(|(_, svd)| svd.starts_with("https://") || svd.starts_with("http://"))
+    {
+        Some(PackageSource::TarballURL {
+            url: url.to_string(),
+        })
+
+    // Not an arbitrary tarball? If it's valid semver, it's probably a custom registry.
+    } else if entry
+        .descriptors
+        .iter()
+        .all(|(_, svd)| PackageVersion::parse(svd).is_ok())
+    {
+        Some(PackageSource::Npm)
+    } else {
+        // TODO: find any cases falling here
+        None
+    })
+}
+
+fn parse_source<'a>(entry: &'a yarn::Entry) -> Result<Option<(PackageSource, Option<&'a str>)>> {
+    match entry.resolved.rsplit_once("#") {
+        Some((url, hash)) => {
+            let Some(source) = parse_source_url(entry, url)? else {
+                return Ok(None);
+            };
+            Ok(Some(match source {
+                PackageSource::Npm | PackageSource::TarballURL { .. } => (source, Some(hash)),
+                _ => (source, None),
+            }))
+        }
+        // TODO: when does this happen?
+        None => Ok(None),
+    }
+}
+
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     let mut pkg = PackageBuilder::new(
         Some(PackageName::new(entry.name.to_string())?),
         Some(entry.version.to_string()),
     );
-    pkg.integrity(entry.integrity.parse()?);
+    let mut integrity: Integrity = entry.integrity.parse()?;
+    if let Some((source, maybe_sha1_hex)) = parse_source(&entry)? {
+        if let Some(sha1_hex) = maybe_sha1_hex {
+            integrity = integrity.concat(Integrity::from_hex(sha1_hex, ssri::Sha1)?);
+        }
+        pkg.source(source);
+    }
+    pkg.integrity(integrity);
     Ok(pkg)
 }
 
@@ -75,7 +147,6 @@ fn resolve<'a>(
     chastefile_builder.set_root_package_id(root_pid)?;
     let root_install = InstallationBuilder::new(root_pid, "".to_string()).build()?;
     chastefile_builder.add_package_installation(root_install);
-    dbg!(&yarn_lock);
 
     // Now, add everything else.
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
@@ -163,12 +234,12 @@ mod tests {
     #[test]
     fn v1_basic() -> Result<()> {
         let chastefile = test_workspace("v1_basic")?;
-        assert_eq!(
-            chastefile
-                .recursive_package_dependencies(chastefile.root_package_id())
-                .len(),
-            5
-        );
+        let rec_deps = chastefile.recursive_package_dependencies(chastefile.root_package_id());
+        assert_eq!(rec_deps.len(), 5);
+        assert!(rec_deps
+            .iter()
+            .map(|d| chastefile.package(d.on))
+            .all(|p| p.source_type() == Some(PackageSourceType::Npm)));
         Ok(())
     }
 
@@ -186,8 +257,20 @@ mod tests {
         let minimatch = chastefile.package(minimatch_dep.on);
         assert_eq!(minimatch.name().unwrap(), "minimatch");
         assert_eq!(minimatch.version().unwrap().to_string(), "10.0.1");
-        // TODO: mark this correctly
-        assert_eq!(minimatch.source_type(), None);
+        assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
+        Ok(())
+    }
+
+    #[test]
+    fn v1_scope_registry() -> Result<()> {
+        let chastefile = test_workspace("v1_scope_registry")?;
+        let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
+        let empty_pkg = chastefile.package(empty_pid);
+        assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
+        assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
+        assert_eq!(empty_pkg.integrity().hashes.len(), 2);
+        assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::Npm));
+
         Ok(())
     }
 }
