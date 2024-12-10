@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024 The Chaste Authors
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+
 macro_rules! partial_eq_field {
     ($own:ty, $field:ident, $other:ty) => {
         impl PartialEq<$other> for $own {
