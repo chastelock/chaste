@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use std::cmp;
+
 pub use nodejs_semver::Version as PackageVersion;
 pub use ssri;
 pub use ssri::{Error as SSRIError, Integrity};
@@ -9,7 +11,7 @@ use crate::error::Result;
 use crate::name::PackageName;
 use crate::source::{PackageSource, PackageSourceType};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Package {
     name: Option<PackageName>,
     version: Option<PackageVersion>,
@@ -36,6 +38,20 @@ impl Package {
 
     pub fn source_type(&self) -> Option<PackageSourceType> {
         self.source.as_ref().map(|s| s.source_type())
+    }
+}
+
+impl PartialOrd for Package {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        let o = self.name.cmp(&other.name);
+        if o != cmp::Ordering::Equal {
+            return Some(o);
+        }
+        let o = self.version.cmp(&other.version);
+        if o != cmp::Ordering::Equal {
+            return Some(o);
+        }
+        None
     }
 }
 
