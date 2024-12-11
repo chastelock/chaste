@@ -5,9 +5,12 @@
 name = "chaste-types"
 description = "Parser for npmjs lockfiles (types package)"
 edition = "2021"
+keywords = ["chaste", "lockfile"]
 version.workspace = true
 authors.workspace = true
 license.workspace = true
+categories.workspace = true
+repository.workspace = true
 
 [dependencies]
 nodejs-semver.workspace = true

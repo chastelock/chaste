@@ -3,11 +3,14 @@
 
 [package]
 name = "chaste-yarn"
-description = "Parser for npmjs lockfiles (yarn implementation)"
+description = "Parser for yarn lockfiles"
 edition = "2021"
+keywords = ["lockfile", "yarn"]
 version.workspace = true
 authors.workspace = true
 license.workspace = true
+categories.workspace = true
+repository.workspace = true
 
 [dependencies]
 chaste-types.workspace = true

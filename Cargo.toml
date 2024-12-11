@@ -9,6 +9,8 @@ members = ["chaste", "chaste-npm", "chaste-types", "chaste-yarn"]
 version = "0.1.0"
 authors = ["The Chaste Authors"]
 license = "Apache-2.0 OR BSD-2-Clause"
+categories = ["parser-implementations", "data-structures"]
+repository = "https://codeberg.org/selfisekai/chaste"
 
 [workspace.dependencies]
 chaste-npm = { version = "=0.1.0", path = "chaste-npm" }

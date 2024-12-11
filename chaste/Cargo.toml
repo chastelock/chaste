@@ -5,15 +5,18 @@
 name = "chaste"
 description = "Parser for npmjs lockfiles"
 edition = "2021"
+keywords = ["lockfile", "npm"]
 version.workspace = true
 authors.workspace = true
 license.workspace = true
+categories.workspace = true
+repository.workspace = true
 
 [features]
 default = ["npm", "yarn"]
 
-npm = ["chaste-npm"]
-yarn = ["chaste-yarn"]
+npm = ["dep:chaste-npm"]
+yarn = ["dep:chaste-yarn"]
 
 [dependencies]
 chaste-types.workspace = true
