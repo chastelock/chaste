@@ -8,8 +8,9 @@ use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
     Integrity, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
 };
-use nom::bytes::complete::tag;
-use nom::combinator::eof;
+use nom::branch::alt;
+use nom::bytes::complete::{tag, take_while1};
+use nom::combinator::{eof, opt, verify};
 use nom::sequence::tuple;
 use yarn_lock_parser as yarn;
 
@@ -35,6 +36,20 @@ fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool 
     .is_ok()
 }
 
+fn is_github_svd<'a>(input: &'a str) -> bool {
+    tuple((
+        opt(tag::<&str, &str, ()>("github:")),
+        take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
+        tag("/"),
+        verify(
+            take_while1(|c: char| c.is_ascii_alphanumeric() || ['-', '.', '_'].contains(&c)),
+            |name: &str| !name.starts_with("."),
+        ),
+        alt((tag("#"), eof)),
+    ))(input)
+    .is_ok()
+}
+
 fn parse_source_url(entry: &yarn::Entry, url: &str) -> Result<Option<PackageSource>> {
     Ok(if is_registry_url(entry.name, entry.version, url) {
         Some(PackageSource::Npm)
@@ -43,13 +58,14 @@ fn parse_source_url(entry: &yarn::Entry, url: &str) -> Result<Option<PackageSour
             url: url.to_string(),
         })
 
-    // Check descriptors whether they are a tarball URL.
+    // Check descriptors whether they are:
+    // a) a tarball URL,
+    // b) the special GitHub tag (in yarn, it resolves to tarballs).
+    //
     // XXX: This might be wrong with overrides.
-    } else if entry
-        .descriptors
-        .iter()
-        .all(|(_, svd)| svd.starts_with("https://") || svd.starts_with("http://"))
-    {
+    } else if entry.descriptors.iter().all(|(_, svd)| {
+        svd.starts_with("https://") || svd.starts_with("http://") || is_github_svd(svd)
+    }) {
         Some(PackageSource::TarballURL {
             url: url.to_string(),
         })
@@ -68,19 +84,18 @@ fn parse_source_url(entry: &yarn::Entry, url: &str) -> Result<Option<PackageSour
 }
 
 fn parse_source<'a>(entry: &'a yarn::Entry) -> Result<Option<(PackageSource, Option<&'a str>)>> {
-    match entry.resolved.rsplit_once("#") {
-        Some((url, hash)) => {
-            let Some(source) = parse_source_url(entry, url)? else {
-                return Ok(None);
-            };
-            Ok(Some(match source {
-                PackageSource::Npm | PackageSource::TarballURL { .. } => (source, Some(hash)),
-                _ => (source, None),
-            }))
-        }
-        // TODO: when does this happen?
-        None => Ok(None),
-    }
+    let (url, hash) = entry
+        .resolved
+        .rsplit_once("#")
+        .map(|(u, h)| (u, Some(h)))
+        .unwrap_or((entry.resolved, None));
+    let Some(source) = parse_source_url(entry, url)? else {
+        return Ok(None);
+    };
+    Ok(Some(match source {
+        PackageSource::Npm | PackageSource::TarballURL { .. } => (source, hash),
+        _ => (source, None),
+    }))
 }
 
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
@@ -221,9 +236,18 @@ pub fn from_slice(pv: &[u8], yv: &[u8]) -> Result<Chastefile> {
 mod tests {
     use std::fs;
 
-    use chaste_types::{Chastefile, PackageSourceType};
+    use chaste_types::{Chastefile, Package, PackageSourceType};
 
-    use super::{from_str, Result};
+    use super::{from_str, is_github_svd, Result};
+
+    #[test]
+    fn github_cvd() -> Result<()> {
+        assert!(is_github_svd("isaacs/minimatch#v10.0.1"));
+        assert!(is_github_svd("github:isaacs/minimatch#v10.0.1"));
+        assert!(is_github_svd("isaacs/minimatch"));
+
+        Ok(())
+    }
 
     fn test_workspace(name: &str) -> Result<Chastefile> {
         let package_json = fs::read_to_string(format!("test_workspaces/{name}/package.json"))?;
@@ -258,6 +282,38 @@ mod tests {
         assert_eq!(minimatch.name().unwrap(), "minimatch");
         assert_eq!(minimatch.version().unwrap().to_string(), "10.0.1");
         assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
+        Ok(())
+    }
+
+    #[test]
+    fn v1_github_ref() -> Result<()> {
+        let chastefile = test_workspace("v1_github_ref")?;
+        assert_eq!(
+            chastefile
+                .recursive_package_dependencies(chastefile.root_package_id())
+                .len(),
+            4
+        );
+        let root_package_dependencies = chastefile.root_package_dependencies();
+        let mut root_dep_packages: Vec<&Package> = root_package_dependencies
+            .iter()
+            .map(|d| chastefile.package(d.on))
+            .collect();
+        assert_eq!(root_dep_packages.len(), 2);
+        root_dep_packages.sort_unstable_by_key(|p| p.name());
+
+        let package = root_dep_packages[0];
+        assert_eq!(package.name().unwrap(), "minimatch");
+        assert_eq!(package.version().unwrap().to_string(), "10.0.1");
+        assert_eq!(package.source_type(), Some(PackageSourceType::TarballURL));
+        assert_eq!(package.integrity().hashes.len(), 0);
+
+        let package = root_dep_packages[1];
+        assert_eq!(package.name().unwrap(), "node-semver");
+        assert_eq!(package.version().unwrap().to_string(), "7.6.3");
+        assert_eq!(package.source_type(), Some(PackageSourceType::TarballURL));
+        assert_eq!(package.integrity().hashes.len(), 0);
+
         Ok(())
     }
 

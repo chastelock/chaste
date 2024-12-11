@@ -10,13 +10,15 @@ pub enum PackageSourceType {
     TarballURL,
     /// "git:"
     Git,
-    /// "github:"
-    GitHub,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 #[non_exhaustive]
-/// This is meant as a supplement to [crate::Package] and isn't very useful without it.
+/// This is meant as a supplement to [`crate::Package`] and isn't very useful without it.
+///
+/// The [special `github:` type](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#github-urls)
+/// is currently not recognized, and resolves to either [`PackageSource::Git`] or [`PackageSource::TarballURL`],
+/// depending on the package manager.
 pub enum PackageSource {
     /// An npm registry. This has no properties because the only variables
     /// are [crate::Package::name], [crate::Package::version], and the registry URL,

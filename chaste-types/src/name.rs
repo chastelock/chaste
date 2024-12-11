@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use std::fmt;
+use std::{cmp, fmt};
 
 use crate::error::{PackageNameError, Result};
 use crate::misc::partial_eq_field;
@@ -170,6 +170,16 @@ impl fmt::Display for PackageName {
 impl AsRef<str> for PackageName {
     fn as_ref(&self) -> &str {
         &self.inner
+    }
+}
+impl PartialOrd for PackageName {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.inner.cmp(&other.inner))
+    }
+}
+impl Ord for PackageName {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.inner.cmp(&other.inner)
     }
 }
 

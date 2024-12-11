@@ -266,6 +266,22 @@ mod tests {
     }
 
     #[test]
+    fn v3_github_ref() -> Result<()> {
+        let chastefile = test_workspace("v3_github_ref")?;
+        let root_dev_deps: Vec<_> = chastefile
+            .root_package_dependencies()
+            .into_iter()
+            .filter(|d| d.kind.is_dev())
+            .collect();
+        let minimatch_dep = root_dev_deps.first().unwrap();
+        let minimatch = chastefile.package(minimatch_dep.on);
+        assert_eq!(minimatch.name().unwrap(), "minimatch");
+        assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
+
+        Ok(())
+    }
+
+    #[test]
     fn v3_scope_registry() -> Result<()> {
         let chastefile = test_workspace("v3_scope_registry")?;
         let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
