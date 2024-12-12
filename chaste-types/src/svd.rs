@@ -137,6 +137,24 @@ impl SourceVersionDescriptor {
         matches!(self.positions, SourceVersionDescriptorPositions::Npm { .. })
     }
 
+    pub fn is_tar(&self) -> bool {
+        matches!(
+            self.positions,
+            SourceVersionDescriptorPositions::TarballURL { .. }
+        )
+    }
+
+    pub fn is_git(&self) -> bool {
+        matches!(self.positions, SourceVersionDescriptorPositions::Git { .. })
+    }
+
+    pub fn is_github(&self) -> bool {
+        matches!(
+            self.positions,
+            SourceVersionDescriptorPositions::GitHub { .. }
+        )
+    }
+
     /// Package name specified as aliased in the version descriptor.
     ///
     /// # Example
@@ -173,36 +191,110 @@ mod tests {
 
     #[test]
     fn npm_svd_basic() -> Result<()> {
-        let name = SourceVersionDescriptor::new("^7.0.1".to_string())?;
-        assert_eq!(name.aliased_package_name(), None);
+        let svd = SourceVersionDescriptor::new("^7.0.1".to_string())?;
+        assert!(svd.is_npm());
+        assert_eq!(svd.aliased_package_name(), None);
         Ok(())
     }
 
     #[test]
     fn npm_svd_basic_any() -> Result<()> {
-        let name = SourceVersionDescriptor::new("*".to_string())?;
-        assert_eq!(name.aliased_package_name(), None);
+        let svd = SourceVersionDescriptor::new("*".to_string())?;
+        assert!(svd.is_npm());
+        assert_eq!(svd.aliased_package_name(), None);
         Ok(())
     }
 
     #[test]
     fn npm_svd_basic_empty() -> Result<()> {
-        let name = SourceVersionDescriptor::new("".to_string())?;
-        assert_eq!(name.aliased_package_name(), None);
+        let svd = SourceVersionDescriptor::new("".to_string())?;
+        assert!(svd.is_npm());
+        assert_eq!(svd.aliased_package_name(), None);
         Ok(())
     }
 
     #[test]
     fn npm_svd_alias() -> Result<()> {
-        let name = SourceVersionDescriptor::new("npm:chazzwazzer@*".to_string())?;
-        assert_eq!(name.aliased_package_name(), Some("chazzwazzer"));
+        let svd = SourceVersionDescriptor::new("npm:chazzwazzer@*".to_string())?;
+        assert!(svd.is_npm());
+        assert_eq!(svd.aliased_package_name(), Some("chazzwazzer"));
         Ok(())
     }
 
     #[test]
     fn npm_svd_alias_scoped() -> Result<()> {
-        let name = SourceVersionDescriptor::new("@chastelock/testcase@1.0.x".to_string())?;
-        assert_eq!(name.aliased_package_name(), Some("@chastelock/testcase"));
+        let svd = SourceVersionDescriptor::new("@chastelock/testcase@1.0.x".to_string())?;
+        assert!(svd.is_npm());
+        assert_eq!(svd.aliased_package_name(), Some("@chastelock/testcase"));
+        Ok(())
+    }
+
+    #[test]
+    fn tar_svd() -> Result<()> {
+        let svd = SourceVersionDescriptor::new("https://example.com/not-a-git-repo".to_string())?;
+        assert!(svd.is_tar());
+        Ok(())
+    }
+
+    #[test]
+    fn git_http_svd_unspecified() -> Result<()> {
+        let svd =
+            SourceVersionDescriptor::new("https://codeberg.org/selfisekai/chaste.git".to_string())?;
+        assert!(svd.is_git());
+        Ok(())
+    }
+
+    #[test]
+    fn git_http_svd_unspecified_prefixed() -> Result<()> {
+        let svd =
+            SourceVersionDescriptor::new("git+https://codeberg.org/selfisekai/chaste".to_string())?;
+        assert!(svd.is_git());
+        Ok(())
+    }
+
+    #[test]
+    fn git_http_svd_tag() -> Result<()> {
+        let svd = SourceVersionDescriptor::new(
+            "https://github.com/npm/node-semver.git#v7.6.3".to_string(),
+        )?;
+        assert!(svd.is_git());
+        Ok(())
+    }
+
+    #[test]
+    fn git_http_svd_semver() -> Result<()> {
+        let svd = SourceVersionDescriptor::new(
+            "https://github.com/npm/node-semver.git#semver:^7.5.0".to_string(),
+        )?;
+        assert!(svd.is_git());
+        Ok(())
+    }
+
+    #[test]
+    fn github_svd_unspecified() -> Result<()> {
+        let svd = SourceVersionDescriptor::new("npm/node-semver".to_string())?;
+        assert!(svd.is_github());
+        Ok(())
+    }
+
+    #[test]
+    fn github_svd_unspecified_prefixed() -> Result<()> {
+        let svd = SourceVersionDescriptor::new("github:npm/node-semver".to_string())?;
+        assert!(svd.is_github());
+        Ok(())
+    }
+
+    #[test]
+    fn github_svd_tag() -> Result<()> {
+        let svd = SourceVersionDescriptor::new("npm/node-semver#7.5.1".to_string())?;
+        assert!(svd.is_github());
+        Ok(())
+    }
+
+    #[test]
+    fn github_svd_semver() -> Result<()> {
+        let svd = SourceVersionDescriptor::new("npm/node-semver#semver:^7.5.0".to_string())?;
+        assert!(svd.is_github());
         Ok(())
     }
 }
