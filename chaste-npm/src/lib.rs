@@ -8,6 +8,7 @@ use std::io;
 use chaste_types::{
     Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
     InstallationBuilder, PackageBuilder, PackageID, PackageName, PackageSource,
+    SourceVersionDescriptor,
 };
 
 pub use crate::error::{Error, Result};
@@ -94,27 +95,25 @@ fn parse_dependencies<'a>(
     self_pid: PackageID,
 ) -> Result<Vec<Dependency>> {
     let mut dependencies = Vec::new();
-    for n in tree_package.dependencies.keys() {
-        dependencies.push(
-            DependencyBuilder::new(
-                DependencyKind::Dependency,
-                self_pid,
-                find_pid(path, n, path_pid)?,
-            )
-            .build(),
+    for (n, svd) in tree_package.dependencies.iter() {
+        let mut dep = DependencyBuilder::new(
+            DependencyKind::Dependency,
+            self_pid,
+            find_pid(path, n, path_pid)?,
         );
+        dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
+        dependencies.push(dep.build());
     }
-    for n in tree_package.dev_dependencies.keys() {
-        dependencies.push(
-            DependencyBuilder::new(
-                DependencyKind::DevDependency,
-                self_pid,
-                find_pid(path, n, path_pid)?,
-            )
-            .build(),
+    for (n, svd) in tree_package.dev_dependencies.iter() {
+        let mut dep = DependencyBuilder::new(
+            DependencyKind::DevDependency,
+            self_pid,
+            find_pid(path, n, path_pid)?,
         );
+        dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
+        dependencies.push(dep.build());
     }
-    for n in tree_package.peer_dependencies.keys() {
+    for (n, svd) in tree_package.peer_dependencies.iter() {
         let is_optional = match tree_package.peer_dependencies_meta.get(n) {
             Some(PeerDependencyMeta {
                 optional: Some(true),
@@ -122,8 +121,8 @@ fn parse_dependencies<'a>(
             _ => false,
         };
         match find_pid(path, n, path_pid) {
-            Ok(pid) => dependencies.push(
-                DependencyBuilder::new(
+            Ok(pid) => {
+                let mut dep = DependencyBuilder::new(
                     if is_optional {
                         DependencyKind::OptionalPeerDependency
                     } else {
@@ -131,20 +130,24 @@ fn parse_dependencies<'a>(
                     },
                     self_pid,
                     pid,
-                )
-                .build(),
-            ),
+                );
+                dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
+                dependencies.push(dep.build());
+            }
             // It's optional, ignore.
             Err(Error::DependencyNotFound(_)) if is_optional => {}
 
             Err(e) => return Err(e),
         }
     }
-    for n in tree_package.optional_dependencies.keys() {
+    for (n, svd) in tree_package.optional_dependencies.iter() {
         match find_pid(path, n, path_pid) {
-            Ok(pid) => dependencies.push(
-                DependencyBuilder::new(DependencyKind::OptionalDependency, self_pid, pid).build(),
-            ),
+            Ok(pid) => {
+                let mut dep =
+                    DependencyBuilder::new(DependencyKind::OptionalDependency, self_pid, pid);
+                dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
+                dependencies.push(dep.build());
+            }
             // It's optional, ignore.
             Err(Error::DependencyNotFound(_)) => {}
 

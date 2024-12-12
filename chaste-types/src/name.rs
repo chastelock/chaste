@@ -7,13 +7,16 @@ use crate::error::{PackageNameError, Result};
 use crate::misc::partial_eq_field;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct PackageNamePositions {
+pub(crate) struct PackageNamePositions {
     scope_end: Option<usize>,
-    total_length: usize,
+    pub(crate) total_length: usize,
 }
 
 impl PackageNamePositions {
-    fn parse(input: &str) -> Result<Self, PackageNameError> {
+    pub(crate) fn parse_remaining(
+        input: &str,
+        allow_remaining: bool,
+    ) -> Result<(&str, Self), PackageNameError> {
         let mut chars = input.chars().enumerate().peekable();
         let mut scope_end = None;
         if let Some((0, '@')) = chars.peek() {
@@ -69,6 +72,15 @@ impl PackageNamePositions {
         while let Some((pos, char)) = chars.next() {
             match char {
                 'a'..='z' | '0'..='9' | '.' | '-' | '_' => {}
+                _ if allow_remaining => {
+                    return Ok((
+                        &input[pos..],
+                        PackageNamePositions {
+                            scope_end,
+                            total_length: pos,
+                        },
+                    ))
+                }
                 // TODO
                 _ => {
                     return Err(PackageNameError::InvalidCharacter {
@@ -80,10 +92,17 @@ impl PackageNamePositions {
             }
         }
 
-        Ok(PackageNamePositions {
-            scope_end,
-            total_length: input.len(),
-        })
+        Ok((
+            "",
+            PackageNamePositions {
+                scope_end,
+                total_length: input.len(),
+            },
+        ))
+    }
+
+    fn parse(input: &str) -> Result<Self, PackageNameError> {
+        Self::parse_remaining(input, false).map(|(_, pos)| pos)
     }
 
     /// "@scope" in "@scope/name"

@@ -62,6 +62,7 @@ version = "0.1.0"
 dependencies = [
  "miette 7.4.0",
  "nodejs-semver",
+ "nom",
  "ssri",
  "thiserror 2.0.4",
 ]

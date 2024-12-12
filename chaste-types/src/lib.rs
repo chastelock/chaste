@@ -8,6 +8,7 @@ pub use crate::installation::*;
 pub use crate::name::*;
 pub use crate::package::*;
 pub use crate::source::*;
+pub use crate::svd::*;
 
 mod chastefile;
 mod dependency;
@@ -17,3 +18,4 @@ mod misc;
 mod name;
 mod package;
 mod source;
+mod svd;

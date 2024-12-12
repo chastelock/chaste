@@ -7,6 +7,7 @@ use std::str;
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
     Integrity, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
+    SourceVersionDescriptor,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
@@ -174,30 +175,31 @@ fn resolve<'a>(
     for dep_descriptor in &package_json.dependencies {
         let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
         let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        chastefile_builder.add_dependency(
-            DependencyBuilder::new(DependencyKind::Dependency, root_pid, *dep_pid).build(),
-        );
+        let mut dep = DependencyBuilder::new(DependencyKind::Dependency, root_pid, *dep_pid);
+        dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+        chastefile_builder.add_dependency(dep.build());
     }
     for dep_descriptor in &package_json.dev_dependencies {
         let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
         let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        chastefile_builder.add_dependency(
-            DependencyBuilder::new(DependencyKind::DevDependency, root_pid, *dep_pid).build(),
-        );
+        let mut dep = DependencyBuilder::new(DependencyKind::DevDependency, root_pid, *dep_pid);
+        dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+        chastefile_builder.add_dependency(dep.build());
     }
     for dep_descriptor in &package_json.peer_dependencies {
         let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
         let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        chastefile_builder.add_dependency(
-            DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, *dep_pid).build(),
-        );
+        let mut dep = DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, *dep_pid);
+        dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+        chastefile_builder.add_dependency(dep.build());
     }
     for dep_descriptor in &package_json.optional_dependencies {
         let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
         let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        chastefile_builder.add_dependency(
-            DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, *dep_pid).build(),
-        );
+        let mut dep =
+            DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, *dep_pid);
+        dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+        chastefile_builder.add_dependency(dep.build());
     }
 
     // Finally, dependencies of dependencies.
@@ -206,17 +208,12 @@ fn resolve<'a>(
         for dep_descriptor in &entry.dependencies {
             let dep_index = find_dep_index(&yarn_lock, dep_descriptor)?;
             let dep_pid = index_to_pid.get(&dep_index).unwrap();
-            chastefile_builder.add_dependency(
-                DependencyBuilder::new(
-                    // devDependencies of non-root packages are not written to the lockfile.
-                    // It might be peer and/or optional. But in that case, it got added here
-                    // by root and/or another dependency.
-                    DependencyKind::Dependency,
-                    *from_pid,
-                    *dep_pid,
-                )
-                .build(),
-            );
+            // devDependencies of non-root packages are not written to the lockfile.
+            // It might be peer and/or optional. But in that case, it got added here
+            // by root and/or another dependency.
+            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, *dep_pid);
+            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            chastefile_builder.add_dependency(dep.build());
         }
     }
     Ok(chastefile_builder.build()?)

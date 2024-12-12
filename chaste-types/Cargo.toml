@@ -14,6 +14,7 @@ repository.workspace = true
 
 [dependencies]
 nodejs-semver.workspace = true
+nom.workspace = true
 ssri.workspace = true
 thiserror.workspace = true
 

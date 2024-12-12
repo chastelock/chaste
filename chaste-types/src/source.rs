@@ -4,11 +4,11 @@
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
 pub enum PackageSourceType {
-    /// "npm:": An npm registry (not necessarily registry.npmjs.com)
+    /// An npm registry (not necessarily registry.npmjs.com)
     Npm,
     /// Arbitrary URL to a .tar.gz file, no registry involved.
     TarballURL,
-    /// "git:"
+    /// Git repository.
     Git,
 }
 
