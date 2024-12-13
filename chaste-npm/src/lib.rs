@@ -252,6 +252,22 @@ mod tests {
     }
 
     #[test]
+    fn v3_git_ssh() -> Result<()> {
+        let chastefile = test_workspace("v3_git_ssh")?;
+        let root_deps: Vec<_> = chastefile.root_package_dependencies().into_iter().collect();
+        assert_eq!(root_deps.len(), 1);
+        let semver_dep = root_deps.first().unwrap();
+        let svd = semver_dep.svd().unwrap();
+        assert!(svd.is_git());
+        assert_eq!(svd.ssh_path_sep(), Some(":"));
+        let semver = chastefile.package(semver_dep.on);
+        assert_eq!(semver.name().unwrap(), "semver");
+        assert_eq!(semver.source_type(), Some(PackageSourceType::Git));
+
+        Ok(())
+    }
+
+    #[test]
     fn v3_git_url() -> Result<()> {
         let chastefile = test_workspace("v3_git_url")?;
         let root_dev_deps: Vec<_> = chastefile

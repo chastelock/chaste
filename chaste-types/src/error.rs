@@ -15,6 +15,9 @@ pub enum Error {
 
     #[error("Invalid package name: {0:?}")]
     PackageNameError(#[from] PackageNameError),
+
+    #[error("Invalid source/version descriptor: {0:?}")]
+    SVDError(#[from] SVDError),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -35,4 +38,10 @@ pub enum PackageNameError {
         #[cfg(feature = "miette")]
         at: miette::SourceSpan,
     },
+}
+
+#[derive(Debug, Error, PartialEq)]
+pub enum SVDError {
+    #[error("Unrecognized source/version descriptor type: {0:?}")]
+    UnrecognizedType(String),
 }

@@ -3,10 +3,11 @@
 
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
+use nom::character::complete::digit1;
 use nom::combinator::{eof, opt, recognize, rest, verify};
-use nom::sequence::{preceded, tuple};
+use nom::sequence::{pair, preceded, tuple};
 
-use crate::error::Result;
+use crate::error::{Result, SVDError};
 use crate::name::PackageNamePositions;
 
 /// Source/version descriptor. It is a constraint defined by a specific [`crate::Dependency`]
@@ -26,6 +27,7 @@ enum SourceVersionDescriptorPositions {
     TarballURL {},
     Git {
         type_prefix_end: usize,
+        pre_path_sep_offset: Option<usize>,
     },
     GitHub {
         type_prefix_end: usize,
@@ -73,15 +75,50 @@ fn url(input: &str) -> Option<SourceVersionDescriptorPositions> {
         opt(preceded(tag("#"), rest)),
     ))(input)
     .ok()
-    .map(|(_, (git_prefix, url, spec_suffix))| {
+    .map(|(_, (git_prefix, url, _spec_suffix))| {
         if git_prefix.is_some() || url.ends_with(".git") {
             SourceVersionDescriptorPositions::Git {
                 type_prefix_end: git_prefix.map(|p| p.len()).unwrap_or(0),
+                pre_path_sep_offset: None,
             }
         } else {
             SourceVersionDescriptorPositions::TarballURL {}
         }
     })
+}
+
+/// This definition is probably too broad
+fn ssh(input: &str) -> Option<SourceVersionDescriptorPositions> {
+    tuple((
+        opt(pair(
+            opt(tag::<&str, &str, nom::error::Error<&str>>("git+")),
+            tag("ssh://"),
+        )),
+        take_while(|c| !['/', ':'].contains(&c)),
+        opt(preceded(tag(":"), digit1)),
+        alt((tag(":"), tag("/"))),
+        take_while(|c| c != '#'),
+        opt(preceded(tag("#"), rest)),
+    ))(input)
+    .ok()
+    .map(|(_, (prefix, host, port, _sep, url, _spec_suffix))| {
+        if prefix.is_some() || url.ends_with(".git") {
+            let prefix_len = prefix
+                .map(|(git_prefix, ssh_prefix)| {
+                    git_prefix.map(|p| p.len()).unwrap_or(0) + ssh_prefix.len()
+                })
+                .unwrap_or(0);
+            Some(SourceVersionDescriptorPositions::Git {
+                type_prefix_end: prefix_len,
+                pre_path_sep_offset: Some(
+                    prefix_len + host.len() + port.map(|p| p.len() + 1).unwrap_or(0),
+                ),
+            })
+        } else {
+            None
+        }
+    })
+    .flatten()
 }
 
 fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
@@ -104,15 +141,16 @@ fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
 }
 
 impl SourceVersionDescriptorPositions {
-    fn parse(svd: &str) -> Result<Self> {
+    fn parse(svd: &str) -> Result<Self, SVDError> {
         npm(svd)
             .or_else(|| url(svd))
             .or_else(|| github(svd))
-            .ok_or_else(|| todo!())
+            .or_else(|| ssh(svd))
+            .ok_or_else(|| SVDError::UnrecognizedType(svd.to_string()))
     }
 }
 impl SourceVersionDescriptor {
-    pub fn new(svd: String) -> Result<Self> {
+    pub fn new(svd: String) -> Result<Self, SVDError> {
         Ok(Self {
             positions: SourceVersionDescriptorPositions::parse(&svd)?,
             inner: svd,
@@ -127,6 +165,15 @@ impl SourceVersionDescriptorPositions {
                 type_prefix_end,
                 alias_package_name: Some(alias),
             } => Some((*type_prefix_end, alias.total_length + type_prefix_end)),
+            _ => None,
+        }
+    }
+    fn ssh_path_sep(&self) -> Option<(usize, usize)> {
+        match self {
+            SourceVersionDescriptorPositions::Git {
+                pre_path_sep_offset: Some(offset),
+                ..
+            } => Some((*offset, offset + 1)),
             _ => None,
         }
     }
@@ -167,6 +214,12 @@ impl SourceVersionDescriptor {
     pub fn aliased_package_name(&self) -> Option<&str> {
         self.positions
             .aliased_package_name()
+            .map(|(start, end)| &self.inner[start..end])
+    }
+
+    pub fn ssh_path_sep(&self) -> Option<&str> {
+        self.positions
+            .ssh_path_sep()
             .map(|(start, end)| &self.inner[start..end])
     }
 }
@@ -267,6 +320,44 @@ mod tests {
             "https://github.com/npm/node-semver.git#semver:^7.5.0".to_string(),
         )?;
         assert!(svd.is_git());
+        Ok(())
+    }
+
+    #[test]
+    fn git_ssh_svd_unspecified() -> Result<()> {
+        let svd =
+            SourceVersionDescriptor::new("git@codeberg.org:selfisekai/chaste.git".to_string())?;
+        assert!(svd.is_git());
+        assert_eq!(svd.ssh_path_sep(), Some(":"));
+        Ok(())
+    }
+
+    #[test]
+    fn git_ssh_svd_unspecified_prefixed() -> Result<()> {
+        let svd = SourceVersionDescriptor::new(
+            "git+ssh://git@codeberg.org:selfisekai/chaste".to_string(),
+        )?;
+        assert!(svd.is_git());
+        assert_eq!(svd.ssh_path_sep(), Some(":"));
+        Ok(())
+    }
+
+    #[test]
+    fn git_ssh_svd_tag() -> Result<()> {
+        let svd =
+            SourceVersionDescriptor::new("git@github.com:npm/node-semver.git#v7.6.3".to_string())?;
+        assert!(svd.is_git());
+        assert_eq!(svd.ssh_path_sep(), Some(":"));
+        Ok(())
+    }
+
+    #[test]
+    fn git_ssh_svd_semver() -> Result<()> {
+        let svd = SourceVersionDescriptor::new(
+            "git@github.com:npm/node-semver.git#semver:^7.5.0".to_string(),
+        )?;
+        assert!(svd.is_git());
+        assert_eq!(svd.ssh_path_sep(), Some(":"));
         Ok(())
     }
 
