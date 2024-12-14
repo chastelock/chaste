@@ -16,23 +16,16 @@ pub enum DependencyKind {
 
 impl DependencyKind {
     pub fn is_prod(self) -> bool {
-        match self {
-            DependencyKind::DevDependency => false,
-            _ => true,
-        }
+        matches!(self, DependencyKind::DevDependency)
     }
     pub fn is_dev(self) -> bool {
-        match self {
-            DependencyKind::DevDependency => true,
-            _ => false,
-        }
+        matches!(self, DependencyKind::DevDependency)
     }
     pub fn is_optional(self) -> bool {
-        match self {
-            DependencyKind::OptionalDependency => true,
-            DependencyKind::OptionalPeerDependency => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            DependencyKind::OptionalDependency | DependencyKind::OptionalPeerDependency
+        )
     }
 }
 

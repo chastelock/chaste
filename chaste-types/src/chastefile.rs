@@ -26,10 +26,7 @@ impl<'a> Chastefile {
     }
 
     pub fn packages_with_ids(&'a self) -> Vec<(PackageID, &'a Package)> {
-        self.packages
-            .iter()
-            .map(|(pid, pkg)| (pid.clone(), pkg))
-            .collect()
+        self.packages.iter().map(|(pid, pkg)| (*pid, pkg)).collect()
     }
 
     fn package_dependencies_iter(
@@ -133,6 +130,7 @@ pub struct ChastefileBuilder {
 }
 
 impl ChastefileBuilder {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             packages: HashMap::new(),

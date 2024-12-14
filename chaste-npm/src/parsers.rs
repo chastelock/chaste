@@ -27,7 +27,7 @@ pub(crate) enum PathToken {
     Segment,
 }
 
-pub(crate) fn package_name_from_path<'a>(path: &'a str) -> Result<Option<&'a str>> {
+pub(crate) fn package_name_from_path(path: &str) -> Result<Option<&str>> {
     let path_tokens = PathToken::lexer(path)
         .spanned()
         .map(|(rpt, s)| Ok((rpt?, s)))

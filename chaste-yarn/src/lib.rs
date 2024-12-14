@@ -21,7 +21,7 @@ use crate::types::PackageJson;
 mod error;
 mod types;
 
-pub static LOCKFILE_NAME: &'static str = "yarn.lock";
+pub static LOCKFILE_NAME: &str = "yarn.lock";
 
 fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool {
     tuple((
@@ -37,7 +37,7 @@ fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool 
     .is_ok()
 }
 
-fn is_github_svd<'a>(input: &'a str) -> bool {
+fn is_github_svd(input: &str) -> bool {
     tuple((
         opt(tag::<&str, &str, ()>("github:")),
         take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
@@ -105,7 +105,7 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
         Some(entry.version.to_string()),
     );
     let mut integrity: Integrity = entry.integrity.parse()?;
-    if let Some((source, maybe_sha1_hex)) = parse_source(&entry)? {
+    if let Some((source, maybe_sha1_hex)) = parse_source(entry)? {
         if let Some(sha1_hex) = maybe_sha1_hex {
             integrity = integrity.concat(Integrity::from_hex(sha1_hex, ssri::Sha1)?);
         }

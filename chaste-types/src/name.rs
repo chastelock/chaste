@@ -175,7 +175,7 @@ impl PackageName {
         })
     }
 
-    pub fn as_borrowed<'a>(&'a self) -> PackageNameBorrowed<'a> {
+    pub fn as_borrowed(&self) -> PackageNameBorrowed<'_> {
         PackageNameBorrowed {
             inner: &self.inner,
             positions: &self.positions,
@@ -225,7 +225,7 @@ impl AsRef<str> for PackageName {
 }
 impl AsRef<str> for PackageNameBorrowed<'_> {
     fn as_ref(&self) -> &str {
-        &self.inner
+        self.inner
     }
 }
 impl PartialOrd for PackageName {
@@ -235,7 +235,7 @@ impl PartialOrd for PackageName {
 }
 impl PartialOrd for PackageNameBorrowed<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.inner.cmp(&other.inner))
+        Some(self.inner.cmp(other.inner))
     }
 }
 impl Ord for PackageName {
@@ -245,7 +245,7 @@ impl Ord for PackageName {
 }
 impl Ord for PackageNameBorrowed<'_> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.inner.cmp(&other.inner)
+        self.inner.cmp(other.inner)
     }
 }
 

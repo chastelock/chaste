@@ -44,10 +44,10 @@ fn npm(input: &str) -> Option<SourceVersionDescriptorPositions> {
             let (input, _) = tag("@")(input)?;
             Ok((input, alias_package_name))
         }),
-        |input| {
+        |input: &str| {
             // "" is a valid version specifier, but Range does not accept it.
             // Override it to a working equivalent.
-            let range = nodejs_semver::Range::parse(if input == "" { "*" } else { input })
+            let range = nodejs_semver::Range::parse(if input.is_empty() { "*" } else { input })
                 .map_err(|_| nom::Err::Error(()))?;
             Ok(("", range))
         },
@@ -101,7 +101,7 @@ fn ssh(input: &str) -> Option<SourceVersionDescriptorPositions> {
         opt(preceded(tag("#"), rest)),
     ))(input)
     .ok()
-    .map(|(_, (prefix, host, port, _sep, url, _spec_suffix))| {
+    .and_then(|(_, (prefix, host, port, _sep, url, _spec_suffix))| {
         if prefix.is_some() || url.ends_with(".git") {
             let prefix_len = prefix
                 .map(|(git_prefix, ssh_prefix)| {
@@ -118,7 +118,6 @@ fn ssh(input: &str) -> Option<SourceVersionDescriptorPositions> {
             None
         }
     })
-    .flatten()
 }
 
 fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
@@ -211,7 +210,7 @@ impl SourceVersionDescriptor {
     ///     "npm:@chastelock/testcase@^2.1.37".to_string()).unwrap();
     /// assert_eq!(svd.aliased_package_name().unwrap(), "@chastelock/testcase");
     /// ```
-    pub fn aliased_package_name<'a>(&'a self) -> Option<PackageNameBorrowed<'a>> {
+    pub fn aliased_package_name(&self) -> Option<PackageNameBorrowed<'_>> {
         match &self.positions {
             SourceVersionDescriptorPositions::Npm {
                 alias_package_name: Some(positions),

@@ -21,7 +21,7 @@ mod error;
 mod parsers;
 mod types;
 
-pub static LOCKFILE_NAME: &'static str = "package-lock.json";
+pub static LOCKFILE_NAME: &str = "package-lock.json";
 
 struct PackageParser<'a> {
     package_lock: &'a PackageLock<'a>,
@@ -29,7 +29,7 @@ struct PackageParser<'a> {
     path_pid: HashMap<&'a Cow<'a, str>, PackageID>,
 }
 
-fn recognize_source<'a>(resolved: &'a Cow<'a, str>) -> Option<PackageSource> {
+fn recognize_source(resolved: &str) -> Option<PackageSource> {
     match resolved {
         // XXX: The registry can be overriden via config. https://docs.npmjs.com/cli/v10/using-npm/config#registry
         // Also per scope (see v3_scope_registry test.)
@@ -42,10 +42,7 @@ fn recognize_source<'a>(resolved: &'a Cow<'a, str>) -> Option<PackageSource> {
     }
 }
 
-fn parse_package<'a>(
-    path: &str,
-    tree_package: &'a DependencyTreePackage,
-) -> Result<PackageBuilder> {
+fn parse_package(path: &str, tree_package: &DependencyTreePackage) -> Result<PackageBuilder> {
     let mut name = tree_package.name.as_ref().map(|s| s.to_string());
     // Most packages don't have it as it's implied by the path.
     // So now we have to unimply it.
@@ -77,12 +74,12 @@ fn find_pid<'a>(
         p => format!("{p}/node_modules/{name}"),
     };
     if let Some(pid) = path_pid.get(&Cow::Borrowed(potential_path.as_str())) {
-        return Ok(pid.clone());
+        return Ok(*pid);
     }
     if let Some((parent_path, _)) = path.rsplit_once('/') {
         return find_pid(parent_path, name, path_pid);
     }
-    if path != "" {
+    if path.is_empty() {
         return find_pid("", name, path_pid);
     }
     Err(Error::DependencyNotFound(name.to_string()))
@@ -114,12 +111,12 @@ fn parse_dependencies<'a>(
         dependencies.push(dep.build());
     }
     for (n, svd) in tree_package.peer_dependencies.iter() {
-        let is_optional = match tree_package.peer_dependencies_meta.get(n) {
+        let is_optional = matches!(
+            tree_package.peer_dependencies_meta.get(n),
             Some(PeerDependencyMeta {
                 optional: Some(true),
-            }) => true,
-            _ => false,
-        };
+            })
+        );
         match find_pid(path, n, path_pid) {
             Ok(pid) => {
                 let mut dep = DependencyBuilder::new(
@@ -183,7 +180,7 @@ impl<'a> PackageParser<'a> {
             }
         }
         for (package_path, tree_package) in self.package_lock.packages.iter() {
-            let pid = self.path_pid.get(package_path).unwrap().clone();
+            let pid = *self.path_pid.get(package_path).unwrap();
             let dependencies = parse_dependencies(package_path, tree_package, &self.path_pid, pid)?;
             self.chastefile_builder
                 .add_dependencies(dependencies.into_iter());
