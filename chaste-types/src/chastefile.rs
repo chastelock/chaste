@@ -147,10 +147,13 @@ impl ChastefileBuilder {
         pid
     }
 
-    pub fn add_package(&mut self, package: Package) -> PackageID {
+    pub fn add_package(&mut self, package: Package) -> Result<PackageID> {
+        if let Some((original_pid, _)) = self.packages.iter().find(|(_, p)| *p == &package) {
+            return Err(Error::DuplicatePackage(*original_pid));
+        }
         let pid = self.new_pid();
         self.packages.insert(pid, package);
-        pid
+        Ok(pid)
     }
 
     pub fn add_package_installation(&mut self, installation: Installation) {

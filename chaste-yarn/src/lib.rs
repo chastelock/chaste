@@ -159,7 +159,7 @@ fn resolve<'a>(
             .transpose()?,
         package_json.version.as_ref().map(|s| s.to_string()),
     );
-    let root_pid = chastefile_builder.add_package(root_package.build()?);
+    let root_pid = chastefile_builder.add_package(root_package.build()?)?;
     chastefile_builder.set_root_package_id(root_pid)?;
     let root_install = InstallationBuilder::new(root_pid, "".to_string()).build()?;
     chastefile_builder.add_package_installation(root_install);
@@ -167,7 +167,7 @@ fn resolve<'a>(
     // Now, add everything else.
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let pkg = parse_package(entry)?;
-        let pid = chastefile_builder.add_package(pkg.build()?);
+        let pid = chastefile_builder.add_package(pkg.build()?)?;
         index_to_pid.insert(index, pid);
     }
 

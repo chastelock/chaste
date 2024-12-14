@@ -170,7 +170,7 @@ impl<'a> PackageParser<'a> {
             if package_path == "" && package.get_name().is_none() {
                 package.name(Some(PackageName::new(self.package_lock.name.to_string())?));
             }
-            let pid = self.chastefile_builder.add_package(package.build()?);
+            let pid = self.chastefile_builder.add_package(package.build()?)?;
             self.path_pid.insert(package_path, pid);
             let installation = InstallationBuilder::new(pid, package_path.to_string()).build()?;
             self.chastefile_builder
