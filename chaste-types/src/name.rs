@@ -3,8 +3,14 @@
 
 use std::{cmp, fmt};
 
-use crate::error::{PackageNameError, Result};
+use nom::bytes::complete::{tag, take_while1};
+use nom::combinator::{eof, opt, verify};
+use nom::sequence::{preceded, terminated, tuple};
+use nom::IResult;
+
+use crate::error::Result;
 use crate::misc::partial_eq_field;
+use crate::Error;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct PackageNamePositions {
@@ -12,97 +18,39 @@ pub(crate) struct PackageNamePositions {
     pub(crate) total_length: usize,
 }
 
-impl PackageNamePositions {
-    pub(crate) fn parse_remaining(
-        input: &str,
-        allow_remaining: bool,
-    ) -> Result<(&str, Self), PackageNameError> {
-        let mut chars = input.chars().enumerate().peekable();
-        let mut scope_end = None;
-        if let Some((0, '@')) = chars.peek() {
-            let scope_at = chars.next();
-            debug_assert_eq!(scope_at, Some((0, '@')));
-            match chars.next().ok_or(PackageNameError::UnexpectedEnd {
-                #[cfg(feature = "miette")]
-                at: (1, 0).into(),
-            })? {
-                (_, 'a'..='z' | '0'..='9') => {}
-                #[allow(unused_variables)]
-                (pos, char) => {
-                    return Err(PackageNameError::InvalidCharacter {
-                        char: char,
-                        #[cfg(feature = "miette")]
-                        at: (pos, 1).into(),
-                    });
-                }
-            }
-            while let Some((pos, char)) = chars.next() {
-                match char {
-                    'a'..='z' | '0'..='9' | '.' | '-' | '_' => {}
-                    '/' => {
-                        scope_end = Some(pos);
-                        break;
-                    }
-                    // TODO
-                    _ => {
-                        return Err(PackageNameError::InvalidCharacter {
-                            char: char,
-                            #[cfg(feature = "miette")]
-                            at: (pos, 1).into(),
-                        });
-                    }
-                }
-            }
-        }
-        match chars.next().ok_or(PackageNameError::UnexpectedEnd {
-            #[cfg(feature = "miette")]
-            at: (input.len(), 0).into(),
-        })? {
-            (_, 'a'..='z' | '0'..='9') => {}
-            #[allow(unused_variables)]
-            (pos, char) => {
-                return Err(PackageNameError::InvalidCharacter {
-                    char,
-                    #[cfg(feature = "miette")]
-                    at: (pos, 1).into(),
-                });
-            }
-        }
-        #[allow(unused_variables)]
-        while let Some((pos, char)) = chars.next() {
-            match char {
-                'a'..='z' | '0'..='9' | '.' | '-' | '_' => {}
-                _ if allow_remaining => {
-                    return Ok((
-                        &input[pos..],
-                        PackageNamePositions {
-                            scope_end,
-                            total_length: pos,
-                        },
-                    ))
-                }
-                // TODO
-                _ => {
-                    return Err(PackageNameError::InvalidCharacter {
-                        char: char,
-                        #[cfg(feature = "miette")]
-                        at: (pos, 1).into(),
-                    });
-                }
-            }
-        }
+fn package_name_part(input: &str) -> IResult<&str, &str> {
+    verify(
+        take_while1(|c: char| {
+            c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
+        }),
+        |scope: &str| !scope.starts_with("."),
+    )(input)
+}
 
-        Ok((
-            "",
+pub(crate) fn package_name(
+    input: &str,
+) -> IResult<&str, PackageNamePositions, nom::error::Error<&str>> {
+    tuple((
+        opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
+        package_name_part,
+    ))(input)
+    .map(|(inp, (scope, rest))| {
+        let scope_end = scope.map(|s| s.len() + 1);
+        (
+            inp,
             PackageNamePositions {
                 scope_end,
-                total_length: input.len(),
+                total_length: scope_end.map(|e| e + 1).unwrap_or(0) + rest.len(),
             },
-        ))
-    }
+        )
+    })
+}
 
-    fn parse(input: &str) -> Result<Self, PackageNameError> {
-        Self::parse_remaining(input, false).map(|(_, pos)| pos)
+impl PackageNamePositions {
+    fn parse(input: &str) -> Result<Self> {
+        terminated(package_name, eof)(input)
+            .map(|(_, pos)| pos)
+            .map_err(|_| crate::Error::InvalidPackageName(input.to_string()))
     }
 
     /// "@scope" in "@scope/name"
@@ -168,7 +116,7 @@ macro_rules! required_segment {
 }
 
 impl PackageName {
-    pub fn new(name: String) -> Result<Self, PackageNameError> {
+    pub fn new(name: String) -> Result<Self> {
         Ok(Self {
             positions: PackageNamePositions::parse(&name)?,
             inner: name,
@@ -196,7 +144,7 @@ impl<'a> PackageNameBorrowed<'a> {
 }
 
 impl TryFrom<String> for PackageName {
-    type Error = PackageNameError;
+    type Error = Error;
 
     fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
         PackageName::new(value)
@@ -251,7 +199,7 @@ impl Ord for PackageNameBorrowed<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::PackageNameError;
+    use crate::error::Error;
 
     use super::PackageName;
 
@@ -276,93 +224,23 @@ mod tests {
     #[test]
     fn test_invalid_names() {
         macro_rules! assert_name_error {
-            ($name:expr, $err:expr) => {
-                assert_eq!(PackageName::new($name.to_string()), Err($err));
+            ($name:expr) => {
+                assert_eq!(
+                    PackageName::new($name.to_string()),
+                    Err(Error::InvalidPackageName($name.to_string()))
+                );
             };
         }
-        assert_name_error!(
-            "",
-            PackageNameError::UnexpectedEnd {
-                #[cfg(feature = "miette")]
-                at: (0, 0).into(),
-            }
-        );
-        assert_name_error!(
-            "ą",
-            PackageNameError::InvalidCharacter {
-                char: 'ą',
-                #[cfg(feature = "miette")]
-                at: (0, 1).into(),
-            }
-        );
-        assert_name_error!(
-            ".bin",
-            PackageNameError::InvalidCharacter {
-                char: '.',
-                #[cfg(feature = "miette")]
-                at: (0, 1).into(),
-            }
-        );
-        assert_name_error!(
-            "a/",
-            PackageNameError::InvalidCharacter {
-                char: '/',
-                #[cfg(feature = "miette")]
-                at: (1, 1).into(),
-            }
-        );
-        assert_name_error!(
-            "a@a/a",
-            PackageNameError::InvalidCharacter {
-                char: '@',
-                #[cfg(feature = "miette")]
-                at: (1, 1).into(),
-            }
-        );
-        assert_name_error!(
-            "@",
-            PackageNameError::UnexpectedEnd {
-                #[cfg(feature = "miette")]
-                at: (1, 0).into(),
-            }
-        );
-        assert_name_error!(
-            "@a",
-            PackageNameError::UnexpectedEnd {
-                #[cfg(feature = "miette")]
-                at: (2, 0).into(),
-            }
-        );
-        assert_name_error!(
-            "@a/",
-            PackageNameError::UnexpectedEnd {
-                #[cfg(feature = "miette")]
-                at: (3, 0).into(),
-            }
-        );
-        assert_name_error!(
-            "/",
-            PackageNameError::InvalidCharacter {
-                char: '/',
-                #[cfg(feature = "miette")]
-                at: (0, 1).into(),
-            }
-        );
-        assert_name_error!(
-            "@/a",
-            PackageNameError::InvalidCharacter {
-                char: '/',
-                #[cfg(feature = "miette")]
-                at: (1, 1).into(),
-            }
-        );
-        assert_name_error!(
-            "@/",
-            PackageNameError::InvalidCharacter {
-                char: '/',
-                #[cfg(feature = "miette")]
-                at: (1, 1).into(),
-            }
-        );
+        assert_name_error!("");
+        assert_name_error!("ą");
+        assert_name_error!(".bin");
+        assert_name_error!("a/");
+        assert_name_error!("a@a/a");
+        assert_name_error!("@");
+        assert_name_error!("@a");
+        assert_name_error!("@a/");
+        assert_name_error!("/");
+        assert_name_error!("@/a");
+        assert_name_error!("@/");
     }
 }

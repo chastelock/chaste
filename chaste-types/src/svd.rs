@@ -4,11 +4,11 @@
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::digit1;
-use nom::combinator::{eof, opt, recognize, rest, verify};
-use nom::sequence::{pair, preceded, tuple};
+use nom::combinator::{eof, map_res, opt, recognize, rest, verify};
+use nom::sequence::{pair, preceded, terminated, tuple};
 
 use crate::error::{Result, SVDError};
-use crate::name::{PackageNameBorrowed, PackageNamePositions};
+use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
 
 /// Source/version descriptor. It is a constraint defined by a specific [`crate::Dependency`]
 /// rather than by a [`crate::PackageSource`].
@@ -37,30 +37,18 @@ enum SourceVersionDescriptorPositions {
 fn npm(input: &str) -> Option<SourceVersionDescriptorPositions> {
     tuple((
         opt(tag("npm:")),
-        opt(|input| {
-            let (input, alias_package_name) = PackageNamePositions::parse_remaining(input, true)
-                .map(|(i, p)| (i, Some(p)))
-                .unwrap_or((input, None));
-            let (input, _) = tag("@")(input)?;
-            Ok((input, alias_package_name))
+        opt(terminated(package_name, tag("@"))),
+        map_res(rest, |input: &str| {
+            nodejs_semver::Range::parse(if input.is_empty() { "*" } else { input })
         }),
-        |input: &str| {
-            // "" is a valid version specifier, but Range does not accept it.
-            // Override it to a working equivalent.
-            let range = nodejs_semver::Range::parse(if input.is_empty() { "*" } else { input })
-                .map_err(|_| nom::Err::Error(()))?;
-            Ok(("", range))
-        },
-        eof,
     ))(input)
     .ok()
-    .map(|(_, (type_prefix, alias_package_name, _range, _))| {
-        let alias_package_name = alias_package_name.flatten();
-        SourceVersionDescriptorPositions::Npm {
+    .map(
+        |(_, (type_prefix, alias_package_name, _range))| SourceVersionDescriptorPositions::Npm {
             type_prefix_end: type_prefix.map(|p| p.len()).unwrap_or(0),
             alias_package_name,
-        }
-    })
+        },
+    )
 }
 
 fn url(input: &str) -> Option<SourceVersionDescriptorPositions> {

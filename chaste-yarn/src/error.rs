@@ -21,9 +21,6 @@ pub enum Error {
     ChasteError(#[from] chaste_types::Error),
 
     #[error(transparent)]
-    PackageNameError(#[from] chaste_types::error::PackageNameError),
-
-    #[error(transparent)]
     SVDError(#[from] chaste_types::error::SVDError),
 
     #[error("I/O error: {0:?}")]
