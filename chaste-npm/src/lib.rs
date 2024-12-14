@@ -79,7 +79,7 @@ fn find_pid<'a>(
     if let Some((parent_path, _)) = path.rsplit_once('/') {
         return find_pid(parent_path, name, path_pid);
     }
-    if path.is_empty() {
+    if !path.is_empty() {
         return find_pid("", name, path_pid);
     }
     Err(Error::DependencyNotFound(name.to_string()))
