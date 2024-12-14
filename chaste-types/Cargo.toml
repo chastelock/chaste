@@ -17,7 +17,3 @@ nodejs-semver.workspace = true
 nom.workspace = true
 ssri.workspace = true
 thiserror.workspace = true
-
-[dependencies.miette]
-workspace = true
-optional = true
