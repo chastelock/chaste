@@ -132,8 +132,21 @@ pub struct PackageName {
     positions: PackageNamePositions,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct PackageNameBorrowed<'a> {
+    pub(crate) inner: &'a str,
+    pub(crate) positions: &'a PackageNamePositions,
+}
+
 partial_eq_field!(PackageName, inner, String);
 partial_eq_field!(PackageName, inner, &str);
+partial_eq_field!(PackageNameBorrowed<'_>, inner, String);
+
+impl PartialEq<&str> for PackageNameBorrowed<'_> {
+    fn eq(&self, other: &&str) -> bool {
+        self.inner.eq(*other)
+    }
+}
 
 macro_rules! option_segment {
     ($name:ident) => {
@@ -162,6 +175,20 @@ impl PackageName {
         })
     }
 
+    pub fn as_borrowed<'a>(&'a self) -> PackageNameBorrowed<'a> {
+        PackageNameBorrowed {
+            inner: &self.inner,
+            positions: &self.positions,
+        }
+    }
+
+    option_segment!(scope);
+    option_segment!(scope_prefix);
+    option_segment!(scope_name);
+    required_segment!(name_rest);
+}
+
+impl<'a> PackageNameBorrowed<'a> {
     option_segment!(scope);
     option_segment!(scope_prefix);
     option_segment!(scope_name);
@@ -186,7 +213,17 @@ impl fmt::Display for PackageName {
         self.inner.fmt(f)
     }
 }
+impl fmt::Display for PackageNameBorrowed<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
 impl AsRef<str> for PackageName {
+    fn as_ref(&self) -> &str {
+        &self.inner
+    }
+}
+impl AsRef<str> for PackageNameBorrowed<'_> {
     fn as_ref(&self) -> &str {
         &self.inner
     }
@@ -196,7 +233,17 @@ impl PartialOrd for PackageName {
         Some(self.inner.cmp(&other.inner))
     }
 }
+impl PartialOrd for PackageNameBorrowed<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.inner.cmp(&other.inner))
+    }
+}
 impl Ord for PackageName {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.inner.cmp(&other.inner)
+    }
+}
+impl Ord for PackageNameBorrowed<'_> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.inner.cmp(&other.inner)
     }

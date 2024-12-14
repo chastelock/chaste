@@ -8,7 +8,7 @@ use nom::combinator::{eof, opt, recognize, rest, verify};
 use nom::sequence::{pair, preceded, tuple};
 
 use crate::error::{Result, SVDError};
-use crate::name::PackageNamePositions;
+use crate::name::{PackageNameBorrowed, PackageNamePositions};
 
 /// Source/version descriptor. It is a constraint defined by a specific [`crate::Dependency`]
 /// rather than by a [`crate::PackageSource`].
@@ -209,12 +209,22 @@ impl SourceVersionDescriptor {
     /// # use chaste_types::SourceVersionDescriptor;
     /// let svd = SourceVersionDescriptor::new(
     ///     "npm:@chastelock/testcase@^2.1.37".to_string()).unwrap();
-    /// assert_eq!(svd.aliased_package_name(), Some("@chastelock/testcase"));
+    /// assert_eq!(svd.aliased_package_name().unwrap(), "@chastelock/testcase");
     /// ```
-    pub fn aliased_package_name(&self) -> Option<&str> {
-        self.positions
-            .aliased_package_name()
-            .map(|(start, end)| &self.inner[start..end])
+    pub fn aliased_package_name<'a>(&'a self) -> Option<PackageNameBorrowed<'a>> {
+        match &self.positions {
+            SourceVersionDescriptorPositions::Npm {
+                alias_package_name: Some(positions),
+                ..
+            } => {
+                let (start, end) = self.positions.aliased_package_name().unwrap();
+                Some(PackageNameBorrowed {
+                    inner: &self.inner[start..end],
+                    positions,
+                })
+            }
+            _ => None,
+        }
     }
 
     pub fn ssh_path_sep(&self) -> Option<&str> {
@@ -270,7 +280,7 @@ mod tests {
     fn npm_svd_alias() -> Result<()> {
         let svd = SourceVersionDescriptor::new("npm:chazzwazzer@*".to_string())?;
         assert!(svd.is_npm());
-        assert_eq!(svd.aliased_package_name(), Some("chazzwazzer"));
+        assert_eq!(svd.aliased_package_name().unwrap(), "chazzwazzer");
         Ok(())
     }
 
@@ -278,7 +288,7 @@ mod tests {
     fn npm_svd_alias_scoped() -> Result<()> {
         let svd = SourceVersionDescriptor::new("@chastelock/testcase@1.0.x".to_string())?;
         assert!(svd.is_npm());
-        assert_eq!(svd.aliased_package_name(), Some("@chastelock/testcase"));
+        assert_eq!(svd.aliased_package_name().unwrap(), "@chastelock/testcase");
         Ok(())
     }
 
