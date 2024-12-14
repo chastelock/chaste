@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2024 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "chaste-pnpm"
+description = "Parser for pnpm lockfiles"
+edition = "2021"
+keywords = ["lockfile", "pnpm"]
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+
+[dependencies]
+chaste-types.workspace = true
+thiserror.workspace = true

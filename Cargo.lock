@@ -57,6 +57,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "chaste-pnpm"
+version = "0.1.0"
+dependencies = [
+ "chaste-types",
+ "thiserror 2.0.4",
+]
+
+[[package]]
 name = "chaste-types"
 version = "0.1.0"
 dependencies = [

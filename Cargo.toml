@@ -3,7 +3,7 @@
 
 [workspace]
 resolver = "2"
-members = ["chaste", "chaste-npm", "chaste-types", "chaste-yarn"]
+members = ["chaste", "chaste-npm", "chaste-pnpm", "chaste-types", "chaste-yarn"]
 
 [workspace.package]
 version = "0.1.0"
