@@ -23,7 +23,7 @@ fn package_name_part(input: &str) -> IResult<&str, &str> {
         take_while1(|c: char| {
             c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
         }),
-        |scope: &str| !scope.starts_with("."),
+        |part: &str| !part.starts_with("."),
     )(input)
 }
 
@@ -32,7 +32,9 @@ pub(crate) fn package_name(
 ) -> IResult<&str, PackageNamePositions, nom::error::Error<&str>> {
     tuple((
         opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
-        package_name_part,
+        verify(package_name_part, |part: &str| {
+            part != "node_modules" && part != "favicon.ico"
+        }),
     ))(input)
     .map(|(inp, (scope, rest))| {
         let scope_end = scope.map(|s| s.len() + 1);
@@ -242,5 +244,7 @@ mod tests {
         assert_name_error!("/");
         assert_name_error!("@/a");
         assert_name_error!("@/");
+        assert_name_error!("@chastelock/node_modules");
+        assert_name_error!("node_modules");
     }
 }
