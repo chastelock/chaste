@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2024 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "chaste-cli"
+edition = "2021"
+description = "Parser for npmjs lockfiles (cli)"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+
+[dependencies]
