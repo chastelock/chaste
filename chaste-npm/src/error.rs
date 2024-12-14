@@ -13,6 +13,9 @@ pub enum Error {
     #[error("Dependency {0:?} not found")]
     DependencyNotFound(String),
 
+    #[error("Workspace member {0:?} not found")]
+    WorkspaceMemberNotFound(String),
+
     #[error("Unknown lockfile version: {0}")]
     UnknownLockVersion(u8),
 

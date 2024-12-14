@@ -165,7 +165,14 @@ impl<'a> PackageParser<'a> {
     }
 
     fn resolve(mut self) -> Result<Chastefile> {
-        for (package_path, tree_package) in self.package_lock.packages.iter() {
+        // First, go through all packages, but ignore entries that say to link to another package.
+        // We have to do that before we can resolve the links to their respective packages.
+        for (package_path, tree_package) in self
+            .package_lock
+            .packages
+            .iter()
+            .filter(|(_, tp)| tp.link != Some(true))
+        {
             let mut package = parse_package(package_path, tree_package)?;
             if package_path == "" && package.get_name().is_none() {
                 package.name(Some(PackageName::new(self.package_lock.name.to_string())?));
@@ -179,7 +186,29 @@ impl<'a> PackageParser<'a> {
                 self.chastefile_builder.set_root_package_id(pid)?;
             }
         }
-        for (package_path, tree_package) in self.package_lock.packages.iter() {
+        // Resolve the links.
+        for (package_path, tree_package) in self
+            .package_lock
+            .packages
+            .iter()
+            .filter(|(_, tp)| tp.link == Some(true))
+        {
+            let Some(member_path) = &tree_package.resolved else {
+                return Err(Error::WorkspaceMemberNotFound(package_path.to_string()));
+            };
+            let pid = *self.path_pid.get(member_path).unwrap();
+            self.path_pid.insert(package_path, pid);
+            let installation = InstallationBuilder::new(pid, package_path.to_string()).build()?;
+            self.chastefile_builder
+                .add_package_installation(installation);
+        }
+        // Now, resolve package dependencies.
+        for (package_path, tree_package) in self
+            .package_lock
+            .packages
+            .iter()
+            .filter(|(_, tp)| tp.link != Some(true))
+        {
             let pid = *self.path_pid.get(package_path).unwrap();
             let dependencies = parse_dependencies(package_path, tree_package, &self.path_pid, pid)?;
             self.chastefile_builder
@@ -221,7 +250,7 @@ pub fn from_str(v: &str) -> Result<Chastefile> {
 mod tests {
     use std::fs;
 
-    use chaste_types::{Chastefile, PackageSourceType};
+    use chaste_types::{Chastefile, Package, PackageID, PackageSourceType};
 
     use super::{from_str, Result};
 
@@ -307,6 +336,33 @@ mod tests {
         assert_eq!(empty_pkg.integrity().hashes.len(), 1);
         // TODO: recognize custom npm registry.
         assert_eq!(empty_pkg.source_type(), None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn v3_workspace_basic() -> Result<()> {
+        let chastefile = test_workspace("v3_workspace_basic")?;
+        assert_eq!(chastefile.packages().len(), 4);
+        let [(balls_pid, _balls_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "@chastelock/balls"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        let balls_installations = chastefile.package_installations(balls_pid);
+        assert_eq!(balls_installations.len(), 2);
+        let mut balls_install_paths = balls_installations
+            .iter()
+            .map(|i| i.path())
+            .collect::<Vec<&str>>();
+        balls_install_paths.sort_unstable();
+        assert_eq!(
+            balls_install_paths,
+            ["balls", "node_modules/@chastelock/balls"]
+        );
 
         Ok(())
     }

@@ -12,6 +12,7 @@ pub(crate) struct DependencyTreePackage<'a> {
     pub(crate) name: Option<Cow<'a, str>>,
     pub(crate) version: Option<Cow<'a, str>>,
     pub(crate) resolved: Option<Cow<'a, str>>,
+    pub(crate) link: Option<bool>,
     pub(crate) integrity: Option<Cow<'a, str>>,
     #[serde(default)]
     pub(crate) dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
