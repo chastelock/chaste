@@ -7,7 +7,7 @@ use nom::character::complete::digit1;
 use nom::combinator::{eof, map_res, opt, recognize, rest, verify};
 use nom::sequence::{pair, preceded, terminated, tuple};
 
-use crate::error::{Result, SVDError};
+use crate::error::{Error, Result};
 use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
 
 /// Source/version descriptor. It is a constraint defined by a specific [`crate::Dependency`]
@@ -128,16 +128,16 @@ fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
 }
 
 impl SourceVersionDescriptorPositions {
-    fn parse(svd: &str) -> Result<Self, SVDError> {
+    fn parse(svd: &str) -> Result<Self> {
         npm(svd)
             .or_else(|| url(svd))
             .or_else(|| github(svd))
             .or_else(|| ssh(svd))
-            .ok_or_else(|| SVDError::UnrecognizedType(svd.to_string()))
+            .ok_or_else(|| Error::InvalidSVD(svd.to_string()))
     }
 }
 impl SourceVersionDescriptor {
-    pub fn new(svd: String) -> Result<Self, SVDError> {
+    pub fn new(svd: String) -> Result<Self> {
         Ok(Self {
             positions: SourceVersionDescriptorPositions::parse(&svd)?,
             inner: svd,

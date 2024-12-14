@@ -13,17 +13,11 @@ pub enum Error {
     #[error("Invalid package name: {0:?}")]
     InvalidPackageName(String),
 
+    #[error("Invalid source/version descriptor: {0:?}")]
+    InvalidSVD(String),
+
     #[error("Semver error: {0:?}")]
     SemverError(#[from] SemverError),
-
-    #[error("Invalid source/version descriptor: {0:?}")]
-    SVDError(#[from] SVDError),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
-
-#[derive(Debug, Error, PartialEq)]
-pub enum SVDError {
-    #[error("Unrecognized source/version descriptor type: {0:?}")]
-    UnrecognizedType(String),
-}
