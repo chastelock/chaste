@@ -185,6 +185,12 @@ impl<'a> PackageParser<'a> {
                 .add_package_installation(installation);
             if package_path == "" {
                 self.chastefile_builder.set_root_package_id(pid)?;
+
+            // XXX: This is hacky
+            } else if !package_path.starts_with("node_modules/")
+                && !package_path.contains("/node_modules/")
+            {
+                self.chastefile_builder.set_as_workspace_member(pid)?;
             }
         }
         // Resolve the links.
@@ -346,6 +352,19 @@ mod tests {
         else {
             panic!();
         };
+        let [(ligma_pid, _ligma_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "ligma-api"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        let workspace_member_ids = chastefile.workspace_member_ids();
+        assert_eq!(workspace_member_ids.len(), 2);
+        assert!(
+            workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid)
+        );
         let balls_installations = chastefile.package_installations(balls_pid);
         assert_eq!(balls_installations.len(), 2);
         let mut balls_install_paths = balls_installations

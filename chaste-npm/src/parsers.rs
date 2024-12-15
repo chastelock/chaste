@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use chaste_types::PackageName;
 use logos::{skip, Logos};
 use thiserror::Error;
 
@@ -27,6 +28,7 @@ pub(crate) enum PathToken {
     Segment,
 }
 
+// TODO: Replace this when https://codeberg.org/selfisekai/chaste/issues/11 is done.
 pub(crate) fn package_name_from_path(path: &str) -> Result<Option<&str>> {
     let path_tokens = PathToken::lexer(path)
         .spanned()
@@ -42,6 +44,10 @@ pub(crate) fn package_name_from_path(path: &str) -> Result<Option<&str>> {
             (_, logos::Span { end, .. }) = path_tokens[nm_index + 2];
         }
         Ok(Some(&path[start..end]))
+
+    // This is an edge case found via v1_workspace_basic.
+    } else if PackageName::new(path.to_string()).is_ok() {
+        Ok(Some(path))
     } else {
         Ok(None)
     }
