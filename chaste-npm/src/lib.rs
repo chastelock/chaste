@@ -298,6 +298,7 @@ mod tests {
         let minimatch = chastefile.package(minimatch_dep.on);
         assert_eq!(minimatch.name().unwrap(), "minimatch");
         assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
+        assert_eq!(minimatch.integrity().hashes.len(), 0);
 
         Ok(())
     }
@@ -314,6 +315,7 @@ mod tests {
         let minimatch = chastefile.package(minimatch_dep.on);
         assert_eq!(minimatch.name().unwrap(), "minimatch");
         assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
+        assert_eq!(minimatch.integrity().hashes.len(), 0);
 
         Ok(())
     }

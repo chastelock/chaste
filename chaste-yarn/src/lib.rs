@@ -285,6 +285,7 @@ mod tests {
         assert_eq!(semver.name().unwrap(), "node-semver");
         assert_eq!(semver.version().unwrap().to_string(), "7.6.3");
         assert_eq!(semver.source_type(), Some(PackageSourceType::Git));
+        assert_eq!(semver.integrity().hashes.len(), 0);
         Ok(())
     }
 
@@ -303,6 +304,7 @@ mod tests {
         assert_eq!(minimatch.name().unwrap(), "minimatch");
         assert_eq!(minimatch.version().unwrap().to_string(), "10.0.1");
         assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
+        assert_eq!(minimatch.integrity().hashes.len(), 0);
         Ok(())
     }
 

@@ -92,7 +92,9 @@ impl PackageBuilder {
         Ok(Package {
             name: self.name,
             version: self.version.map(PackageVersion::parse).transpose()?,
-            integrity: self.integrity.unwrap_or_else(|| Integrity::from("")),
+            integrity: self
+                .integrity
+                .unwrap_or_else(|| Integrity { hashes: Vec::new() }),
             source: self.source,
         })
     }
