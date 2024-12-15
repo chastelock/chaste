@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use std::{fs, path::Path};
+use std::path::Path;
 
 #[cfg(feature = "npm")]
 pub use chaste_npm as npm;
@@ -21,15 +21,12 @@ where
     let root_path = root_path.as_ref();
     let npm_lock = root_path.join(npm::LOCKFILE_NAME);
     if npm_lock.exists() {
-        return Ok(npm::from_str(&fs::read_to_string(npm_lock)?)?);
+        return Ok(npm::parse(root_path)?);
     }
 
     let yarn_lock = root_path.join(yarn::LOCKFILE_NAME);
     if yarn_lock.exists() {
-        return Ok(yarn::from_str(
-            &fs::read_to_string(root_path.join("package.json"))?,
-            &fs::read_to_string(yarn_lock)?,
-        )?);
+        return Ok(yarn::parse(root_path)?);
     }
 
     Err(Error::NoLockfile)

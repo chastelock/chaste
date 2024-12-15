@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 use std::collections::HashMap;
-use std::str;
+use std::path::Path;
+use std::{fs, str};
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
     Integrity, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
-    SourceVersionDescriptor,
+    SourceVersionDescriptor, PACKAGE_JSON_FILENAME,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
@@ -219,23 +220,25 @@ fn resolve<'a>(
     Ok(chastefile_builder.build()?)
 }
 
-pub fn from_str(package_json_contents: &str, yarn_lock_contents: &str) -> Result<Chastefile> {
-    let package_json: PackageJson = serde_json::from_str(package_json_contents)?;
-    let yarn_lock = yarn::parse_str(yarn_lock_contents)?;
+pub fn parse<P>(root_dir: P) -> Result<Chastefile>
+where
+    P: AsRef<Path>,
+{
+    let package_contents = fs::read_to_string(root_dir.as_ref().join(PACKAGE_JSON_FILENAME))?;
+    let lockfile_contents = fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?;
+    let package_json: PackageJson = serde_json::from_str(&package_contents)?;
+    let yarn_lock: yarn::Lockfile = yarn::parse_str(&lockfile_contents)?;
     resolve(&package_json, yarn_lock)
-}
-
-pub fn from_slice(pv: &[u8], yv: &[u8]) -> Result<Chastefile> {
-    from_str(str::from_utf8(pv)?, str::from_utf8(yv)?)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::LazyLock;
 
     use chaste_types::{Chastefile, Package, PackageSourceType};
 
-    use super::{from_str, is_github_svd, Result};
+    use super::{is_github_svd, parse, Result};
 
     #[test]
     fn github_cvd() -> Result<()> {
@@ -246,10 +249,10 @@ mod tests {
         Ok(())
     }
 
+    static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test_workspaces"));
+
     fn test_workspace(name: &str) -> Result<Chastefile> {
-        let package_json = fs::read_to_string(format!("test_workspaces/{name}/package.json"))?;
-        let yarn_lock = fs::read_to_string(format!("test_workspaces/{name}/yarn.lock"))?;
-        from_str(&package_json, &yarn_lock)
+        parse(TEST_WORKSPACES.join(name))
     }
 
     #[test]

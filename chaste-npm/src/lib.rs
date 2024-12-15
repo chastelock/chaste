@@ -3,7 +3,8 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::io;
+use std::fs;
+use std::path::Path;
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
@@ -227,37 +228,28 @@ fn parse_lock(package_lock: &PackageLock) -> Result<Chastefile> {
     Ok(chastefile)
 }
 
-/// Discouraged over [from_str] and [from_slice] as it clones all the strings.
-pub fn from_reader<R>(read: R) -> Result<Chastefile>
+pub fn parse<P>(root_dir: P) -> Result<Chastefile>
 where
-    R: io::Read,
+    P: AsRef<Path>,
 {
-    let package_lock: PackageLock = serde_json::from_reader(read)?;
-    parse_lock(&package_lock)
-}
-
-pub fn from_slice(v: &[u8]) -> Result<Chastefile> {
-    let package_lock: PackageLock = serde_json::from_slice(v)?;
-    parse_lock(&package_lock)
-}
-
-pub fn from_str(v: &str) -> Result<Chastefile> {
-    let package_lock: PackageLock = serde_json::from_str(v)?;
+    let lockfile_contents = fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?;
+    let package_lock: PackageLock = serde_json::from_str(&lockfile_contents)?;
     parse_lock(&package_lock)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::LazyLock;
 
     use chaste_types::{Chastefile, Package, PackageID, PackageSourceType};
 
-    use super::{from_str, Result};
+    use super::{parse, Result};
+
+    static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test_workspaces"));
 
     fn test_workspace(name: &str) -> Result<Chastefile> {
-        let package_lock_json =
-            fs::read_to_string(format!("test_workspaces/{name}/package-lock.json"))?;
-        from_str(&package_lock_json)
+        parse(TEST_WORKSPACES.join(name))
     }
 
     #[test]
