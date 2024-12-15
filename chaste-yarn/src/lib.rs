@@ -205,7 +205,7 @@ fn resolve<'a>(yarn_lock: yarn::Lockfile<'a>, root_dir: &Path) -> Result<Chastef
         let member_package = pkg_json_to_package(member_package_json)?;
         let member_pid = chastefile_builder.add_package(member_package)?;
         mpj_idx_to_pid.insert(idx, member_pid);
-        // TODO: mark as workspace member (https://codeberg.org/selfisekai/chaste/issues/6)
+        chastefile_builder.set_as_workspace_member(member_pid)?;
         chastefile_builder.add_package_installation(
             InstallationBuilder::new(member_pid, workspace_path.to_string()).build()?,
         );
@@ -441,14 +441,26 @@ mod tests {
         else {
             panic!();
         };
+        let [(ligma_pid, _ligma_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "ligma-api"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        let workspace_member_ids = chastefile.workspace_member_ids();
+        assert_eq!(workspace_member_ids.len(), 2);
+        assert!(
+            workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid)
+        );
         let balls_installations = chastefile.package_installations(balls_pid);
         // There are 2: where the package is, and a link in "node_modules/{pkg.name}", but the latter is not tracked here yet.
         assert_eq!(balls_installations.len(), 1);
-        let mut balls_install_paths = balls_installations
+        let balls_install_paths = balls_installations
             .iter()
             .map(|i| i.path())
             .collect::<Vec<&str>>();
-        balls_install_paths.sort_unstable();
         assert_eq!(balls_install_paths, ["balls"]);
 
         Ok(())
