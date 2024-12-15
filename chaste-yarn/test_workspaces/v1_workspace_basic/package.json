@@ -1,0 +1,4 @@
+{
+    "private": true,
+    "workspaces": ["ligma-api", "balls"]
+}

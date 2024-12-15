@@ -7,7 +7,7 @@ use std::{fs, str};
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    Integrity, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
+    Integrity, Package, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
     SourceVersionDescriptor, PACKAGE_JSON_FILENAME,
 };
 use nom::branch::alt;
@@ -116,54 +116,100 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     Ok(pkg)
 }
 
-fn find_dep_index<'a, S>(yarn_lock: &'a yarn::Lockfile<'a>, descriptor: &'a (S, S)) -> Result<usize>
+fn find_dep_pid<'a, S>(
+    descriptor: &'a (S, S),
+    yarn_lock: &'a yarn::Lockfile<'a>,
+    index_to_pid: &HashMap<usize, PackageID>,
+    member_package_jsons: &'a [(&str, PackageJson)],
+    mpj_idx_to_pid: &HashMap<usize, PackageID>,
+) -> Result<PackageID>
 where
     S: AsRef<str>,
 {
-    let real_descriptor = (descriptor.0.as_ref(), descriptor.1.as_ref());
-    let Some((dep_index, _)) = yarn_lock
+    let descriptor = (descriptor.0.as_ref(), descriptor.1.as_ref());
+    if let Some((idx, (_, _))) = member_package_jsons
+        .iter()
+        .enumerate()
+        .find(|(_, (_, pj))| pj.name.as_ref().is_some_and(|n| n == descriptor.0))
+    {
+        Ok(*mpj_idx_to_pid.get(&idx).unwrap())
+    } else if let Some((idx, _)) = yarn_lock
         .entries
         .iter()
         .enumerate()
-        .find(|(_, e)| e.descriptors.contains(&real_descriptor))
-    else {
-        return Err(Error::DependencyNotFound(format!(
+        .find(|(_, e)| e.descriptors.contains(&descriptor))
+    {
+        Ok(*index_to_pid.get(&idx).unwrap())
+    } else {
+        Err(Error::DependencyNotFound(format!(
             "{0}@{1}",
-            real_descriptor.0, real_descriptor.1
-        )));
-    };
-    Ok(dep_index)
+            descriptor.0, descriptor.1
+        )))
+    }
 }
 
-fn resolve<'a>(
-    package_json: &'a PackageJson<'a>,
-    yarn_lock: yarn::Lockfile<'a>,
-) -> Result<Chastefile> {
-    if package_json.workspaces.is_some() {
-        return Err(Error::RootHasWorkspaces());
-    }
-    if yarn_lock.version != 1 {
-        return Err(Error::UnknownLockfileVersion(yarn_lock.version));
-    }
-
-    let mut chastefile_builder = ChastefileBuilder::new();
-    let mut index_to_pid: HashMap<usize, PackageID> =
-        HashMap::with_capacity(yarn_lock.entries.len());
-
-    // The funny part of this is that the root package is not checked in.
-    // So we have to parse package.json and add it manually.
-    let root_package = PackageBuilder::new(
+fn pkg_json_to_package<'a>(package_json: &'a PackageJson<'a>) -> Result<Package> {
+    PackageBuilder::new(
         package_json
             .name
             .as_ref()
             .map(|s| PackageName::new(s.to_string()))
             .transpose()?,
         package_json.version.as_ref().map(|s| s.to_string()),
-    );
-    let root_pid = chastefile_builder.add_package(root_package.build()?)?;
+    )
+    .build()
+    .map_err(Error::ChasteError)
+}
+
+fn resolve<'a>(yarn_lock: yarn::Lockfile<'a>, root_dir: &Path) -> Result<Chastefile> {
+    if yarn_lock.version != 1 {
+        return Err(Error::UnknownLockfileVersion(yarn_lock.version));
+    }
+
+    let root_package_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_FILENAME))?;
+    let root_package_json: PackageJson = serde_json::from_str(&root_package_contents)?;
+
+    let mut member_package_jsons: Vec<(&str, PackageJson)> = Vec::new();
+    let mut mpj_idx_to_pid: HashMap<usize, PackageID> = HashMap::new();
+
+    let mut chastefile_builder = ChastefileBuilder::new();
+    let mut index_to_pid: HashMap<usize, PackageID> =
+        HashMap::with_capacity(yarn_lock.entries.len());
+
+    // Oh, workspaces are not checked in either.
+    if let Some(workspaces) = &root_package_json.workspaces {
+        let member_packages = workspaces
+            .iter()
+            .map(|workspace| -> Result<(&str, PackageJson)> {
+                let member_package_json_contents = fs::read_to_string(
+                    root_dir
+                        .join(workspace.as_ref())
+                        .join(PACKAGE_JSON_FILENAME),
+                )?;
+                Ok((
+                    workspace.as_ref(),
+                    serde_json::from_str(&member_package_json_contents)?,
+                ))
+            })
+            .collect::<Result<Vec<(&str, PackageJson)>>>()?;
+        member_package_jsons.extend(member_packages);
+    }
+    // The funny part of this is that the root package is not checked in.
+    // So we have to parse package.json and add it manually.
+    let root_package = pkg_json_to_package(&root_package_json)?;
+    let root_pid = chastefile_builder.add_package(root_package)?;
     chastefile_builder.set_root_package_id(root_pid)?;
     let root_install = InstallationBuilder::new(root_pid, "".to_string()).build()?;
     chastefile_builder.add_package_installation(root_install);
+    for (idx, (workspace_path, member_package_json)) in member_package_jsons.iter().enumerate() {
+        let member_package = pkg_json_to_package(member_package_json)?;
+        let member_pid = chastefile_builder.add_package(member_package)?;
+        mpj_idx_to_pid.insert(idx, member_pid);
+        // TODO: mark as workspace member (https://codeberg.org/selfisekai/chaste/issues/6)
+        chastefile_builder.add_package_installation(
+            InstallationBuilder::new(member_pid, workspace_path.to_string()).build()?,
+        );
+    }
 
     // Now, add everything else.
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
@@ -172,47 +218,77 @@ fn resolve<'a>(
         index_to_pid.insert(index, pid);
     }
 
-    // Now mark dependencies of root package. All by each type.
-    for dep_descriptor in &package_json.dependencies {
-        let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
-        let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        let mut dep = DependencyBuilder::new(DependencyKind::Dependency, root_pid, *dep_pid);
-        dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
-        chastefile_builder.add_dependency(dep.build());
-    }
-    for dep_descriptor in &package_json.dev_dependencies {
-        let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
-        let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        let mut dep = DependencyBuilder::new(DependencyKind::DevDependency, root_pid, *dep_pid);
-        dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
-        chastefile_builder.add_dependency(dep.build());
-    }
-    for dep_descriptor in &package_json.peer_dependencies {
-        let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
-        let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        let mut dep = DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, *dep_pid);
-        dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
-        chastefile_builder.add_dependency(dep.build());
-    }
-    for dep_descriptor in &package_json.optional_dependencies {
-        let dep_index = find_dep_index(&yarn_lock, &dep_descriptor)?;
-        let dep_pid = index_to_pid.get(&dep_index).unwrap();
-        let mut dep =
-            DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, *dep_pid);
-        dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
-        chastefile_builder.add_dependency(dep.build());
+    // Now mark dependencies of the root and workspace members packages. All by each type.
+    for package_json in [&root_package_json]
+        .into_iter()
+        .chain(member_package_jsons.iter().map(|(_, pj)| pj))
+    {
+        for dep_descriptor in &package_json.dependencies {
+            let dep_pid = find_dep_pid(
+                &dep_descriptor,
+                &yarn_lock,
+                &index_to_pid,
+                &member_package_jsons,
+                &mpj_idx_to_pid,
+            )?;
+            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, root_pid, dep_pid);
+            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            chastefile_builder.add_dependency(dep.build());
+        }
+        for dep_descriptor in &package_json.dev_dependencies {
+            let dep_pid = find_dep_pid(
+                &dep_descriptor,
+                &yarn_lock,
+                &index_to_pid,
+                &member_package_jsons,
+                &mpj_idx_to_pid,
+            )?;
+            let mut dep = DependencyBuilder::new(DependencyKind::DevDependency, root_pid, dep_pid);
+            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            chastefile_builder.add_dependency(dep.build());
+        }
+        for dep_descriptor in &package_json.peer_dependencies {
+            let dep_pid = find_dep_pid(
+                &dep_descriptor,
+                &yarn_lock,
+                &index_to_pid,
+                &member_package_jsons,
+                &mpj_idx_to_pid,
+            )?;
+            let mut dep = DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, dep_pid);
+            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            chastefile_builder.add_dependency(dep.build());
+        }
+        for dep_descriptor in &package_json.optional_dependencies {
+            let dep_pid = find_dep_pid(
+                &dep_descriptor,
+                &yarn_lock,
+                &index_to_pid,
+                &member_package_jsons,
+                &mpj_idx_to_pid,
+            )?;
+            let mut dep =
+                DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, dep_pid);
+            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            chastefile_builder.add_dependency(dep.build());
+        }
     }
 
     // Finally, dependencies of dependencies.
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
         for dep_descriptor in &entry.dependencies {
-            let dep_index = find_dep_index(&yarn_lock, dep_descriptor)?;
-            let dep_pid = index_to_pid.get(&dep_index).unwrap();
+            let dep_pid = find_dep_pid(
+                &dep_descriptor,
+                &yarn_lock,
+                &index_to_pid,
+                &member_package_jsons,
+                &mpj_idx_to_pid,
+            )?;
             // devDependencies of non-root packages are not written to the lockfile.
             // It might be peer and/or optional. But in that case, it got added here
             // by root and/or another dependency.
-            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, *dep_pid);
+            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
             dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
             chastefile_builder.add_dependency(dep.build());
         }
@@ -224,11 +300,10 @@ pub fn parse<P>(root_dir: P) -> Result<Chastefile>
 where
     P: AsRef<Path>,
 {
-    let package_contents = fs::read_to_string(root_dir.as_ref().join(PACKAGE_JSON_FILENAME))?;
-    let lockfile_contents = fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?;
-    let package_json: PackageJson = serde_json::from_str(&package_contents)?;
+    let root_dir = root_dir.as_ref();
+    let lockfile_contents = fs::read_to_string(root_dir.join(LOCKFILE_NAME))?;
     let yarn_lock: yarn::Lockfile = yarn::parse_str(&lockfile_contents)?;
-    resolve(&package_json, yarn_lock)
+    resolve(yarn_lock, root_dir)
 }
 
 #[cfg(test)]
@@ -236,7 +311,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::LazyLock;
 
-    use chaste_types::{Chastefile, Package, PackageSourceType};
+    use chaste_types::{Chastefile, Package, PackageID, PackageSourceType};
 
     use super::{is_github_svd, parse, Result};
 
@@ -349,6 +424,32 @@ mod tests {
         assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
         assert_eq!(empty_pkg.integrity().hashes.len(), 2);
         assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::Npm));
+
+        Ok(())
+    }
+
+    #[test]
+    fn v1_workspace_basic() -> Result<()> {
+        let chastefile = test_workspace("v1_workspace_basic")?;
+        dbg!(&chastefile);
+        assert_eq!(chastefile.packages().len(), 4);
+        let [(balls_pid, _balls_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "@chastelock/balls"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        let balls_installations = chastefile.package_installations(balls_pid);
+        // There are 2: where the package is, and a link in "node_modules/{pkg.name}", but the latter is not tracked here yet.
+        assert_eq!(balls_installations.len(), 1);
+        let mut balls_install_paths = balls_installations
+            .iter()
+            .map(|i| i.path())
+            .collect::<Vec<&str>>();
+        balls_install_paths.sort_unstable();
+        assert_eq!(balls_install_paths, ["balls"]);
 
         Ok(())
     }
