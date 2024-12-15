@@ -14,6 +14,7 @@ pub struct Chastefile {
     installations: Vec<Installation>,
     dependencies: Vec<Dependency>,
     root_package_id: PackageID,
+    workspace_members: Vec<PackageID>,
 }
 
 impl<'a> Chastefile {
@@ -112,6 +113,17 @@ impl<'a> Chastefile {
         self.package_prod_dependencies(self.root_package_id)
     }
 
+    pub fn workspace_member_ids(&'a self) -> &'a [PackageID] {
+        &self.workspace_members
+    }
+
+    pub fn workspace_members(&'a self) -> Vec<&'a Package> {
+        self.workspace_members
+            .iter()
+            .map(|pid| self.package(*pid))
+            .collect()
+    }
+
     pub fn package_installations(&'a self, package_id: PackageID) -> Vec<&'a Installation> {
         self.installations
             .iter()
@@ -127,6 +139,7 @@ pub struct ChastefileBuilder {
     installations: Vec<Installation>,
     next_pid: u64,
     root_package_id: Option<PackageID>,
+    workspace_members: Vec<PackageID>,
 }
 
 impl ChastefileBuilder {
@@ -138,6 +151,7 @@ impl ChastefileBuilder {
             installations: Vec::new(),
             next_pid: 0,
             root_package_id: None,
+            workspace_members: Vec::new(),
         }
     }
 
@@ -173,12 +187,18 @@ impl ChastefileBuilder {
         Ok(())
     }
 
+    pub fn set_as_workspace_member(&mut self, member_pid: PackageID) -> Result<()> {
+        self.workspace_members.push(member_pid);
+        Ok(())
+    }
+
     pub fn build(self) -> Result<Chastefile> {
         Ok(Chastefile {
             packages: self.packages,
             dependencies: self.dependencies,
             installations: self.installations,
             root_package_id: self.root_package_id.ok_or(Error::MissingRootPackageID)?,
+            workspace_members: self.workspace_members,
         })
     }
 }
