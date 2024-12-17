@@ -1,0 +1,8 @@
+{
+  "name": "@chastelock/test__git_ssh",
+  "version": "0.0.0",
+  "dependencies": {
+    "node-semver": "ssh://git@github.com/npm/node-semver.git#semver:^7.5.0"
+  },
+  "packageManager": "yarn@2.4.3"
+}
