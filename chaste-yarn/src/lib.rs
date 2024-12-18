@@ -60,7 +60,7 @@ mod tests {
     }
     macro_rules! test_workspaces {
         ($name:ident, $solver:expr) => {
-            test_workspace!([1, 4], $name, $solver);
+            test_workspace!([1, 4, 6], $name, $solver);
         };
     }
 

@@ -1,0 +1,8 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.0.0",
+    "dependencies": {
+        "@a/empty": "0.0.1"
+    },
+    "packageManager": "yarn@3.8.7"
+}
