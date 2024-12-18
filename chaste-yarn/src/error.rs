@@ -11,9 +11,6 @@ pub enum Error {
     #[error("Dependency {0:?} not found")]
     DependencyNotFound(String),
 
-    #[error("The root package uses workspaces. This is not handled yet")]
-    RootHasWorkspaces(),
-
     #[error("Unknown yarn.lock version: {0:?}")]
     UnknownLockfileVersion(u8),
 
