@@ -52,7 +52,10 @@ fn header(input: &str) -> IResult<&str, u32> {
             space1,
             tag("version: "),
         )),
-        terminated(map_res(digit1, |n: &str| n.parse()), newline),
+        terminated(
+            map_res(digit1, |n: &str| n.parse()),
+            tuple((newline, many0(tuple((space1, take_until("\n"), tag("\n")))))),
+        ),
     )(input)
 }
 
