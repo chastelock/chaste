@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2024 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "yarn-state"
+edition = "2021"
+version = "0.1.0"
+description = "Parser for .yarn-state.yml files"
+authors.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+
+[dependencies]
+nom.workspace = true
+thiserror.workspace = true

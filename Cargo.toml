@@ -10,6 +10,7 @@ members = [
     "chaste-pnpm",
     "chaste-types",
     "chaste-yarn",
+    "yarn-state",
 ]
 
 [workspace.package]
@@ -23,6 +24,9 @@ repository = "https://codeberg.org/selfisekai/chaste"
 chaste-npm = { version = "=0.1.0", path = "chaste-npm" }
 chaste-types = { version = "=0.1.0", path = "chaste-types" }
 chaste-yarn = { version = "=0.1.0", path = "chaste-yarn" }
+
+yarn-state = { version = "0.1.0", path = "yarn-state" }
+
 logos = "0.14.2"
 nodejs-semver = "4.1.0"
 nom = "7.1.3"

@@ -17,6 +17,9 @@ pub enum Error {
     #[error("Unknown yarn.lock version: {0:?}")]
     UnknownLockfileVersion(u8),
 
+    #[error(".yarn-state.yml package {0:?} not found")]
+    StatePackageNotFound(String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 
@@ -28,6 +31,9 @@ pub enum Error {
 
     #[error("Yarn parser error: {0:?}")]
     YarnParserError(#[from] yarn_lock_parser::YarnLockError),
+
+    #[error("Yarn state parser error: {0:?}")]
+    YarnStateError(#[from] yarn_state::error::Error),
 
     #[error("SSRI error: {0:?}")]
     SSRIError(#[from] chaste_types::SSRIError),

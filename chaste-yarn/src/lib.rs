@@ -310,13 +310,17 @@ mod tests {
             workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid)
         );
         let balls_installations = chastefile.package_installations(balls_pid);
-        // There are 2: where the package is, and a link in "node_modules/{pkg.name}", but the latter is not tracked here yet.
-        assert_eq!(balls_installations.len(), 1);
-        let balls_install_paths = balls_installations
+        // This only works if we parse .yarn-state.yml
+        assert_eq!(balls_installations.len(), 2);
+        let mut balls_install_paths = balls_installations
             .iter()
             .map(|i| i.path())
             .collect::<Vec<&str>>();
-        assert_eq!(balls_install_paths, ["balls"]);
+        balls_install_paths.sort_unstable();
+        assert_eq!(
+            balls_install_paths,
+            ["balls", "node_modules/@chastelock/balls"]
+        );
 
         Ok(())
     }

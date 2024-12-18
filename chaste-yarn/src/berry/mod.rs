@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use std::path::Path;
+use std::{fs, io};
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
@@ -130,6 +131,33 @@ pub(crate) fn resolve<'a>(yarn_lock: yarn::Lockfile<'a>, root_dir: &Path) -> Res
                 chastefile_builder.add_package_installation(
                     InstallationBuilder::new(pid, workspace_path.to_string()).build()?,
                 );
+            }
+        }
+    }
+
+    let maybe_state_contents =
+        match fs::read_to_string(root_dir.join("node_modules").join(".yarn-state.yml")) {
+            Ok(s) => Some(s),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+            Err(e) => return Err(e.into()),
+        };
+    let maybe_state = maybe_state_contents
+        .as_ref()
+        .map(|sc| yarn_state::parse(&sc))
+        .transpose()?;
+    if let Some(state) = maybe_state {
+        for st8_pkg in &state.packages {
+            let (p_idx, _) = yarn_lock
+                .entries
+                .iter()
+                .enumerate()
+                .find(|(_, e)| e.resolved == st8_pkg.resolution)
+                .ok_or_else(|| Error::StatePackageNotFound(st8_pkg.resolution.to_string()))?;
+            let pid = index_to_pid.get(&p_idx).unwrap();
+            for st8_location in &st8_pkg.locations {
+                let installation =
+                    InstallationBuilder::new(*pid, st8_location.to_string()).build()?;
+                chastefile_builder.add_package_installation(installation);
             }
         }
     }

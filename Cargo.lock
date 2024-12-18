@@ -88,6 +88,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.4",
  "yarn-lock-parser",
+ "yarn-state",
 ]
 
 [[package]]
@@ -473,6 +474,14 @@ name = "yarn-lock-parser"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1123fd5b3197a2de22c3f41904d82ee680577c634b8d2cbb56e61d0b5ed312d5"
+dependencies = [
+ "nom",
+ "thiserror 2.0.4",
+]
+
+[[package]]
+name = "yarn-state"
+version = "0.1.0"
 dependencies = [
  "nom",
  "thiserror 2.0.4",

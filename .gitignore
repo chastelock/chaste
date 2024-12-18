@@ -3,5 +3,6 @@
 
 target/
 node_modules/
+!node_modules/.yarn-state.yml
 .yarn
 .pnp.*
