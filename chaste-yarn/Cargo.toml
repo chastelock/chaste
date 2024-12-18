@@ -23,3 +23,6 @@ yarn-state.workspace = true
 [dependencies.serde]
 workspace = true
 features = ["derive"]
+
+[dev-dependencies]
+concat-idents.workspace = true
