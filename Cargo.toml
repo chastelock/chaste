@@ -14,16 +14,16 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 authors = ["The Chaste Authors"]
 license = "Apache-2.0 OR BSD-2-Clause"
 categories = ["parser-implementations", "data-structures"]
 repository = "https://codeberg.org/selfisekai/chaste"
 
 [workspace.dependencies]
-chaste-npm = { version = "=0.1.0", path = "chaste-npm" }
-chaste-types = { version = "=0.1.0", path = "chaste-types" }
-chaste-yarn = { version = "=0.1.0", path = "chaste-yarn" }
+chaste-npm = { version = "=0.2.0", path = "chaste-npm" }
+chaste-types = { version = "=0.2.0", path = "chaste-types" }
+chaste-yarn = { version = "=0.2.0", path = "chaste-yarn" }
 
 yarn-state = { version = "0.1.0", path = "yarn-state" }
 
