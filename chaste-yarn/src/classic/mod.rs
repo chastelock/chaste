@@ -156,7 +156,7 @@ fn pkg_json_to_package<'a>(package_json: &'a PackageJson<'a>) -> Result<Package>
     .map_err(Error::ChasteError)
 }
 
-pub(crate) fn resolve<'a>(yarn_lock: yarn::Lockfile<'a>, root_dir: &Path) -> Result<Chastefile> {
+pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<Chastefile> {
     let root_package_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_FILENAME))?;
     let root_package_json: PackageJson = serde_json::from_str(&root_package_contents)?;
 
@@ -270,7 +270,7 @@ pub(crate) fn resolve<'a>(yarn_lock: yarn::Lockfile<'a>, root_dir: &Path) -> Res
         let from_pid = index_to_pid.get(&index).unwrap();
         for dep_descriptor in &entry.dependencies {
             let dep_pid = find_dep_pid(
-                &dep_descriptor,
+                dep_descriptor,
                 &yarn_lock,
                 &index_to_pid,
                 &member_package_jsons,

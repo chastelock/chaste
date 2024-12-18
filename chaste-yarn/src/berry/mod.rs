@@ -62,9 +62,9 @@ fn ssh(input: &str) -> IResult<&str, PackageSource> {
     )(input)
 }
 
-fn parse_source<'a>(entry: &'a yarn::Entry) -> Option<PackageSource> {
+fn parse_source(entry: &yarn::Entry) -> Option<PackageSource> {
     match preceded(terminated(package_name, tag("@")), opt(alt((npm, ssh))))(entry.resolved) {
-        Ok((remaining_input, output)) if remaining_input.is_empty() => output,
+        Ok(("", output)) => output,
         Ok((_, _)) => None,
         Err(_e) => None,
     }
@@ -107,7 +107,7 @@ where
     }
 }
 
-pub(crate) fn resolve<'a>(yarn_lock: yarn::Lockfile<'a>, root_dir: &Path) -> Result<Chastefile> {
+pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<Chastefile> {
     let mut chastefile_builder = ChastefileBuilder::new();
     let mut index_to_pid: HashMap<usize, PackageID> =
         HashMap::with_capacity(yarn_lock.entries.len());
@@ -143,7 +143,7 @@ pub(crate) fn resolve<'a>(yarn_lock: yarn::Lockfile<'a>, root_dir: &Path) -> Res
         };
     let maybe_state = maybe_state_contents
         .as_ref()
-        .map(|sc| yarn_state::parse(&sc))
+        .map(|sc| yarn_state::parse(sc))
         .transpose()?;
     if let Some(state) = maybe_state {
         for st8_pkg in &state.packages {
@@ -165,7 +165,7 @@ pub(crate) fn resolve<'a>(yarn_lock: yarn::Lockfile<'a>, root_dir: &Path) -> Res
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
         for dep_descriptor in &entry.dependencies {
-            let dep_pid = find_dep_pid(&dep_descriptor, &yarn_lock, &index_to_pid)?;
+            let dep_pid = find_dep_pid(dep_descriptor, &yarn_lock, &index_to_pid)?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
             dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
             chastefile_builder.add_dependency(dep.build());

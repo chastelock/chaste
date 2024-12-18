@@ -25,7 +25,7 @@ pub struct Package<'a> {
     pub locations: Vec<&'a str>,
 }
 
-pub fn parse<'a>(input: &'a str) -> Result<YarnState<'a>> {
+pub fn parse(input: &str) -> Result<YarnState<'_>> {
     statefile(input)
 }
 
