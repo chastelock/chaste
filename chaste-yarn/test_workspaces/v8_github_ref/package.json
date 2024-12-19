@@ -1,0 +1,9 @@
+{
+  "name": "@chastelock/testcase",
+  "version": "0.0.0",
+  "devDependencies": {
+    "minimatch": "isaacs/minimatch#v10.0.1",
+    "node-semver": "github:npm/node-semver#semver:^7.6.0"
+  },
+  "packageManager": "yarn@4.5.3"
+}
