@@ -97,6 +97,18 @@ impl<'a> Chastefile {
         result
     }
 
+    fn package_dependents_iter(
+        &'a self,
+        package_id: PackageID,
+    ) -> impl Iterator<Item = &'a Dependency> {
+        self.dependencies.iter().filter(move |d| d.on == package_id)
+    }
+
+    /// Direct dependencies on the specified package.
+    pub fn package_dependents(&'a self, package_id: PackageID) -> Vec<&'a Dependency> {
+        self.package_dependents_iter(package_id).collect()
+    }
+
     pub fn root_package_id(&'a self) -> PackageID {
         self.root_package_id
     }
