@@ -70,12 +70,21 @@ fn parse_source(entry: &yarn::Entry) -> Option<PackageSource> {
     }
 }
 
+fn parse_checksum(integrity: &str) -> Result<Integrity> {
+    // In v8 lockfiles, there is a prefix like "10/".
+    let integrity = integrity
+        .split_once("/")
+        .map(|(_, i)| i)
+        .unwrap_or(integrity);
+    Ok(Integrity::from_hex(integrity, ssri::Algorithm::Sha512)?)
+}
+
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     let mut pkg = PackageBuilder::new(
         Some(PackageName::new(entry.name.to_string())?),
         Some(entry.version.to_string()),
     );
-    let integrity: Integrity = Integrity::from_hex(entry.integrity, ssri::Algorithm::Sha512)?;
+    let integrity: Integrity = parse_checksum(entry.integrity)?;
     if let Some(source) = parse_source(entry) {
         pkg.source(source);
     }
