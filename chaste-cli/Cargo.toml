@@ -12,3 +12,6 @@ categories.workspace = true
 repository.workspace = true
 
 [dependencies]
+anyhow.workspace = true
+argh.workspace = true
+chaste.workspace = true
