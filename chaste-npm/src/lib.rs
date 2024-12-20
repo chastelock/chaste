@@ -132,8 +132,10 @@ fn parse_dependencies<'a>(
                 dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
                 dependencies.push(dep.build());
             }
-            // It's optional, ignore.
-            Err(Error::DependencyNotFound(_)) if is_optional => {}
+            // Allowed to fail. Yes, even if not marked as optional - it wasn't getting installed
+            // before npm v7, and packages can opt out with --legacy-peer-deps=true
+            // https://github.com/npm/rfcs/blob/main/implemented/0025-install-peer-deps.md
+            Err(Error::DependencyNotFound(_)) => {}
 
             Err(e) => return Err(e),
         }
@@ -356,6 +358,18 @@ mod tests {
         let nop = chastefile.package(nop_dep.on);
         assert_eq!(nop.name().unwrap(), "nop");
         assert!(nop_dep.svd().unwrap().is_npm_tag());
+
+        Ok(())
+    }
+
+    #[test]
+    fn v3_peer_unsatisfied() -> Result<()> {
+        let chastefile = test_workspace("v3_peer_unsatisfied")?;
+        assert!(!chastefile.packages().into_iter().any(|p| p
+            .name()
+            .is_some_and(|n| n == "@bazel/bazelisk"
+                || n == "@bazel/concatjs"
+                || n == "typescript")));
 
         Ok(())
     }

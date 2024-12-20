@@ -187,6 +187,16 @@ mod tests {
         Ok(())
     });
 
+    // TODO: Expand to berry. https://codeberg.org/selfisekai/chaste/issues/37
+    test_workspace!([1], peer_unsatisfied, |chastefile: Chastefile, lv: u8| {
+        assert!(!chastefile.packages().into_iter().any(|p| p
+            .name()
+            .is_some_and(|n| n == "@bazel/bazelisk"
+                || n == "@bazel/concatjs"
+                || n == "typescript")));
+        Ok(())
+    });
+
     test_workspaces!(scope_registry, |chastefile: Chastefile, lv: u8| {
         let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
         let empty_pkg = chastefile.package(empty_pid);
