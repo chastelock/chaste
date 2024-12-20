@@ -5,10 +5,11 @@
 name = "chaste-cli"
 edition = "2021"
 description = "Parser for npmjs lockfiles (cli)"
+categories = ["command-line-utilities", "development-tools"]
+keywords = ["lockfile", "npmjs", "npm", "yarn"]
 version.workspace = true
 authors.workspace = true
 license.workspace = true
-categories.workspace = true
 repository.workspace = true
 
 [dependencies]
