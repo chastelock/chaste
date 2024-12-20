@@ -24,6 +24,7 @@ enum SourceVersionDescriptorPositions {
         type_prefix_end: usize,
         alias_package_name: Option<PackageNamePositions>,
     },
+    NpmTag {},
     TarballURL {},
     Git {
         type_prefix_end: usize,
@@ -127,12 +128,22 @@ fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
     )
 }
 
+fn npm_tag(input: &str) -> Option<SourceVersionDescriptorPositions> {
+    preceded(
+        take_while(|c: char| c.is_ascii() && !c.is_ascii_control()),
+        eof::<&str, nom::error::Error<&str>>,
+    )(input)
+    .ok()
+    .map(|(_, _)| SourceVersionDescriptorPositions::NpmTag {})
+}
+
 impl SourceVersionDescriptorPositions {
     fn parse(svd: &str) -> Result<Self> {
         npm(svd)
             .or_else(|| url(svd))
             .or_else(|| github(svd))
             .or_else(|| ssh(svd))
+            .or_else(|| npm_tag(svd))
             .ok_or_else(|| Error::InvalidSVD(svd.to_string()))
     }
 }
@@ -169,6 +180,13 @@ impl SourceVersionDescriptorPositions {
 impl SourceVersionDescriptor {
     pub fn is_npm(&self) -> bool {
         matches!(self.positions, SourceVersionDescriptorPositions::Npm { .. })
+    }
+
+    pub fn is_npm_tag(&self) -> bool {
+        matches!(
+            self.positions,
+            SourceVersionDescriptorPositions::NpmTag { .. }
+        )
     }
 
     pub fn is_tar(&self) -> bool {
@@ -223,8 +241,10 @@ impl SourceVersionDescriptor {
 
 #[non_exhaustive]
 pub enum SourceVersionDescriptorType {
-    /// Package from an npm registry.
+    /// Package from an npm registry. Does not include tags (see [`SourceVersionDescriptorType::NpmTag`])
     Npm,
+    /// Named tag from an npm registry, e.g. "latest", "beta".
+    NpmTag,
     /// Arbitrary tarball URL. <https://docs.npmjs.com/cli/v10/configuring-npm/package-json#urls-as-dependencies>
     TarballURL,
     /// Git repository. <https://docs.npmjs.com/cli/v10/configuring-npm/package-json#git-urls-as-dependencies>
@@ -276,6 +296,13 @@ mod tests {
         let svd = SourceVersionDescriptor::new("@chastelock/testcase@1.0.x".to_string())?;
         assert!(svd.is_npm());
         assert_eq!(svd.aliased_package_name().unwrap(), "@chastelock/testcase");
+        Ok(())
+    }
+
+    #[test]
+    fn npm_svd_tag() -> Result<()> {
+        let svd = SourceVersionDescriptor::new("next-11".to_string())?;
+        assert!(svd.is_npm_tag());
         Ok(())
     }
 

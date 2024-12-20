@@ -327,6 +327,19 @@ mod tests {
     }
 
     #[test]
+    fn v3_npm_tag() -> Result<()> {
+        let chastefile = test_workspace("v3_npm_tag")?;
+        let [nop_dep] = *chastefile.root_package_dependencies() else {
+            panic!();
+        };
+        let nop = chastefile.package(nop_dep.on);
+        assert_eq!(nop.name().unwrap(), "nop");
+        assert!(nop_dep.svd().unwrap().is_npm_tag());
+
+        Ok(())
+    }
+
+    #[test]
     fn v3_scope_registry() -> Result<()> {
         let chastefile = test_workspace("v3_scope_registry")?;
         let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;

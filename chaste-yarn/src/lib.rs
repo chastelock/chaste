@@ -177,6 +177,16 @@ mod tests {
         Ok(())
     });
 
+    test_workspaces!(npm_tag, |chastefile: Chastefile, lv: u8| {
+        let [nop_dep] = *chastefile.root_package_dependencies() else {
+            panic!();
+        };
+        let nop = chastefile.package(nop_dep.on);
+        assert_eq!(nop.name().unwrap(), "nop");
+        assert!(nop_dep.svd().unwrap().is_npm_tag());
+        Ok(())
+    });
+
     test_workspaces!(scope_registry, |chastefile: Chastefile, lv: u8| {
         let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
         let empty_pkg = chastefile.package(empty_pid);
