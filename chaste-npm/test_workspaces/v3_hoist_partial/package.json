@@ -1,0 +1,8 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.10.0",
+    "dependencies": {
+        "npm-run-all": "4.1.5",
+        "ora": "^7"
+    }
+}

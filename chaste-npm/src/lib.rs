@@ -178,7 +178,12 @@ impl<'a> PackageParser<'a> {
             if package_path == "" && package.get_name().is_none() {
                 package.name(Some(PackageName::new(self.package_lock.name.to_string())?));
             }
-            let pid = self.chastefile_builder.add_package(package.build()?)?;
+            let pid = match self.chastefile_builder.add_package(package.build()?) {
+                Ok(pid) => pid,
+                // If the package is already checked in, reuse it.
+                Err(chaste_types::Error::DuplicatePackage(pid)) => pid,
+                Err(e) => return Err(Error::ChasteError(e)),
+            };
             self.path_pid.insert(package_path, pid);
             let installation = InstallationBuilder::new(pid, package_path.to_string()).build()?;
             self.chastefile_builder
@@ -322,6 +327,22 @@ mod tests {
         assert_eq!(minimatch.name().unwrap(), "minimatch");
         assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
         assert_eq!(minimatch.integrity().hashes.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn v3_hoist_partial() -> Result<()> {
+        let chastefile = test_workspace("v3_hoist_partial")?;
+        let mut chalks: Vec<&Package> = chastefile
+            .packages()
+            .into_iter()
+            .filter(|p| p.name().is_some_and(|n| n == "chalk"))
+            .collect();
+        chalks.sort_unstable_by_key(|p| p.version());
+        let [chalk2, chalk5] = *chalks else { panic!() };
+        assert_eq!(chalk2.version().unwrap().to_string(), "2.4.2");
+        assert_eq!(chalk5.version().unwrap().to_string(), "5.4.0");
 
         Ok(())
     }
