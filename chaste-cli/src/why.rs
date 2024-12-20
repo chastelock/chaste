@@ -57,10 +57,20 @@ pub fn run(sub: Why) -> Result<()> {
     for mut permut in permutations {
         permut.reverse();
         let initial_pkg = chastefile.package(permut.first().unwrap().from);
-        print!("{:?}", initial_pkg.name().map(|n| n.to_string()));
+        print!(
+            "{}",
+            initial_pkg
+                .name()
+                .map(|n| n.as_ref())
+                .unwrap_or("[unnamed]")
+        );
         for d in permut {
             let pkg = chastefile.package(d.on);
-            print!(" -{:?}-> {:?}", d.kind, pkg.name().map(|n| n.to_string()));
+            print!(
+                " -{:?}-> {}",
+                d.kind,
+                pkg.name().map(|n| n.as_ref()).unwrap_or("[unnamed]")
+            );
         }
         println!();
     }
