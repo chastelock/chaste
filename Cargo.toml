@@ -26,7 +26,7 @@ chaste-npm = { version = "=0.2.0", path = "chaste-npm" }
 chaste-types = { version = "=0.2.0", path = "chaste-types" }
 chaste-yarn = { version = "=0.2.0", path = "chaste-yarn" }
 
-yarn-state = { version = "0.1.0", path = "yarn-state" }
+yarn-state = { version = "0.1.1", path = "yarn-state" }
 
 anyhow = "1.0"
 argh = "0.1"
