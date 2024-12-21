@@ -12,6 +12,10 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[[bin]]
+name = "chaste"
+path = "src/main.rs"
+
 [features]
 default = ["npm", "yarn"]
 
