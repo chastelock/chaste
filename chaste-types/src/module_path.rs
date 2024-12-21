@@ -129,9 +129,7 @@ impl<'a> Iterator for ModulePathIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let seg_idx = self.idx;
         self.idx += 1;
-        let Some(seg_int) = self.inner.segments.get(seg_idx) else {
-            return None;
-        };
+        let seg_int = self.inner.segments.get(seg_idx)?;
         let start_idx = if seg_idx == 0 {
             0
         } else {
@@ -158,7 +156,7 @@ impl<'a> Iterator for ModulePathIter<'a> {
 impl ModulePath {
     pub fn iter(&self) -> ModulePathIter {
         ModulePathIter {
-            inner: &self,
+            inner: self,
             idx: 0,
         }
     }
