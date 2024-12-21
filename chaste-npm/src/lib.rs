@@ -13,13 +13,10 @@ use chaste_types::{
 };
 
 pub use crate::error::{Error, Result};
-pub use crate::parsers::PathLexingError;
 
-use crate::parsers::package_name_from_path;
 use crate::types::{DependencyTreePackage, PackageLock, PeerDependencyMeta};
 
 mod error;
-mod parsers;
 mod types;
 
 pub static LOCKFILE_NAME: &str = "package-lock.json";
@@ -43,17 +40,21 @@ fn recognize_source(resolved: &str) -> Option<PackageSource> {
     }
 }
 
-fn parse_package(path: &str, tree_package: &DependencyTreePackage) -> Result<PackageBuilder> {
-    let mut name = tree_package.name.as_ref().map(|s| s.to_string());
+fn parse_package(
+    path: &ModulePath,
+    tree_package: &DependencyTreePackage,
+) -> Result<PackageBuilder> {
+    let mut name = tree_package
+        .name
+        .as_ref()
+        .map(|s| PackageName::new(s.to_string()))
+        .transpose()?;
     // Most packages don't have it as it's implied by the path.
     // So now we have to unimply it.
     if name.is_none() {
-        name = package_name_from_path(path)?.map(|s| s.to_string());
+        name = path.implied_package_name();
     }
-    let mut pkg = PackageBuilder::new(
-        name.map(PackageName::new).transpose()?,
-        tree_package.version.as_ref().map(|s| s.to_string()),
-    );
+    let mut pkg = PackageBuilder::new(name, tree_package.version.as_ref().map(|s| s.to_string()));
     if let Some(integrity) = &tree_package.integrity {
         pkg.integrity(integrity.parse()?);
     }
@@ -177,8 +178,8 @@ impl<'a> PackageParser<'a> {
             .filter(|(_, tp)| tp.link != Some(true))
         {
             let module_path = ModulePath::new(package_path.to_string())?;
-            let mut package = parse_package(package_path, tree_package)?;
-            if package_path == "" && package.get_name().is_none() {
+            let mut package = parse_package(&module_path, tree_package)?;
+            if package_path.is_empty() && package.get_name().is_none() {
                 package.name(Some(PackageName::new(self.package_lock.name.to_string())?));
             }
             let pid = match self.chastefile_builder.add_package(package.build()?) {
@@ -191,7 +192,7 @@ impl<'a> PackageParser<'a> {
             let installation = InstallationBuilder::new(pid, module_path).build()?;
             self.chastefile_builder
                 .add_package_installation(installation);
-            if package_path == "" {
+            if package_path.is_empty() {
                 self.chastefile_builder.set_root_package_id(pid)?;
 
             // XXX: This is hacky

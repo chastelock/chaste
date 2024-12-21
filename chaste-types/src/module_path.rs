@@ -4,7 +4,7 @@
 use std::sync::LazyLock;
 
 use crate::error::{Error, Result};
-use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
+use crate::name::{package_name, PackageName, PackageNameBorrowed, PackageNamePositions};
 
 pub static ROOT_MODULE_PATH: LazyLock<ModulePath> =
     LazyLock::new(|| ModulePath::new("".to_string()).unwrap());
@@ -84,6 +84,24 @@ impl ModulePath {
             inner: value,
             segments,
         })
+    }
+
+    pub fn implied_package_name(&self) -> Option<PackageName> {
+        let iter = self.iter();
+        match iter.last() {
+            Some(ModulePathSegment::PackageName(pn)) => Some(pn.to_owned()),
+            Some(ModulePathSegment::Arbitrary(a)) => match self.segments.len() {
+                1 => PackageName::new(a.to_string()).ok(),
+                2 if self.inner.starts_with("@") => PackageName::new(self.inner.clone()).ok(),
+                0 => unreachable!(),
+                len => {
+                    let scope_start = self.segments.get(len - 2).unwrap().end_idx() + 1;
+                    PackageName::new(self.inner[scope_start..].to_string()).ok()
+                }
+            },
+            Some(ModulePathSegment::NodeModules(_)) => unreachable!(),
+            None => None,
+        }
     }
 }
 

@@ -5,8 +5,6 @@ use std::io;
 
 use thiserror::Error;
 
-use crate::parsers::PathLexingError;
-
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -30,9 +28,6 @@ pub enum Error {
 
     #[error("SSRI error: {0:?}")]
     SSRIError(#[from] chaste_types::SSRIError),
-
-    #[error("Path lexing error: {0:?}")]
-    LogosError(#[from] PathLexingError),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

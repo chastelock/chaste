@@ -98,6 +98,15 @@ impl PartialEq<&str> for PackageNameBorrowed<'_> {
     }
 }
 
+impl PackageNameBorrowed<'_> {
+    pub fn to_owned(&self) -> PackageName {
+        PackageName {
+            inner: self.inner.to_string(),
+            positions: self.positions.clone(),
+        }
+    }
+}
+
 macro_rules! option_segment {
     ($name:ident) => {
         pub fn $name(&self) -> Option<&str> {
