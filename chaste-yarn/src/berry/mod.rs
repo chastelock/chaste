@@ -7,8 +7,8 @@ use std::{fs, io};
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    Integrity, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
-    SourceVersionDescriptor,
+    Integrity, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
+    SourceVersionDescriptor, ROOT_MODULE_PATH,
 };
 use nom::{
     branch::alt,
@@ -132,13 +132,13 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
         {
             if workspace_path == "." {
                 chastefile_builder.set_root_package_id(pid)?;
-                chastefile_builder.add_package_installation(
-                    InstallationBuilder::new(pid, "".to_string()).build()?,
-                );
+                let installation_builder = InstallationBuilder::new(pid, ROOT_MODULE_PATH.clone());
+                chastefile_builder.add_package_installation(installation_builder.build()?);
             } else {
                 chastefile_builder.set_as_workspace_member(pid)?;
                 chastefile_builder.add_package_installation(
-                    InstallationBuilder::new(pid, workspace_path.to_string()).build()?,
+                    InstallationBuilder::new(pid, ModulePath::new(workspace_path.to_string())?)
+                        .build()?,
                 );
             }
         }
@@ -165,7 +165,8 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
             let pid = index_to_pid.get(&p_idx).unwrap();
             for st8_location in &st8_pkg.locations {
                 let installation =
-                    InstallationBuilder::new(*pid, st8_location.to_string()).build()?;
+                    InstallationBuilder::new(*pid, ModulePath::new(st8_location.to_string())?)
+                        .build()?;
                 chastefile_builder.add_package_installation(installation);
             }
         }

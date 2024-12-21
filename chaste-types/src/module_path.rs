@@ -1,10 +1,15 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use std::sync::LazyLock;
+
 use crate::error::{Error, Result};
 use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
 
-#[derive(Debug, PartialEq, Eq)]
+pub static ROOT_MODULE_PATH: LazyLock<ModulePath> =
+    LazyLock::new(|| ModulePath::new("".to_string()).unwrap());
+
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum ModulePathSegmentInternal {
     Arbitrary(usize),
     NodeModules(usize),
@@ -21,6 +26,7 @@ impl ModulePathSegmentInternal {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ModulePath {
     inner: String,
     segments: Vec<ModulePathSegmentInternal>,

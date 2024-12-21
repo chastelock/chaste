@@ -8,7 +8,7 @@ use std::path::Path;
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
-    InstallationBuilder, PackageBuilder, PackageID, PackageName, PackageSource,
+    InstallationBuilder, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource,
     SourceVersionDescriptor,
 };
 
@@ -176,6 +176,7 @@ impl<'a> PackageParser<'a> {
             .iter()
             .filter(|(_, tp)| tp.link != Some(true))
         {
+            let module_path = ModulePath::new(package_path.to_string())?;
             let mut package = parse_package(package_path, tree_package)?;
             if package_path == "" && package.get_name().is_none() {
                 package.name(Some(PackageName::new(self.package_lock.name.to_string())?));
@@ -187,7 +188,7 @@ impl<'a> PackageParser<'a> {
                 Err(e) => return Err(Error::ChasteError(e)),
             };
             self.path_pid.insert(package_path, pid);
-            let installation = InstallationBuilder::new(pid, package_path.to_string()).build()?;
+            let installation = InstallationBuilder::new(pid, module_path).build()?;
             self.chastefile_builder
                 .add_package_installation(installation);
             if package_path == "" {
@@ -212,7 +213,8 @@ impl<'a> PackageParser<'a> {
             };
             let pid = *self.path_pid.get(member_path).unwrap();
             self.path_pid.insert(package_path, pid);
-            let installation = InstallationBuilder::new(pid, package_path.to_string()).build()?;
+            let module_path = ModulePath::new(package_path.to_string())?;
+            let installation = InstallationBuilder::new(pid, module_path).build()?;
             self.chastefile_builder
                 .add_package_installation(installation);
         }
@@ -417,7 +419,7 @@ mod tests {
         assert_eq!(balls_installations.len(), 2);
         let mut balls_install_paths = balls_installations
             .iter()
-            .map(|i| i.path())
+            .map(|i| i.path().as_ref())
             .collect::<Vec<&str>>();
         balls_install_paths.sort_unstable();
         assert_eq!(

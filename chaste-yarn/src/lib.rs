@@ -237,7 +237,7 @@ mod tests {
         let balls_installations = chastefile.package_installations(balls_pid);
         let mut balls_install_paths = balls_installations
             .iter()
-            .map(|i| i.path())
+            .map(|i| i.path().as_ref())
             .collect::<Vec<&str>>();
         balls_install_paths.sort_unstable();
         // There are 2: where the package is, and a link in "node_modules/{pkg.name}".

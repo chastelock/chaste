@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use crate::{PackageID, Result};
+use crate::error::Result;
+use crate::module_path::ModulePath;
+use crate::package::PackageID;
 
 #[derive(Debug)]
 pub struct Installation {
     package_id: PackageID,
-    path: String,
+    path: ModulePath,
 }
 
 impl Installation {
@@ -14,19 +16,19 @@ impl Installation {
         self.package_id
     }
 
-    pub fn path(&self) -> &str {
-        self.path.as_str()
+    pub fn path(&self) -> &ModulePath {
+        &self.path
     }
 }
 
 #[derive(Debug)]
 pub struct InstallationBuilder {
     package_id: PackageID,
-    path: String,
+    path: ModulePath,
 }
 
 impl InstallationBuilder {
-    pub fn new(package_id: PackageID, path: String) -> Self {
+    pub fn new(package_id: PackageID, path: ModulePath) -> Self {
         Self { package_id, path }
     }
 

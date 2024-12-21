@@ -7,8 +7,8 @@ use std::{fs, str};
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    Integrity, Package, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
-    SourceVersionDescriptor, PACKAGE_JSON_FILENAME,
+    Integrity, ModulePath, Package, PackageBuilder, PackageID, PackageName, PackageSource,
+    PackageVersion, SourceVersionDescriptor, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
@@ -190,7 +190,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
     let root_package = pkg_json_to_package(&root_package_json)?;
     let root_pid = chastefile_builder.add_package(root_package)?;
     chastefile_builder.set_root_package_id(root_pid)?;
-    let root_install = InstallationBuilder::new(root_pid, "".to_string()).build()?;
+    let root_install = InstallationBuilder::new(root_pid, ROOT_MODULE_PATH.clone()).build()?;
     chastefile_builder.add_package_installation(root_install);
     for (idx, (workspace_path, member_package_json)) in member_package_jsons.iter().enumerate() {
         let member_package = pkg_json_to_package(member_package_json)?;
@@ -198,7 +198,8 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
         mpj_idx_to_pid.insert(idx, member_pid);
         chastefile_builder.set_as_workspace_member(member_pid)?;
         chastefile_builder.add_package_installation(
-            InstallationBuilder::new(member_pid, workspace_path.to_string()).build()?,
+            InstallationBuilder::new(member_pid, ModulePath::new(workspace_path.to_string())?)
+                .build()?,
         );
     }
 
