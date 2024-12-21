@@ -64,7 +64,7 @@ mod tests {
         };
     }
 
-    test_workspaces!(basic, |chastefile: Chastefile, lv: u8| {
+    test_workspaces!(basic, |chastefile: Chastefile, _lv: u8| {
         let rec_deps = chastefile.recursive_package_dependencies(chastefile.root_package_id());
         assert_eq!(rec_deps.len(), 5);
         assert!(rec_deps
@@ -177,7 +177,7 @@ mod tests {
         Ok(())
     });
 
-    test_workspaces!(npm_tag, |chastefile: Chastefile, lv: u8| {
+    test_workspaces!(npm_tag, |chastefile: Chastefile, _lv: u8| {
         let [nop_dep] = *chastefile.root_package_dependencies() else {
             panic!();
         };
@@ -188,7 +188,7 @@ mod tests {
     });
 
     // TODO: Expand to berry. https://codeberg.org/selfisekai/chaste/issues/37
-    test_workspace!([1], peer_unsatisfied, |chastefile: Chastefile, lv: u8| {
+    test_workspace!([1], peer_unsatisfied, |chastefile: Chastefile, _lv: u8| {
         assert!(!chastefile.packages().into_iter().any(|p| p
             .name()
             .is_some_and(|n| n == "@bazel/bazelisk"
