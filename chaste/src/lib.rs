@@ -19,14 +19,21 @@ where
     P: AsRef<Path>,
 {
     let root_path = root_path.as_ref();
-    let npm_lock = root_path.join(npm::LOCKFILE_NAME);
-    if npm_lock.exists() {
-        return Ok(npm::parse(root_path)?);
+
+    #[cfg(feature = "npm")]
+    {
+        let npm_lock = root_path.join(npm::LOCKFILE_NAME);
+        if npm_lock.exists() {
+            return Ok(npm::parse(root_path)?);
+        }
     }
 
-    let yarn_lock = root_path.join(yarn::LOCKFILE_NAME);
-    if yarn_lock.exists() {
-        return Ok(yarn::parse(root_path)?);
+    #[cfg(any(feature = "yarn-berry", feature = "yarn-classic"))]
+    {
+        let yarn_lock = root_path.join(yarn::LOCKFILE_NAME);
+        if yarn_lock.exists() {
+            return Ok(yarn::parse(root_path)?);
+        }
     }
 
     Err(Error::NoLockfile)
