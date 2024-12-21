@@ -12,7 +12,18 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = ["npm", "yarn"]
+
+npm = ["chaste/npm"]
+yarn = ["chaste/yarn", "yarn-berry", "yarn-classic"]
+yarn-berry = ["chaste/yarn-berry"]
+yarn-classic = ["chaste/yarn-classic"]
+
 [dependencies]
 anyhow.workspace = true
 argh.workspace = true
-chaste.workspace = true
+
+[dependencies.chaste]
+workspace = true
+default-features = false
