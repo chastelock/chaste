@@ -12,17 +12,30 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 
+[features]
+default = ["classic", "berry"]
+
+classic = ["dep:serde", "dep:serde_json"]
+berry = ["dep:yarn-state"]
+
 [dependencies]
 chaste-types.workspace = true
 nom.workspace = true
-serde_json.workspace = true
 thiserror.workspace = true
 yarn-lock-parser.workspace = true
-yarn-state.workspace = true
 
 [dependencies.serde]
 workspace = true
+optional = true
 features = ["derive"]
+
+[dependencies.serde_json]
+workspace = true
+optional = true
+
+[dependencies.yarn-state]
+workspace = true
+optional = true
 
 [dev-dependencies]
 concat-idents.workspace = true

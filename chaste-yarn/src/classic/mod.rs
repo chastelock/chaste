@@ -16,8 +16,10 @@ use nom::combinator::{eof, opt, verify};
 use nom::sequence::tuple;
 use yarn_lock_parser as yarn;
 
+use crate::classic::types::PackageJson;
 use crate::error::{Error, Result};
-use crate::types::PackageJson;
+
+mod types;
 
 fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool {
     tuple((

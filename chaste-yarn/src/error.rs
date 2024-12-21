@@ -30,12 +30,14 @@ pub enum Error {
     YarnParserError(#[from] yarn_lock_parser::YarnLockError),
 
     #[error("Yarn state parser error: {0:?}")]
+    #[cfg(feature = "berry")]
     YarnStateError(#[from] yarn_state::error::Error),
 
     #[error("SSRI error: {0:?}")]
     SSRIError(#[from] chaste_types::SSRIError),
 
     #[error("JSON parsing error: {0:?}")]
+    #[cfg(feature = "classic")]
     SerdeJsonError(#[from] serde_json::Error),
 }
 

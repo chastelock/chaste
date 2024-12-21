@@ -9,10 +9,11 @@ use yarn_lock_parser as yarn;
 
 pub use crate::error::{Error, Result};
 
+#[cfg(feature = "berry")]
 mod berry;
+#[cfg(feature = "classic")]
 mod classic;
 mod error;
-mod types;
 
 pub static LOCKFILE_NAME: &str = "yarn.lock";
 
@@ -26,7 +27,9 @@ where
     let yarn_lock: yarn::Lockfile = yarn::parse_str(&lockfile_contents)?;
 
     match yarn_lock.version {
+        #[cfg(feature = "classic")]
         1 => classic::resolve(yarn_lock, root_dir),
+        #[cfg(feature = "berry")]
         2..=8 => berry::resolve(yarn_lock, root_dir),
         _ => Err(Error::UnknownLockfileVersion(yarn_lock.version)),
     }
@@ -60,7 +63,10 @@ mod tests {
     }
     macro_rules! test_workspaces {
         ($name:ident, $solver:expr) => {
-            test_workspace!([1, 4, 6, 8], $name, $solver);
+            #[cfg(feature = "classic")]
+            test_workspace!([1], $name, $solver);
+            #[cfg(feature = "berry")]
+            test_workspace!([4, 6, 8], $name, $solver);
         };
     }
 
@@ -188,6 +194,7 @@ mod tests {
     });
 
     // TODO: Expand to berry. https://codeberg.org/selfisekai/chaste/issues/37
+    #[cfg(feature = "classic")]
     test_workspace!([1], peer_unsatisfied, |chastefile: Chastefile, _lv: u8| {
         assert!(!chastefile.packages().into_iter().any(|p| p
             .name()

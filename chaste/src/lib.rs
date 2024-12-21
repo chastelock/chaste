@@ -6,7 +6,7 @@ use std::path::Path;
 #[cfg(feature = "npm")]
 pub use chaste_npm as npm;
 pub use chaste_types as types;
-#[cfg(feature = "yarn")]
+#[cfg(any(feature = "yarn-berry", feature = "yarn-classic"))]
 pub use chaste_yarn as yarn;
 
 pub use chaste_types::{Chastefile, Dependency, DependencyKind, Package, PackageID};
