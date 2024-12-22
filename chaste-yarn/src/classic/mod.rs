@@ -13,7 +13,7 @@ use chaste_types::{
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
 use nom::combinator::{eof, opt, verify};
-use nom::sequence::tuple;
+use nom::Parser;
 use yarn_lock_parser as yarn;
 
 use crate::classic::types::PackageJson;
@@ -22,7 +22,7 @@ use crate::error::{Error, Result};
 mod types;
 
 fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool {
-    tuple((
+    (
         tag::<&str, &str, ()>("https://registry.yarnpkg.com/"),
         tag(name),
         tag("/-/"),
@@ -31,12 +31,13 @@ fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool 
         tag(version),
         tag(".tgz"),
         eof,
-    ))(input)
-    .is_ok()
+    )
+        .parse(input)
+        .is_ok()
 }
 
 fn is_github_svd(input: &str) -> bool {
-    tuple((
+    (
         opt(tag::<&str, &str, ()>("github:")),
         take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
         tag("/"),
@@ -45,8 +46,9 @@ fn is_github_svd(input: &str) -> bool {
             |name: &str| !name.starts_with("."),
         ),
         alt((tag("#"), eof)),
-    ))(input)
-    .is_ok()
+    )
+        .parse(input)
+        .is_ok()
 }
 
 fn parse_source_url(entry: &yarn::Entry, url: &str) -> Result<Option<PackageSource>> {

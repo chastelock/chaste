@@ -5,8 +5,8 @@ use std::{cmp, fmt};
 
 use nom::bytes::complete::{tag, take_while1};
 use nom::combinator::{eof, opt, verify};
-use nom::sequence::{preceded, terminated, tuple};
-use nom::IResult;
+use nom::sequence::{preceded, terminated};
+use nom::{IResult, Parser};
 
 use crate::error::Result;
 use crate::misc::partial_eq_field;
@@ -24,33 +24,36 @@ fn package_name_part(input: &str) -> IResult<&str, &str> {
             c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
         }),
         |part: &str| !part.starts_with("."),
-    )(input)
+    )
+    .parse(input)
 }
 
 pub(crate) fn package_name(
     input: &str,
 ) -> IResult<&str, PackageNamePositions, nom::error::Error<&str>> {
-    tuple((
+    (
         opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
         verify(package_name_part, |part: &str| {
             part != "node_modules" && part != "favicon.ico"
         }),
-    ))(input)
-    .map(|(inp, (scope, rest))| {
-        let scope_end = scope.map(|s| s.len() + 1);
-        (
-            inp,
-            PackageNamePositions {
-                scope_end,
-                total_length: scope_end.map(|e| e + 1).unwrap_or(0) + rest.len(),
-            },
-        )
-    })
+    )
+        .parse(input)
+        .map(|(inp, (scope, rest))| {
+            let scope_end = scope.map(|s| s.len() + 1);
+            (
+                inp,
+                PackageNamePositions {
+                    scope_end,
+                    total_length: scope_end.map(|e| e + 1).unwrap_or(0) + rest.len(),
+                },
+            )
+        })
 }
 
 impl PackageNamePositions {
     fn parse(input: &str) -> Result<Self> {
-        terminated(package_name, eof)(input)
+        terminated(package_name, eof)
+            .parse(input)
             .map(|(_, pos)| pos)
             .map_err(|_| crate::Error::InvalidPackageName(input.to_string()))
     }

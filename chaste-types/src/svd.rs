@@ -5,7 +5,8 @@ use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::digit1;
 use nom::combinator::{eof, map_res, opt, recognize, rest, verify};
-use nom::sequence::{pair, preceded, terminated, tuple};
+use nom::sequence::{pair, preceded, terminated};
+use nom::Parser;
 
 use crate::error::{Error, Result};
 use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
@@ -36,49 +37,51 @@ enum SourceVersionDescriptorPositions {
 }
 
 fn npm(input: &str) -> Option<SourceVersionDescriptorPositions> {
-    tuple((
+    (
         opt(tag("npm:")),
         opt(terminated(package_name, tag("@"))),
         map_res(rest, |input: &str| {
             nodejs_semver::Range::parse(if input.is_empty() { "*" } else { input })
         }),
-    ))(input)
-    .ok()
-    .map(
-        |(_, (type_prefix, alias_package_name, _range))| SourceVersionDescriptorPositions::Npm {
-            type_prefix_end: type_prefix.map(|p| p.len()).unwrap_or(0),
-            alias_package_name,
-        },
     )
+        .parse(input)
+        .ok()
+        .map(|(_, (type_prefix, alias_package_name, _range))| {
+            SourceVersionDescriptorPositions::Npm {
+                type_prefix_end: type_prefix.map(|p| p.len()).unwrap_or(0),
+                alias_package_name,
+            }
+        })
 }
 
 fn url(input: &str) -> Option<SourceVersionDescriptorPositions> {
-    tuple((
+    (
         opt(tag::<&str, &str, nom::error::Error<&str>>("git+")),
-        recognize(tuple((
+        recognize((
             tag("http"),
             opt(tag("s")),
             tag("://"),
             take_while(|c| c != '#'),
-        ))),
+        )),
         opt(preceded(tag("#"), rest)),
-    ))(input)
-    .ok()
-    .map(|(_, (git_prefix, url, _spec_suffix))| {
-        if git_prefix.is_some() || url.ends_with(".git") {
-            SourceVersionDescriptorPositions::Git {
-                type_prefix_end: git_prefix.map(|p| p.len()).unwrap_or(0),
-                pre_path_sep_offset: None,
+    )
+        .parse(input)
+        .ok()
+        .map(|(_, (git_prefix, url, _spec_suffix))| {
+            if git_prefix.is_some() || url.ends_with(".git") {
+                SourceVersionDescriptorPositions::Git {
+                    type_prefix_end: git_prefix.map(|p| p.len()).unwrap_or(0),
+                    pre_path_sep_offset: None,
+                }
+            } else {
+                SourceVersionDescriptorPositions::TarballURL {}
             }
-        } else {
-            SourceVersionDescriptorPositions::TarballURL {}
-        }
-    })
+        })
 }
 
 /// This definition is probably too broad
 fn ssh(input: &str) -> Option<SourceVersionDescriptorPositions> {
-    tuple((
+    (
         opt(pair(
             opt(tag::<&str, &str, nom::error::Error<&str>>("git+")),
             tag("ssh://"),
@@ -88,29 +91,30 @@ fn ssh(input: &str) -> Option<SourceVersionDescriptorPositions> {
         alt((tag(":"), tag("/"))),
         take_while(|c| c != '#'),
         opt(preceded(tag("#"), rest)),
-    ))(input)
-    .ok()
-    .and_then(|(_, (prefix, host, port, _sep, url, _spec_suffix))| {
-        if prefix.is_some() || url.ends_with(".git") {
-            let prefix_len = prefix
-                .map(|(git_prefix, ssh_prefix)| {
-                    git_prefix.map(|p| p.len()).unwrap_or(0) + ssh_prefix.len()
+    )
+        .parse(input)
+        .ok()
+        .and_then(|(_, (prefix, host, port, _sep, url, _spec_suffix))| {
+            if prefix.is_some() || url.ends_with(".git") {
+                let prefix_len = prefix
+                    .map(|(git_prefix, ssh_prefix)| {
+                        git_prefix.map(|p| p.len()).unwrap_or(0) + ssh_prefix.len()
+                    })
+                    .unwrap_or(0);
+                Some(SourceVersionDescriptorPositions::Git {
+                    type_prefix_end: prefix_len,
+                    pre_path_sep_offset: Some(
+                        prefix_len + host.len() + port.map(|p| p.len() + 1).unwrap_or(0),
+                    ),
                 })
-                .unwrap_or(0);
-            Some(SourceVersionDescriptorPositions::Git {
-                type_prefix_end: prefix_len,
-                pre_path_sep_offset: Some(
-                    prefix_len + host.len() + port.map(|p| p.len() + 1).unwrap_or(0),
-                ),
-            })
-        } else {
-            None
-        }
-    })
+            } else {
+                None
+            }
+        })
 }
 
 fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
-    tuple((
+    (
         opt(tag::<&str, &str, ()>("github:")),
         take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
         tag("/"),
@@ -119,20 +123,22 @@ fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
             |name: &str| !name.starts_with("."),
         ),
         alt((tag("#"), eof)),
-    ))(input)
-    .ok()
-    .map(
-        |(_, (gh_prefix, _, _, _, _))| SourceVersionDescriptorPositions::GitHub {
-            type_prefix_end: gh_prefix.map(|p| p.len()).unwrap_or(0),
-        },
     )
+        .parse(input)
+        .ok()
+        .map(
+            |(_, (gh_prefix, _, _, _, _))| SourceVersionDescriptorPositions::GitHub {
+                type_prefix_end: gh_prefix.map(|p| p.len()).unwrap_or(0),
+            },
+        )
 }
 
 fn npm_tag(input: &str) -> Option<SourceVersionDescriptorPositions> {
     preceded(
         take_while(|c: char| c.is_ascii() && !c.is_ascii_control()),
         eof::<&str, nom::error::Error<&str>>,
-    )(input)
+    )
+    .parse(input)
     .ok()
     .map(|(_, _)| SourceVersionDescriptorPositions::NpmTag {})
 }

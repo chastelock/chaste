@@ -10,11 +10,12 @@ use chaste_types::{
     Integrity, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
     SourceVersionDescriptor, ROOT_MODULE_PATH,
 };
+use nom::Parser;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_until, take_while1},
     combinator::{map, map_res, opt, recognize, rest, verify},
-    sequence::{preceded, terminated, tuple},
+    sequence::{preceded, terminated},
     IResult,
 };
 use yarn_lock_parser as yarn;
@@ -27,43 +28,47 @@ fn package_name_part(input: &str) -> IResult<&str, &str> {
             c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
         }),
         |part: &str| !part.starts_with("."),
-    )(input)
+    )
+    .parse(input)
 }
 
 fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
-    recognize(tuple((
+    recognize((
         opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
         verify(package_name_part, |part: &str| {
             part != "node_modules" && part != "favicon.ico"
         }),
-    )))(input)
+    ))
+    .parse(input)
 }
 
 fn npm(input: &str) -> IResult<&str, PackageSource> {
     map(
         preceded(tag("npm:"), map_res(rest, PackageVersion::parse)),
         |_version| PackageSource::Npm,
-    )(input)
+    )
+    .parse(input)
 }
 
 fn ssh(input: &str) -> IResult<&str, PackageSource> {
     map(
-        tuple((
-            recognize(tuple((
+        (
+            recognize((
                 tag::<&str, &str, nom::error::Error<&str>>("ssh://"),
                 take_until::<&str, &str, nom::error::Error<&str>>("#commit="),
-            ))),
+            )),
             tag("#commit="),
             rest,
-        )),
+        ),
         |(url, _, _)| PackageSource::Git {
             url: url.to_string(),
         },
-    )(input)
+    )
+    .parse(input)
 }
 
 fn parse_source(entry: &yarn::Entry) -> Option<PackageSource> {
-    match preceded(terminated(package_name, tag("@")), opt(alt((npm, ssh))))(entry.resolved) {
+    match preceded(terminated(package_name, tag("@")), opt(alt((npm, ssh)))).parse(entry.resolved) {
         Ok(("", output)) => output,
         Ok((_, _)) => None,
         Err(_e) => None,
