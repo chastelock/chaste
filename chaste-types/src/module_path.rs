@@ -90,6 +90,11 @@ impl ModulePath {
             return Err(Error::InvalidModulePath(value.to_string()));
         }
 
+        debug_assert_eq!(
+            segments.last().map(|s| s.end_idx()).unwrap_or(0),
+            value.len()
+        );
+
         Ok(Self {
             inner: value,
             segments,
