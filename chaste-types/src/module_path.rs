@@ -49,8 +49,7 @@ impl ModulePath {
                     if value.is_empty() {
                         break;
                     }
-                    // TODO: Add new error type
-                    todo!();
+                    return Err(Error::InvalidModulePath(value.to_string()));
                 }
                 "node_modules" => {
                     inside_node_modules = true;
@@ -60,7 +59,11 @@ impl ModulePath {
                     inside_scoped = true;
                 }
                 _ if inside_node_modules => {
-                    let start_idx = segments.last().unwrap().end_idx() + 1;
+                    let last_seg = segments.last().unwrap();
+                    if matches!(last_seg, ModulePathSegmentInternal::PackageName(..)) {
+                        return Err(Error::InvalidModulePath(value.to_string()));
+                    }
+                    let start_idx = last_seg.end_idx() + 1;
                     let pn_str = &value[start_idx..end_idx];
                     let (remaining, pn_positions) = package_name(pn_str)
                         .map_err(|_| Error::InvalidPackageName(pn_str.to_string()))?;
@@ -78,6 +81,13 @@ impl ModulePath {
                     segments.push(ModulePathSegmentInternal::Arbitrary(end_idx));
                 }
             }
+        }
+        if inside_scoped
+            || segments
+                .last()
+                .is_some_and(|s| matches!(s, ModulePathSegmentInternal::NodeModules(_)))
+        {
+            return Err(Error::InvalidModulePath(value.to_string()));
         }
 
         Ok(Self {
@@ -242,6 +252,19 @@ mod tests {
         );
         assert_eq!(segments.next(), None);
 
+        Ok(())
+    }
+
+    #[test]
+    fn bs_paths() -> Result<()> {
+        fn invalid(input: &str) {
+            assert!(ModulePath::new(input.to_string()).is_err());
+        }
+        invalid("/");
+        invalid("a/");
+        invalid("node_modules");
+        invalid("node_modules/@chastelock/testcase/something/deeper");
+        invalid("node_modules/@chastelock");
         Ok(())
     }
 }

@@ -21,6 +21,9 @@ pub enum Error {
     #[error("Invalid source/version descriptor: {0:?}")]
     InvalidSVD(String),
 
+    #[error("Invalid module path: {0:?}")]
+    InvalidModulePath(String),
+
     #[error("Semver error: {0:?}")]
     SemverError(#[from] SemverError),
 }
