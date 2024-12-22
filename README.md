@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC0-1.0
 
 Chaste parses npmjs lockfiles.
 
-Development status: pre-alpha. APIs can and will change a lot.
+Development status: alpha. Some APIs will change.
 
 Licensed `Apache-2.0` or `BSD-2-Clause` at your choice.
 Intentionally submitting a Contribution means You agree to publish it
