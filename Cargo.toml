@@ -21,12 +21,12 @@ categories = ["parser-implementations", "data-structures"]
 repository = "https://codeberg.org/selfisekai/chaste"
 
 [workspace.dependencies]
-chaste = { version = "=0.3.0", path = "chaste" }
-chaste-npm = { version = "=0.3.0", path = "chaste-npm" }
-chaste-types = { version = "=0.3.0", path = "chaste-types" }
-chaste-yarn = { version = "=0.3.0", path = "chaste-yarn" }
+chaste = { version = "=0.3.0", default-features = false, path = "chaste" }
+chaste-npm = { version = "=0.3.0", default-features = false, path = "chaste-npm" }
+chaste-types = { version = "=0.3.0", default-features = false, path = "chaste-types" }
+chaste-yarn = { version = "=0.3.0", default-features = false, path = "chaste-yarn" }
 
-yarn-state = { version = "0.1.1", path = "yarn-state" }
+yarn-state = { version = "0.1.1", default-features = false, path = "yarn-state" }
 
 anyhow = "1.0"
 argh = "0.1"
