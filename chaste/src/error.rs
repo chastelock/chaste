@@ -24,7 +24,7 @@ pub enum Error {
     PnpmError(#[from] chaste_pnpm::Error),
 
     #[error("Chaste yarn error: {0:?}")]
-    #[cfg(feature = "yarn")]
+    #[cfg(any(feature = "yarn-berry", feature = "yarn-classic"))]
     YarnError(#[from] chaste_yarn::Error),
 }
 
