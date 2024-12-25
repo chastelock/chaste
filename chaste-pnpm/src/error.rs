@@ -1,0 +1,36 @@
+// SPDX-FileCopyrightText: 2024 The Chaste Authors
+// SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
+
+use std::io;
+
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+#[non_exhaustive]
+pub enum Error {
+    #[error("Missing root importer")]
+    MissingRootImporter,
+
+    #[error("Snapshot not found for the package {0:?}")]
+    SnapshotNotFound(String),
+
+    #[error("Package {0:?} not found, marked as a dependency")]
+    DependencyPackageNotFound(String),
+
+    #[error("Chaste error: {0:?}")]
+    ChasteError(#[from] chaste_types::Error),
+
+    #[error("I/O error: {0:?}")]
+    IoError(#[from] io::Error),
+
+    #[error("Serde JSON error: {0:?}")]
+    JSONError(#[from] serde_json::Error),
+
+    #[error("Serde Norway error: {0:?}")]
+    NorwayError(#[from] serde_norway::Error),
+
+    #[error("SSRI error: {0:?}")]
+    SSRIError(#[from] chaste_types::SSRIError),
+}
+
+pub type Result<T, E = Error> = std::result::Result<T, E>;
