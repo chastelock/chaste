@@ -9,8 +9,8 @@ use chaste_types::{
     Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageName,
     SourceVersionDescriptor,
 };
-use error::Error;
 
+pub use crate::error::Error;
 use crate::error::Result;
 
 mod error;

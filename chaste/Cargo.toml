@@ -13,9 +13,10 @@ categories.workspace = true
 repository.workspace = true
 
 [features]
-default = ["npm", "yarn"]
+default = ["npm", "pnpm", "yarn"]
 
 npm = ["dep:chaste-npm"]
+pnpm = ["dep:chaste-pnpm"]
 yarn = ["yarn-berry", "yarn-classic"]
 yarn-berry = ["dep:chaste-yarn", "chaste-yarn/berry"]
 yarn-classic = ["dep:chaste-yarn", "chaste-yarn/classic"]
@@ -25,6 +26,10 @@ chaste-types.workspace = true
 thiserror.workspace = true
 
 [dependencies.chaste-npm]
+workspace = true
+optional = true
+
+[dependencies.chaste-pnpm]
 workspace = true
 optional = true
 

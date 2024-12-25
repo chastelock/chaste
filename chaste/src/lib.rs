@@ -5,6 +5,8 @@ use std::path::Path;
 
 #[cfg(feature = "npm")]
 pub use chaste_npm as npm;
+#[cfg(feature = "pnpm")]
+pub use chaste_pnpm as pnpm;
 pub use chaste_types as types;
 #[cfg(any(feature = "yarn-berry", feature = "yarn-classic"))]
 pub use chaste_yarn as yarn;
@@ -25,6 +27,14 @@ where
         let npm_lock = root_path.join(npm::LOCKFILE_NAME);
         if npm_lock.exists() {
             return Ok(npm::parse(root_path)?);
+        }
+    }
+
+    #[cfg(feature = "pnpm")]
+    {
+        let pnpm_lock = root_path.join(pnpm::LOCKFILE_NAME);
+        if pnpm_lock.exists() {
+            return Ok(pnpm::parse(root_path)?);
         }
     }
 

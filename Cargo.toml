@@ -24,6 +24,7 @@ repository = "https://codeberg.org/selfisekai/chaste"
 chaste = { version = "=0.3.0", default-features = false, path = "chaste" }
 chaste-npm = { version = "=0.3.0", default-features = false, path = "chaste-npm" }
 chaste-types = { version = "=0.3.0", default-features = false, path = "chaste-types" }
+chaste-pnpm = { version = "=0.3.0", default-features = false, path = "chaste-pnpm" }
 chaste-yarn = { version = "=0.3.0", default-features = false, path = "chaste-yarn" }
 
 yarn-state = { version = "0.1.1", default-features = false, path = "yarn-state" }

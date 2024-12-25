@@ -19,6 +19,10 @@ pub enum Error {
     #[cfg(feature = "npm")]
     NpmError(#[from] chaste_npm::Error),
 
+    #[error("Chaste pnpm error: {0:?}")]
+    #[cfg(feature = "pnpm")]
+    PnpmError(#[from] chaste_pnpm::Error),
+
     #[error("Chaste yarn error: {0:?}")]
     #[cfg(feature = "yarn")]
     YarnError(#[from] chaste_yarn::Error),

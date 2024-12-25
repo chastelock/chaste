@@ -71,6 +71,7 @@ name = "chaste"
 version = "0.3.0"
 dependencies = [
  "chaste-npm",
+ "chaste-pnpm",
  "chaste-types",
  "chaste-yarn",
  "thiserror 2.0.4",
