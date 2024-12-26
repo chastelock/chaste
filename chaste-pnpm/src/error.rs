@@ -17,6 +17,9 @@ pub enum Error {
     #[error("Package {0:?} not found, marked as a dependency")]
     DependencyPackageNotFound(String),
 
+    #[error("Could not parse package descriptor: {0:?}")]
+    InvalidPackageDescriptor(String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 

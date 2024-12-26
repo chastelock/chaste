@@ -7,8 +7,12 @@ use std::path::Path;
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageName,
-    SourceVersionDescriptor,
+    SourceVersionDescriptor, PACKAGE_JSON_FILENAME,
 };
+use nom::bytes::complete::{tag, take_while1};
+use nom::combinator::{opt, recognize, verify};
+use nom::sequence::{preceded, terminated};
+use nom::{IResult, Parser};
 
 pub use crate::error::Error;
 use crate::error::Result;
@@ -17,7 +21,26 @@ mod error;
 mod types;
 
 pub static LOCKFILE_NAME: &str = "pnpm-lock.yaml";
-pub static PACKAGE_JSON_NAME: &str = "package.json";
+
+fn package_name_part(input: &str) -> IResult<&str, &str> {
+    verify(
+        take_while1(|c: char| {
+            c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
+        }),
+        |part: &str| !part.starts_with("."),
+    )
+    .parse(input)
+}
+
+fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
+    recognize((
+        opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
+        verify(package_name_part, |part: &str| {
+            part != "node_modules" && part != "favicon.ico"
+        }),
+    ))
+    .parse(input)
+}
 
 pub fn parse<P>(root_dir: P) -> Result<Chastefile>
 where
@@ -28,7 +51,7 @@ where
     let lockfile_contents = fs::read_to_string(root_dir.join(LOCKFILE_NAME))?;
     let lockfile: types::Lockfile = serde_norway::from_str(&lockfile_contents)?;
     dbg!(&lockfile);
-    let package_json_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_NAME))?;
+    let package_json_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_FILENAME))?;
     let package_json: types::PackageJson = serde_json::from_str(&package_json_contents)?;
 
     let mut chastefile = ChastefileBuilder::new();
@@ -48,7 +71,10 @@ where
 
     let mut desc_pid = HashMap::with_capacity(lockfile.packages.len());
     for (pkg_desc, pkg) in lockfile.packages {
-        let mut package = PackageBuilder::new(None, None);
+        let (_, package_name) = package_name(pkg_desc)
+            .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
+        let mut package =
+            PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), None);
         package.integrity(pkg.resolution.integrity.parse()?);
         let pkg_pid = chastefile.add_package(package.build()?)?;
         desc_pid.insert(pkg_desc, pkg_pid);
