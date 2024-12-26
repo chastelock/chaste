@@ -101,6 +101,7 @@ name = "chaste-pnpm"
 version = "0.3.0"
 dependencies = [
  "chaste-types",
+ "nom",
  "serde",
  "serde_json",
  "serde_norway",

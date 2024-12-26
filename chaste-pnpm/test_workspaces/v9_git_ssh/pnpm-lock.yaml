@@ -1,0 +1,25 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      node-semver:
+        specifier: ssh://git@github.com:npm/node-semver.git#semver:^7.5.0
+        version: semver@https://codeload.github.com/npm/node-semver/tar.gz/0a12d6c7debb1dc82d8645c770e77c47bac5e1ea
+
+packages:
+
+  semver@https://codeload.github.com/npm/node-semver/tar.gz/0a12d6c7debb1dc82d8645c770e77c47bac5e1ea:
+    resolution: {tarball: https://codeload.github.com/npm/node-semver/tar.gz/0a12d6c7debb1dc82d8645c770e77c47bac5e1ea}
+    version: 7.6.3
+    engines: {node: '>=10'}
+    hasBin: true
+
+snapshots:
+
+  semver@https://codeload.github.com/npm/node-semver/tar.gz/0a12d6c7debb1dc82d8645c770e77c47bac5e1ea: {}

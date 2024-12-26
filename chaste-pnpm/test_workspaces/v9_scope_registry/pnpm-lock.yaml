@@ -1,0 +1,22 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@a/empty':
+        specifier: 0.0.1
+        version: 0.0.1
+
+packages:
+
+  '@a/empty@0.0.1':
+    resolution: {integrity: sha512-aacD9f3ERwGJhmIj98j2b93bIFY6T2BfXm4fqiM9DBdnXsj5z1bA0yamfRCDfwYIBO9rezWDlWfulp8FButk6Q==, tarball: https://codeberg.org/api/packages/libselfisekai/npm/%40a%2Fempty/-/0.0.1/empty-0.0.1.tgz}
+
+snapshots:
+
+  '@a/empty@0.0.1': {}

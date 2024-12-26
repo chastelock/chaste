@@ -17,7 +17,9 @@ pub(crate) struct PackageJson<'a> {
 pub(crate) struct Lockfile<'a> {
     pub(crate) lockfile_version: &'a str,
     pub(crate) importers: HashMap<&'a str, lock::Importer<'a>>,
+    #[serde(default)]
     pub(crate) packages: HashMap<&'a str, lock::Package<'a>>,
+    #[serde(default)]
     pub(crate) snapshots: HashMap<&'a str, lock::Snapshot<'a>>,
 }
 
@@ -29,9 +31,9 @@ mod lock {
     #[derive(Debug, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Importer<'a> {
-        #[serde(borrow)]
+        #[serde(borrow, default)]
         pub(crate) dependencies: HashMap<&'a str, ImporterDependency<'a>>,
-        #[serde(borrow)]
+        #[serde(borrow, default)]
         pub(crate) dev_dependencies: HashMap<&'a str, ImporterDependency<'a>>,
         // TODO: make sure it's all types
     }
@@ -53,7 +55,7 @@ mod lock {
     #[derive(Debug, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Resolution<'a> {
-        pub(crate) integrity: &'a str,
+        pub(crate) integrity: Option<&'a str>,
     }
 
     #[derive(Debug, Deserialize)]

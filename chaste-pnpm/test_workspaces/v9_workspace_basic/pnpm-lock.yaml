@@ -1,0 +1,30 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .: {}
+
+  balls:
+    dependencies:
+      ligma-api:
+        specifier: 'workspace:'
+        version: link:../ligma-api
+
+  ligma-api:
+    dependencies:
+      long:
+        specifier: ^5.0.0
+        version: 5.2.3
+
+packages:
+
+  long@5.2.3:
+    resolution: {integrity: sha512-lcHwpNoggQTObv5apGNCTdJrO69eHOZMi4BNC+rTLER8iHAqGrUVeLh/irVIM7zTw2bOXA8T6uNPeujwOLg/2Q==}
+
+snapshots:
+
+  long@5.2.3: {}
