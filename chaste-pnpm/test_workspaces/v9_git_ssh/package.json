@@ -2,6 +2,6 @@
   "name": "@chastelock/test__v9_git_ssh",
   "version": "0.0.0",
   "dependencies": {
-    "node-semver": "ssh://git@github.com:npm/node-semver.git#semver:^7.5.0"
+    "gulp-sass": "ssh://git@sakamoto.pl:2/lnl/gulp-sass.git#v4.2.0"
   }
 }

@@ -6,11 +6,12 @@ use std::fs;
 use std::path::Path;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageName,
-    SourceVersionDescriptor, PACKAGE_JSON_FILENAME,
+    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
+    ModulePath, PackageBuilder, PackageName, PackageSource, SourceVersionDescriptor,
+    PACKAGE_JSON_FILENAME,
 };
 use nom::bytes::complete::{tag, take_while1};
-use nom::combinator::{opt, recognize, verify};
+use nom::combinator::{opt, recognize, rest, verify};
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
 
@@ -50,55 +51,95 @@ where
 
     let lockfile_contents = fs::read_to_string(root_dir.join(LOCKFILE_NAME))?;
     let lockfile: types::Lockfile = serde_norway::from_str(&lockfile_contents)?;
-    let package_json_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_FILENAME))?;
-    let package_json: types::PackageJson = serde_json::from_str(&package_json_contents)?;
 
     let mut chastefile = ChastefileBuilder::new();
 
-    let Some(root_importer) = lockfile.importers.get(".") else {
-        return Err(Error::MissingRootImporter);
-    };
-    let root_pkg = PackageBuilder::new(
-        package_json
-            .name
-            .map(|n| PackageName::new(n.to_string()))
-            .transpose()?,
-        package_json.version.map(|v| v.to_string()),
-    );
-    let root_pid = chastefile.add_package(root_pkg.build()?)?;
-    chastefile.set_root_package_id(root_pid)?;
+    let mut importer_to_pid = HashMap::with_capacity(lockfile.importers.len());
+    for importer_path in lockfile.importers.keys() {
+        let package_json_contents = fs::read_to_string(if *importer_path == "." {
+            root_dir.join(PACKAGE_JSON_FILENAME)
+        } else {
+            root_dir.join(importer_path).join(PACKAGE_JSON_FILENAME)
+        })?;
+        let package_json: types::PackageJson = serde_json::from_str(&package_json_contents)?;
+        let importer_pkg = PackageBuilder::new(
+            package_json
+                .name
+                .map(|n| PackageName::new(n.to_string()))
+                .transpose()?,
+            package_json.version.map(|v| v.to_string()),
+        );
+        let importer_pid = chastefile.add_package(importer_pkg.build()?)?;
+        if *importer_path == "." {
+            chastefile.set_root_package_id(importer_pid)?;
+        } else {
+            chastefile.set_as_workspace_member(importer_pid)?;
+        }
+        importer_to_pid.insert(importer_path, importer_pid);
+        let installation = InstallationBuilder::new(
+            importer_pid,
+            ModulePath::new(if *importer_path == "." {
+                "".to_string()
+            } else {
+                importer_path.to_string()
+            })?,
+        )
+        .build()?;
+        chastefile.add_package_installation(installation);
+    }
 
     let mut desc_pid = HashMap::with_capacity(lockfile.packages.len());
     for (pkg_desc, pkg) in lockfile.packages {
-        let (_, package_name) = package_name(pkg_desc)
+        let (_, (package_name, _, package_svd)) = (package_name, tag("@"), rest)
+            .parse(pkg_desc)
             .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
+        let version = pkg.version.or(Some(package_svd)).map(|v| v.to_string());
         let mut package =
-            PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), None);
+            PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), version);
         if let Some(integrity) = pkg.resolution.integrity {
             package.integrity(integrity.parse()?);
+        }
+        if let Some(tarball_url) = pkg.resolution.tarball {
+            package.source(PackageSource::TarballURL {
+                url: tarball_url.to_string(),
+            });
+        } else if let Some(git_url) = package_svd.strip_prefix("git+") {
+            package.source(PackageSource::Git {
+                url: git_url.to_string(),
+            });
         }
         let pkg_pid = chastefile.add_package(package.build()?)?;
         desc_pid.insert(pkg_desc, pkg_pid);
     }
 
     for (importer_path, importer) in &lockfile.importers {
+        let importer_pid = *importer_to_pid.get(importer_path).unwrap();
         for (dep_name, d) in &importer.dependencies {
+            if d.version.starts_with("link:") {
+                // TODO:
+                continue;
+            }
             let dep_desc = format!("{dep_name}@{}", d.version);
             let dep_pid = *desc_pid
                 .get(dep_desc.as_str())
                 .or_else(|| desc_pid.get(d.version))
                 .ok_or_else(|| Error::DependencyPackageNotFound(dep_desc))?;
-            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, root_pid, dep_pid);
+            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, importer_pid, dep_pid);
             dep.svd(SourceVersionDescriptor::new(d.specifier.to_string())?);
             chastefile.add_dependency(dep.build());
         }
         for (dep_name, d) in &importer.dev_dependencies {
+            if d.version.starts_with("link:") {
+                // TODO:
+                continue;
+            }
             let dep_desc = format!("{dep_name}@{}", d.version);
             let dep_pid = *desc_pid
                 .get(dep_desc.as_str())
                 .or_else(|| desc_pid.get(d.version))
                 .ok_or_else(|| Error::DependencyPackageNotFound(dep_desc))?;
-            let mut dep = DependencyBuilder::new(DependencyKind::DevDependency, root_pid, dep_pid);
+            let mut dep =
+                DependencyBuilder::new(DependencyKind::DevDependency, importer_pid, dep_pid);
             dep.svd(SourceVersionDescriptor::new(d.specifier.to_string())?);
             chastefile.add_dependency(dep.build());
         }
@@ -130,7 +171,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::LazyLock;
 
-    use chaste_types::{Chastefile, Package, PackageID};
+    use chaste_types::{Chastefile, Package, PackageID, PackageSourceType};
 
     use crate::error::Result;
     use crate::parse;
@@ -163,14 +204,13 @@ mod tests {
         let chastefile = test_workspace("v9_git_ssh")?;
         let root_deps: Vec<_> = chastefile.root_package_dependencies().into_iter().collect();
         assert_eq!(root_deps.len(), 1);
-        let semver_dep = root_deps.first().unwrap();
-        let svd = semver_dep.svd().unwrap();
+        let dep = root_deps.first().unwrap();
+        let svd = dep.svd().unwrap();
         assert!(svd.is_git());
-        assert_eq!(svd.ssh_path_sep(), Some(":"));
-        let semver = chastefile.package(semver_dep.on);
-        assert_eq!(semver.name().unwrap(), "semver");
-        // TODO: https://codeberg.org/selfisekai/chaste/issues/45
-        // assert_eq!(semver.source_type(), Some(PackageSourceType::Git));
+        assert_eq!(svd.ssh_path_sep(), Some("/"));
+        let pkg = chastefile.package(dep.on);
+        assert_eq!(pkg.name().unwrap(), "@selfisekai/gulp-sass");
+        assert_eq!(pkg.source_type(), Some(PackageSourceType::Git));
 
         Ok(())
     }
@@ -184,12 +224,12 @@ mod tests {
             .filter(|d| d.kind.is_dev())
             .collect();
         assert_eq!(root_dev_deps.len(), 1);
-        let minimatch_dep = root_dev_deps.first().unwrap();
-        let minimatch = chastefile.package(minimatch_dep.on);
-        assert_eq!(minimatch.name().unwrap(), "minimatch");
+        let doipjs_dep = root_dev_deps.first().unwrap();
+        let doipjs = chastefile.package(doipjs_dep.on);
+        assert_eq!(doipjs.name().unwrap(), "doipjs");
         // TODO: https://codeberg.org/selfisekai/chaste/issues/45
-        // assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
-        assert_eq!(minimatch.integrity().hashes.len(), 0);
+        // assert_eq!(doipjs.source_type(), Some(PackageSourceType::Git));
+        assert_eq!(doipjs.integrity().hashes.len(), 0);
 
         Ok(())
     }
@@ -205,8 +245,7 @@ mod tests {
         let minimatch_dep = root_dev_deps.first().unwrap();
         let minimatch = chastefile.package(minimatch_dep.on);
         assert_eq!(minimatch.name().unwrap(), "minimatch");
-        // TODO: https://codeberg.org/selfisekai/chaste/issues/45
-        // assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
+        assert_eq!(minimatch.source_type(), Some(PackageSourceType::TarballURL));
         assert_eq!(minimatch.integrity().hashes.len(), 0);
 
         Ok(())
@@ -222,9 +261,8 @@ mod tests {
             .collect();
         chalks.sort_unstable_by_key(|p| p.version());
         let [chalk2, chalk5] = *chalks else { panic!() };
-        // TODO: https://codeberg.org/selfisekai/chaste/issues/43
-        // assert_eq!(chalk2.version().unwrap().to_string(), "2.4.2");
-        // assert_eq!(chalk5.version().unwrap().to_string(), "5.4.0");
+        assert_eq!(chalk2.version().unwrap().to_string(), "2.4.2");
+        assert_eq!(chalk5.version().unwrap().to_string(), "5.4.1");
 
         Ok(())
     }
@@ -260,11 +298,10 @@ mod tests {
         let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
         let empty_pkg = chastefile.package(empty_pid);
         assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
-        // TODO: https://codeberg.org/selfisekai/chaste/issues/43
-        // assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
+        assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
         assert_eq!(empty_pkg.integrity().hashes.len(), 1);
         // TODO: recognize custom npm registry.
-        assert_eq!(empty_pkg.source_type(), None);
+        // assert_eq!(empty_pkg.source_type(), None);
 
         Ok(())
     }
@@ -295,16 +332,14 @@ mod tests {
             workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid)
         );
         let balls_installations = chastefile.package_installations(balls_pid);
-        assert_eq!(balls_installations.len(), 2);
-        let mut balls_install_paths = balls_installations
+        // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
+        // But installations to node_modules/ are currently not tracked.
+        assert_eq!(balls_installations.len(), 1);
+        let balls_install_paths = balls_installations
             .iter()
             .map(|i| i.path().as_ref())
             .collect::<Vec<&str>>();
-        balls_install_paths.sort_unstable();
-        assert_eq!(
-            balls_install_paths,
-            ["balls", "node_modules/@chastelock/balls"]
-        );
+        assert_eq!(balls_install_paths, ["balls"]);
 
         Ok(())
     }

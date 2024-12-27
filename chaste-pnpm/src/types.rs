@@ -23,7 +23,7 @@ pub(crate) struct Lockfile<'a> {
     pub(crate) snapshots: HashMap<&'a str, lock::Snapshot<'a>>,
 }
 
-mod lock {
+pub(crate) mod lock {
     use std::collections::HashMap;
 
     use serde::Deserialize;
@@ -50,12 +50,14 @@ mod lock {
     pub(crate) struct Package<'a> {
         #[serde(borrow)]
         pub(crate) resolution: Resolution<'a>,
+        pub(crate) version: Option<&'a str>,
     }
 
     #[derive(Debug, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Resolution<'a> {
         pub(crate) integrity: Option<&'a str>,
+        pub(crate) tarball: Option<&'a str>,
     }
 
     #[derive(Debug, Deserialize)]

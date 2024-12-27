@@ -5,6 +5,6 @@
     "is-even": "1.0.0"
   },
   "devDependencies": {
-    "minimatch": "https://github.com/isaacs/minimatch.git#v10.0.1"
+    "doipjs": "git+https://codeberg.org/keyoxide/doipjs.git#2.0.1"
   }
 }
