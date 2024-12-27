@@ -146,10 +146,16 @@ where
     }
 
     for (pkg_desc, snap) in lockfile.snapshots {
+        // TODO: handle peer dependencies properly
+        // https://codeberg.org/selfisekai/chaste/issues/46
+        let pkg_desc = pkg_desc.split_once("(").map(|(s, _)| s).unwrap_or(pkg_desc);
         let pkg_pid = *desc_pid
             .get(pkg_desc)
             .ok_or_else(|| Error::SnapshotNotFound(pkg_desc.to_string()))?;
         for (dep_name, dep_svd) in snap.dependencies {
+            // TODO: handle peer dependencies properly
+            // https://codeberg.org/selfisekai/chaste/issues/46
+            let dep_svd = dep_svd.split_once("(").map(|(s, _)| s).unwrap_or(dep_svd);
             let desc = format!("{dep_name}@{dep_svd}");
             let dep = DependencyBuilder::new(
                 DependencyKind::Dependency,
@@ -228,7 +234,7 @@ mod tests {
         let doipjs = chastefile.package(doipjs_dep.on);
         assert_eq!(doipjs.name().unwrap(), "doipjs");
         // TODO: https://codeberg.org/selfisekai/chaste/issues/45
-        // assert_eq!(doipjs.source_type(), Some(PackageSourceType::Git));
+        assert_eq!(doipjs.source_type(), Some(PackageSourceType::Git));
         assert_eq!(doipjs.integrity().hashes.len(), 0);
 
         Ok(())
