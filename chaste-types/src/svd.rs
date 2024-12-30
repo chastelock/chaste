@@ -13,13 +13,13 @@ use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
 
 /// Source/version descriptor. It is a constraint defined by a specific [`crate::Dependency`]
 /// rather than by a [`crate::PackageSource`].
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SourceVersionDescriptor {
     inner: String,
     positions: SourceVersionDescriptorPositions,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum SourceVersionDescriptorPositions {
     Npm {
         type_prefix_end: usize,

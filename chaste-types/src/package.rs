@@ -11,7 +11,7 @@ use crate::error::Result;
 use crate::name::PackageName;
 use crate::source::{PackageSource, PackageSourceType};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Package {
     name: Option<PackageName>,
     version: Option<PackageVersion>,

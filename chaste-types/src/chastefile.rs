@@ -8,7 +8,7 @@ use crate::error::{Error, Result};
 use crate::installation::Installation;
 use crate::package::{Package, PackageID};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chastefile {
     packages: HashMap<PackageID, Package>,
     installations: Vec<Installation>,

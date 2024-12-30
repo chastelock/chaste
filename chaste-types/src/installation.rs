@@ -5,7 +5,7 @@ use crate::error::Result;
 use crate::module_path::ModulePath;
 use crate::package::PackageID;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Installation {
     package_id: PackageID,
     path: ModulePath,

@@ -29,7 +29,7 @@ impl DependencyKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Dependency {
     pub kind: DependencyKind,
     pub from: PackageID,
