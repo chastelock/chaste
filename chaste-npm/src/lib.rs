@@ -236,7 +236,7 @@ impl<'a> PackageParser<'a> {
 }
 
 fn parse_lock(package_lock: &PackageLock) -> Result<Chastefile> {
-    if package_lock.lockfile_version != 3 {
+    if ![2, 3].contains(&package_lock.lockfile_version) {
         return Err(Error::UnknownLockVersion(package_lock.lockfile_version));
     }
     let parser = PackageParser::new(package_lock);
@@ -260,12 +260,39 @@ mod tests {
 
     use chaste_types::{Chastefile, Package, PackageID, PackageSourceType};
 
-    use super::{parse, Result};
+    use super::{parse, Error, Result};
 
     static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test_workspaces"));
 
     fn test_workspace(name: &str) -> Result<Chastefile> {
         parse(TEST_WORKSPACES.join(name))
+    }
+
+    #[test]
+    fn v1_basic() -> Result<()> {
+        assert!(matches!(
+            test_workspace("v1_basic").unwrap_err(),
+            Error::UnknownLockVersion(1)
+        ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn v2_basic() -> Result<()> {
+        let chastefile = test_workspace("v2_basic")?;
+        let root = chastefile.root_package();
+        assert_eq!(root.name().unwrap(), "@chastelock/test__v2_basic");
+        assert_eq!(root.version().unwrap().to_string(), "0.0.0");
+        assert_eq!(chastefile.packages().len(), 9);
+        assert_eq!(
+            chastefile
+                .recursive_package_dependencies(chastefile.root_package_id())
+                .len(),
+            8
+        );
+
+        Ok(())
     }
 
     #[test]

@@ -37,5 +37,6 @@ pub(crate) struct PeerDependencyMeta {
 pub(crate) struct PackageLock<'a> {
     pub(crate) name: Cow<'a, str>,
     pub(crate) lockfile_version: u8,
+    #[serde(default)]
     pub(crate) packages: HashMap<Cow<'a, str>, DependencyTreePackage<'a>>,
 }

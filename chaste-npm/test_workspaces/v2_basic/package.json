@@ -1,0 +1,10 @@
+{
+  "name": "@chastelock/test__v2_basic",
+  "version": "0.0.0",
+  "dependencies": {
+    "is-even": "1.0.0"
+  },
+  "devDependencies": {
+    "minimatch": "^10.0.1"
+  }
+}
