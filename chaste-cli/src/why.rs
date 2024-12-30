@@ -25,7 +25,7 @@ where
         1 => {
             let mut res = preceding;
             let g = generated.first().unwrap();
-            if res.iter().any(|d| d.from == g.from) {
+            if res.iter().any(|d| d.from == g.from || d.on == g.on) {
                 return Vec::new();
             }
             res.push(g);
@@ -35,7 +35,7 @@ where
             let mut res = Vec::new();
             for g in generated {
                 let mut branch = preceding.clone();
-                if branch.iter().any(|d| d.from == g.from) {
+                if branch.iter().any(|d| d.from == g.from || d.on == g.on) {
                     continue;
                 }
                 branch.push(g);
