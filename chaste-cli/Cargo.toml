@@ -6,7 +6,7 @@ name = "chaste-cli"
 edition = "2021"
 description = "Parser for npmjs lockfiles (cli)"
 categories = ["command-line-utilities", "development-tools"]
-keywords = ["lockfile", "npmjs", "npm", "yarn"]
+keywords = ["lockfile", "npmjs", "npm", "yarn", "pnpm"]
 version.workspace = true
 authors.workspace = true
 license.workspace = true
@@ -17,9 +17,10 @@ name = "chaste"
 path = "src/main.rs"
 
 [features]
-default = ["npm", "yarn"]
+default = ["npm", "pnpm", "yarn"]
 
 npm = ["chaste/npm"]
+pnpm = ["chaste/pnpm"]
 yarn = ["chaste/yarn", "yarn-berry", "yarn-classic"]
 yarn-berry = ["chaste/yarn-berry"]
 yarn-classic = ["chaste/yarn-classic"]
