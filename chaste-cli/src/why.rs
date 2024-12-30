@@ -24,13 +24,20 @@ where
         0 => vec![preceding],
         1 => {
             let mut res = preceding;
-            res.push(generated.first().unwrap());
+            let g = generated.first().unwrap();
+            if res.iter().any(|d| d.from == g.from) {
+                return Vec::new();
+            }
+            res.push(g);
             permute(res, generator)
         }
         _ => {
             let mut res = Vec::new();
             for g in generated {
                 let mut branch = preceding.clone();
+                if branch.iter().any(|d| d.from == g.from) {
+                    continue;
+                }
                 branch.push(g);
                 res.extend(permute(branch, generator.clone()));
             }
