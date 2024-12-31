@@ -31,6 +31,7 @@ yarn-state = { version = "0.1.1", default-features = false, path = "yarn-state" 
 
 anyhow = "1.0"
 argh = "0.1"
+assert_cmd = "2.0"
 concat-idents = "1.1"
 nodejs-semver = "4.1.0"
 nom = "8.0.0-beta.1"

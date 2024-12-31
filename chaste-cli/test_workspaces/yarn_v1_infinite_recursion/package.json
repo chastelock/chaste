@@ -1,0 +1,6 @@
+{
+    "name": "@chastelock/testcase",
+    "dependencies": {
+        "@chastelock/recursion-a": "^0.1.0"
+    }
+}

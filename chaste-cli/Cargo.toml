@@ -32,3 +32,6 @@ argh.workspace = true
 [dependencies.chaste]
 workspace = true
 default-features = false
+
+[dev-dependencies]
+assert_cmd.workspace = true
