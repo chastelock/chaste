@@ -11,7 +11,7 @@ pub use crate::module_path::*;
 pub use crate::name::*;
 pub use crate::package::*;
 pub use crate::source::*;
-pub use crate::svd::*;
+pub use crate::svs::*;
 
 mod chastefile;
 mod dependency;
@@ -22,4 +22,4 @@ mod module_path;
 mod name;
 mod package;
 mod source;
-mod svd;
+mod svs;

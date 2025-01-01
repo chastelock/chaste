@@ -9,7 +9,7 @@ use std::path::Path;
 use chaste_types::{
     Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
     InstallationBuilder, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource,
-    SourceVersionDescriptor,
+    SourceVersionSpecifier,
 };
 
 pub use crate::error::{Error, Result};
@@ -94,25 +94,25 @@ fn parse_dependencies<'a>(
     self_pid: PackageID,
 ) -> Result<Vec<Dependency>> {
     let mut dependencies = Vec::new();
-    for (n, svd) in tree_package.dependencies.iter() {
+    for (n, svs) in tree_package.dependencies.iter() {
         let mut dep = DependencyBuilder::new(
             DependencyKind::Dependency,
             self_pid,
             find_pid(path, n, path_pid)?,
         );
-        dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
+        dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
         dependencies.push(dep.build());
     }
-    for (n, svd) in tree_package.dev_dependencies.iter() {
+    for (n, svs) in tree_package.dev_dependencies.iter() {
         let mut dep = DependencyBuilder::new(
             DependencyKind::DevDependency,
             self_pid,
             find_pid(path, n, path_pid)?,
         );
-        dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
+        dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
         dependencies.push(dep.build());
     }
-    for (n, svd) in tree_package.peer_dependencies.iter() {
+    for (n, svs) in tree_package.peer_dependencies.iter() {
         let is_optional = matches!(
             tree_package.peer_dependencies_meta.get(n),
             Some(PeerDependencyMeta {
@@ -130,7 +130,7 @@ fn parse_dependencies<'a>(
                     self_pid,
                     pid,
                 );
-                dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
+                dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
                 dependencies.push(dep.build());
             }
             // Allowed to fail. Yes, even if not marked as optional - it wasn't getting installed
@@ -141,12 +141,12 @@ fn parse_dependencies<'a>(
             Err(e) => return Err(e),
         }
     }
-    for (n, svd) in tree_package.optional_dependencies.iter() {
+    for (n, svs) in tree_package.optional_dependencies.iter() {
         match find_pid(path, n, path_pid) {
             Ok(pid) => {
                 let mut dep =
                     DependencyBuilder::new(DependencyKind::OptionalDependency, self_pid, pid);
-                dep.svd(SourceVersionDescriptor::new(svd.to_string())?);
+                dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
                 dependencies.push(dep.build());
             }
             // It's optional, ignore.
@@ -318,9 +318,9 @@ mod tests {
         let root_deps: Vec<_> = chastefile.root_package_dependencies().into_iter().collect();
         assert_eq!(root_deps.len(), 1);
         let semver_dep = root_deps.first().unwrap();
-        let svd = semver_dep.svd().unwrap();
-        assert!(svd.is_git());
-        assert_eq!(svd.ssh_path_sep(), Some(":"));
+        let svs = semver_dep.svs().unwrap();
+        assert!(svs.is_git());
+        assert_eq!(svs.ssh_path_sep(), Some(":"));
         let semver = chastefile.package(semver_dep.on);
         assert_eq!(semver.name().unwrap(), "semver");
         assert_eq!(semver.source_type(), Some(PackageSourceType::Git));
@@ -387,7 +387,7 @@ mod tests {
         };
         let nop = chastefile.package(nop_dep.on);
         assert_eq!(nop.name().unwrap(), "nop");
-        assert!(nop_dep.svd().unwrap().is_npm_tag());
+        assert!(nop_dep.svs().unwrap().is_npm_tag());
 
         Ok(())
     }

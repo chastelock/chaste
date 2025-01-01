@@ -7,7 +7,7 @@ use std::path::Path;
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    ModulePath, PackageBuilder, PackageName, PackageSource, SourceVersionDescriptor,
+    ModulePath, PackageBuilder, PackageName, PackageSource, SourceVersionSpecifier,
     PACKAGE_JSON_FILENAME,
 };
 use nom::bytes::complete::{tag, take_while1};
@@ -90,10 +90,10 @@ where
 
     let mut desc_pid = HashMap::with_capacity(lockfile.packages.len());
     for (pkg_desc, pkg) in lockfile.packages {
-        let (_, (package_name, _, package_svd)) = (package_name, tag("@"), rest)
+        let (_, (package_name, _, package_svs)) = (package_name, tag("@"), rest)
             .parse(pkg_desc)
             .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
-        let version = pkg.version.or(Some(package_svd)).map(|v| v.to_string());
+        let version = pkg.version.or(Some(package_svs)).map(|v| v.to_string());
         let mut package =
             PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), version);
         if let Some(integrity) = pkg.resolution.integrity {
@@ -103,7 +103,7 @@ where
             package.source(PackageSource::TarballURL {
                 url: tarball_url.to_string(),
             });
-        } else if let Some(git_url) = package_svd.strip_prefix("git+") {
+        } else if let Some(git_url) = package_svs.strip_prefix("git+") {
             package.source(PackageSource::Git {
                 url: git_url.to_string(),
             });
@@ -125,7 +125,7 @@ where
                 .or_else(|| desc_pid.get(d.version))
                 .ok_or_else(|| Error::DependencyPackageNotFound(dep_desc))?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, importer_pid, dep_pid);
-            dep.svd(SourceVersionDescriptor::new(d.specifier.to_string())?);
+            dep.svs(SourceVersionSpecifier::new(d.specifier.to_string())?);
             chastefile.add_dependency(dep.build());
         }
         for (dep_name, d) in &importer.dev_dependencies {
@@ -140,7 +140,7 @@ where
                 .ok_or_else(|| Error::DependencyPackageNotFound(dep_desc))?;
             let mut dep =
                 DependencyBuilder::new(DependencyKind::DevDependency, importer_pid, dep_pid);
-            dep.svd(SourceVersionDescriptor::new(d.specifier.to_string())?);
+            dep.svs(SourceVersionSpecifier::new(d.specifier.to_string())?);
             chastefile.add_dependency(dep.build());
         }
     }
@@ -152,17 +152,17 @@ where
         let pkg_pid = *desc_pid
             .get(pkg_desc)
             .ok_or_else(|| Error::SnapshotNotFound(pkg_desc.to_string()))?;
-        for (dep_name, dep_svd) in snap.dependencies {
+        for (dep_name, dep_svs) in snap.dependencies {
             // TODO: handle peer dependencies properly
             // https://codeberg.org/selfisekai/chaste/issues/46
-            let dep_svd = dep_svd.split_once("(").map(|(s, _)| s).unwrap_or(dep_svd);
-            let desc = format!("{dep_name}@{dep_svd}");
+            let dep_svs = dep_svs.split_once("(").map(|(s, _)| s).unwrap_or(dep_svs);
+            let desc = format!("{dep_name}@{dep_svs}");
             let dep = DependencyBuilder::new(
                 DependencyKind::Dependency,
                 pkg_pid,
                 *desc_pid
                     .get(desc.as_str())
-                    .or_else(|| desc_pid.get(dep_svd))
+                    .or_else(|| desc_pid.get(dep_svs))
                     .ok_or_else(|| Error::DependencyPackageNotFound(desc))?,
             );
             chastefile.add_dependency(dep.build());
@@ -211,9 +211,9 @@ mod tests {
         let root_deps: Vec<_> = chastefile.root_package_dependencies().into_iter().collect();
         assert_eq!(root_deps.len(), 1);
         let dep = root_deps.first().unwrap();
-        let svd = dep.svd().unwrap();
-        assert!(svd.is_git());
-        assert_eq!(svd.ssh_path_sep(), Some("/"));
+        let svs = dep.svs().unwrap();
+        assert!(svs.is_git());
+        assert_eq!(svs.ssh_path_sep(), Some("/"));
         let pkg = chastefile.package(dep.on);
         assert_eq!(pkg.name().unwrap(), "@selfisekai/gulp-sass");
         assert_eq!(pkg.source_type(), Some(PackageSourceType::Git));
@@ -281,7 +281,7 @@ mod tests {
         };
         let nop = chastefile.package(nop_dep.on);
         assert_eq!(nop.name().unwrap(), "nop");
-        assert!(nop_dep.svd().unwrap().is_npm_tag());
+        assert!(nop_dep.svs().unwrap().is_npm_tag());
 
         Ok(())
     }

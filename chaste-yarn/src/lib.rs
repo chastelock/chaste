@@ -89,9 +89,9 @@ mod tests {
         );
         let root_package_dependencies = chastefile.root_package_dependencies();
         let semver_dep = root_package_dependencies.first().unwrap();
-        let svd = semver_dep.svd().unwrap();
-        assert!(svd.is_git());
-        assert_eq!(svd.ssh_path_sep(), Some("/"));
+        let svs = semver_dep.svs().unwrap();
+        assert!(svs.is_git());
+        assert_eq!(svs.ssh_path_sep(), Some("/"));
         let semver = chastefile.package(semver_dep.on);
         assert_eq!(semver.name().unwrap(), "node-semver");
         assert_eq!(semver.version().unwrap().to_string(), "7.6.3");
@@ -189,7 +189,7 @@ mod tests {
         };
         let nop = chastefile.package(nop_dep.on);
         assert_eq!(nop.name().unwrap(), "nop");
-        assert!(nop_dep.svd().unwrap().is_npm_tag());
+        assert!(nop_dep.svs().unwrap().is_npm_tag());
         Ok(())
     });
 

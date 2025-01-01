@@ -18,8 +18,8 @@ pub enum Error {
     #[error("Invalid package name: {0:?}")]
     InvalidPackageName(String),
 
-    #[error("Invalid source/version descriptor: {0:?}")]
-    InvalidSVD(String),
+    #[error("Invalid source/version specifier: {0:?}")]
+    InvalidSVS(String),
 
     #[error("Invalid module path: {0:?}")]
     InvalidModulePath(String),

@@ -8,7 +8,7 @@ use std::{fs, str};
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
     Integrity, ModulePath, Package, PackageBuilder, PackageID, PackageName, PackageSource,
-    PackageVersion, SourceVersionDescriptor, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
+    PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
@@ -36,7 +36,7 @@ fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool 
         .is_ok()
 }
 
-fn is_github_svd(input: &str) -> bool {
+fn is_github_svs(input: &str) -> bool {
     (
         opt(tag::<&str, &str, ()>("github:")),
         take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
@@ -64,8 +64,8 @@ fn parse_source_url(entry: &yarn::Entry, url: &str) -> Result<Option<PackageSour
     // b) the special GitHub tag (in yarn, it resolves to tarballs).
     //
     // XXX: This might be wrong with overrides.
-    } else if entry.descriptors.iter().all(|(_, svd)| {
-        svd.starts_with("https://") || svd.starts_with("http://") || is_github_svd(svd)
+    } else if entry.descriptors.iter().all(|(_, svs)| {
+        svs.starts_with("https://") || svs.starts_with("http://") || is_github_svs(svs)
     }) {
         Some(PackageSource::TarballURL {
             url: url.to_string(),
@@ -75,7 +75,7 @@ fn parse_source_url(entry: &yarn::Entry, url: &str) -> Result<Option<PackageSour
     } else if entry
         .descriptors
         .iter()
-        .all(|(_, svd)| PackageVersion::parse(svd).is_ok())
+        .all(|(_, svs)| PackageVersion::parse(svs).is_ok())
     {
         Some(PackageSource::Npm)
     } else {
@@ -228,7 +228,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, root_pid, dep_pid);
-            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
             chastefile_builder.add_dependency(dep.build());
         }
         for dep_descriptor in &package_json.dev_dependencies {
@@ -240,7 +240,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::DevDependency, root_pid, dep_pid);
-            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
             chastefile_builder.add_dependency(dep.build());
         }
         for dep_descriptor in &package_json.peer_dependencies {
@@ -252,7 +252,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, dep_pid);
-            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
             chastefile_builder.add_dependency(dep.build());
         }
         for dep_descriptor in &package_json.optional_dependencies {
@@ -265,7 +265,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
             )?;
             let mut dep =
                 DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, dep_pid);
-            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
             chastefile_builder.add_dependency(dep.build());
         }
     }
@@ -285,7 +285,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
             // It might be peer and/or optional. But in that case, it got added here
             // by root and/or another dependency.
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
-            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
             chastefile_builder.add_dependency(dep.build());
         }
     }
@@ -294,13 +294,13 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
 #[cfg(test)]
 mod tests {
-    use super::{is_github_svd, Result};
+    use super::{is_github_svs, Result};
 
     #[test]
     fn github_cvd() -> Result<()> {
-        assert!(is_github_svd("isaacs/minimatch#v10.0.1"));
-        assert!(is_github_svd("github:isaacs/minimatch#v10.0.1"));
-        assert!(is_github_svd("isaacs/minimatch"));
+        assert!(is_github_svs("isaacs/minimatch#v10.0.1"));
+        assert!(is_github_svs("github:isaacs/minimatch#v10.0.1"));
+        assert!(is_github_svs("isaacs/minimatch"));
 
         Ok(())
     }

@@ -11,16 +11,16 @@ use nom::Parser;
 use crate::error::{Error, Result};
 use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
 
-/// Source/version descriptor. It is a constraint defined by a specific [`crate::Dependency`]
+/// Source/version specifier. It is a constraint defined by a specific [`crate::Dependency`]
 /// rather than by a [`crate::PackageSource`].
 #[derive(Debug, Clone)]
-pub struct SourceVersionDescriptor {
+pub struct SourceVersionSpecifier {
     inner: String,
-    positions: SourceVersionDescriptorPositions,
+    positions: SourceVersionSpecifierPositions,
 }
 
 #[derive(Debug, Clone)]
-enum SourceVersionDescriptorPositions {
+enum SourceVersionSpecifierPositions {
     Npm {
         type_prefix_end: usize,
         alias_package_name: Option<PackageNamePositions>,
@@ -36,7 +36,7 @@ enum SourceVersionDescriptorPositions {
     },
 }
 
-fn npm(input: &str) -> Option<SourceVersionDescriptorPositions> {
+fn npm(input: &str) -> Option<SourceVersionSpecifierPositions> {
     (
         opt(tag("npm:")),
         opt(terminated(package_name, tag("@"))),
@@ -47,14 +47,14 @@ fn npm(input: &str) -> Option<SourceVersionDescriptorPositions> {
         .parse(input)
         .ok()
         .map(|(_, (type_prefix, alias_package_name, _range))| {
-            SourceVersionDescriptorPositions::Npm {
+            SourceVersionSpecifierPositions::Npm {
                 type_prefix_end: type_prefix.map(|p| p.len()).unwrap_or(0),
                 alias_package_name,
             }
         })
 }
 
-fn url(input: &str) -> Option<SourceVersionDescriptorPositions> {
+fn url(input: &str) -> Option<SourceVersionSpecifierPositions> {
     (
         opt(tag::<&str, &str, nom::error::Error<&str>>("git+")),
         recognize((
@@ -69,18 +69,18 @@ fn url(input: &str) -> Option<SourceVersionDescriptorPositions> {
         .ok()
         .map(|(_, (git_prefix, url, _spec_suffix))| {
             if git_prefix.is_some() || url.ends_with(".git") {
-                SourceVersionDescriptorPositions::Git {
+                SourceVersionSpecifierPositions::Git {
                     type_prefix_end: git_prefix.map(|p| p.len()).unwrap_or(0),
                     pre_path_sep_offset: None,
                 }
             } else {
-                SourceVersionDescriptorPositions::TarballURL {}
+                SourceVersionSpecifierPositions::TarballURL {}
             }
         })
 }
 
 /// This definition is probably too broad
-fn ssh(input: &str) -> Option<SourceVersionDescriptorPositions> {
+fn ssh(input: &str) -> Option<SourceVersionSpecifierPositions> {
     (
         opt(pair(
             opt(tag::<&str, &str, nom::error::Error<&str>>("git+")),
@@ -101,7 +101,7 @@ fn ssh(input: &str) -> Option<SourceVersionDescriptorPositions> {
                         git_prefix.map(|p| p.len()).unwrap_or(0) + ssh_prefix.len()
                     })
                     .unwrap_or(0);
-                Some(SourceVersionDescriptorPositions::Git {
+                Some(SourceVersionSpecifierPositions::Git {
                     type_prefix_end: prefix_len,
                     pre_path_sep_offset: Some(
                         prefix_len + host.len() + port.map(|p| p.len() + 1).unwrap_or(0),
@@ -113,7 +113,7 @@ fn ssh(input: &str) -> Option<SourceVersionDescriptorPositions> {
         })
 }
 
-fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
+fn github(input: &str) -> Option<SourceVersionSpecifierPositions> {
     (
         opt(tag::<&str, &str, ()>("github:")),
         take_while1(|c: char| c.is_ascii_alphanumeric() || c == '-'),
@@ -127,45 +127,45 @@ fn github(input: &str) -> Option<SourceVersionDescriptorPositions> {
         .parse(input)
         .ok()
         .map(
-            |(_, (gh_prefix, _, _, _, _))| SourceVersionDescriptorPositions::GitHub {
+            |(_, (gh_prefix, _, _, _, _))| SourceVersionSpecifierPositions::GitHub {
                 type_prefix_end: gh_prefix.map(|p| p.len()).unwrap_or(0),
             },
         )
 }
 
-fn npm_tag(input: &str) -> Option<SourceVersionDescriptorPositions> {
+fn npm_tag(input: &str) -> Option<SourceVersionSpecifierPositions> {
     preceded(
         take_while(|c: char| c.is_ascii() && !c.is_ascii_control()),
         eof::<&str, nom::error::Error<&str>>,
     )
     .parse(input)
     .ok()
-    .map(|(_, _)| SourceVersionDescriptorPositions::NpmTag {})
+    .map(|(_, _)| SourceVersionSpecifierPositions::NpmTag {})
 }
 
-impl SourceVersionDescriptorPositions {
-    fn parse(svd: &str) -> Result<Self> {
-        npm(svd)
-            .or_else(|| url(svd))
-            .or_else(|| github(svd))
-            .or_else(|| ssh(svd))
-            .or_else(|| npm_tag(svd))
-            .ok_or_else(|| Error::InvalidSVD(svd.to_string()))
+impl SourceVersionSpecifierPositions {
+    fn parse(svs: &str) -> Result<Self> {
+        npm(svs)
+            .or_else(|| url(svs))
+            .or_else(|| github(svs))
+            .or_else(|| ssh(svs))
+            .or_else(|| npm_tag(svs))
+            .ok_or_else(|| Error::InvalidSVS(svs.to_string()))
     }
 }
-impl SourceVersionDescriptor {
-    pub fn new(svd: String) -> Result<Self> {
+impl SourceVersionSpecifier {
+    pub fn new(svs: String) -> Result<Self> {
         Ok(Self {
-            positions: SourceVersionDescriptorPositions::parse(&svd)?,
-            inner: svd,
+            positions: SourceVersionSpecifierPositions::parse(&svs)?,
+            inner: svs,
         })
     }
 }
 
-impl SourceVersionDescriptorPositions {
+impl SourceVersionSpecifierPositions {
     fn aliased_package_name(&self) -> Option<(usize, usize)> {
         match self {
-            SourceVersionDescriptorPositions::Npm {
+            SourceVersionSpecifierPositions::Npm {
                 type_prefix_end,
                 alias_package_name: Some(alias),
             } => Some((*type_prefix_end, alias.total_length + type_prefix_end)),
@@ -174,7 +174,7 @@ impl SourceVersionDescriptorPositions {
     }
     fn ssh_path_sep(&self) -> Option<(usize, usize)> {
         match self {
-            SourceVersionDescriptorPositions::Git {
+            SourceVersionSpecifierPositions::Git {
                 pre_path_sep_offset: Some(offset),
                 ..
             } => Some((*offset, offset + 1)),
@@ -183,48 +183,48 @@ impl SourceVersionDescriptorPositions {
     }
 }
 
-impl SourceVersionDescriptor {
+impl SourceVersionSpecifier {
     pub fn is_npm(&self) -> bool {
-        matches!(self.positions, SourceVersionDescriptorPositions::Npm { .. })
+        matches!(self.positions, SourceVersionSpecifierPositions::Npm { .. })
     }
 
     pub fn is_npm_tag(&self) -> bool {
         matches!(
             self.positions,
-            SourceVersionDescriptorPositions::NpmTag { .. }
+            SourceVersionSpecifierPositions::NpmTag { .. }
         )
     }
 
     pub fn is_tar(&self) -> bool {
         matches!(
             self.positions,
-            SourceVersionDescriptorPositions::TarballURL { .. }
+            SourceVersionSpecifierPositions::TarballURL { .. }
         )
     }
 
     pub fn is_git(&self) -> bool {
-        matches!(self.positions, SourceVersionDescriptorPositions::Git { .. })
+        matches!(self.positions, SourceVersionSpecifierPositions::Git { .. })
     }
 
     pub fn is_github(&self) -> bool {
         matches!(
             self.positions,
-            SourceVersionDescriptorPositions::GitHub { .. }
+            SourceVersionSpecifierPositions::GitHub { .. }
         )
     }
 
-    /// Package name specified as aliased in the version descriptor.
+    /// Package name specified as aliased in the version specifier.
     ///
     /// # Example
     /// ```
-    /// # use chaste_types::SourceVersionDescriptor;
-    /// let svd = SourceVersionDescriptor::new(
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs = SourceVersionSpecifier::new(
     ///     "npm:@chastelock/testcase@^2.1.37".to_string()).unwrap();
-    /// assert_eq!(svd.aliased_package_name().unwrap(), "@chastelock/testcase");
+    /// assert_eq!(svs.aliased_package_name().unwrap(), "@chastelock/testcase");
     /// ```
     pub fn aliased_package_name(&self) -> Option<PackageNameBorrowed<'_>> {
         match &self.positions {
-            SourceVersionDescriptorPositions::Npm {
+            SourceVersionSpecifierPositions::Npm {
                 alias_package_name: Some(positions),
                 ..
             } => {
@@ -246,8 +246,8 @@ impl SourceVersionDescriptor {
 }
 
 #[non_exhaustive]
-pub enum SourceVersionDescriptorType {
-    /// Package from an npm registry. Does not include tags (see [`SourceVersionDescriptorType::NpmTag`])
+pub enum SourceVersionSpecifierType {
+    /// Package from an npm registry. Does not include tags (see [`SourceVersionSpecifierType::NpmTag`])
     Npm,
     /// Named tag from an npm registry, e.g. "latest", "beta".
     NpmTag,
@@ -255,167 +255,167 @@ pub enum SourceVersionDescriptorType {
     TarballURL,
     /// Git repository. <https://docs.npmjs.com/cli/v10/configuring-npm/package-json#git-urls-as-dependencies>
     Git,
-    /// GitHub repository. No, not the same as [SourceVersionDescriptorType::Git], it's papa's special boy.
+    /// GitHub repository. No, not the same as [`SourceVersionSpecifierType::Git`], it's papa's special boy.
     /// <https://docs.npmjs.com/cli/v10/configuring-npm/package-json#git-urls-as-dependencies>
     GitHub,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::SourceVersionDescriptor;
+    use super::SourceVersionSpecifier;
     use crate::error::Result;
 
     #[test]
-    fn npm_svd_basic() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("^7.0.1".to_string())?;
-        assert!(svd.is_npm());
-        assert_eq!(svd.aliased_package_name(), None);
+    fn npm_svs_basic() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("^7.0.1".to_string())?;
+        assert!(svs.is_npm());
+        assert_eq!(svs.aliased_package_name(), None);
         Ok(())
     }
 
     #[test]
-    fn npm_svd_basic_any() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("*".to_string())?;
-        assert!(svd.is_npm());
-        assert_eq!(svd.aliased_package_name(), None);
+    fn npm_svs_basic_any() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("*".to_string())?;
+        assert!(svs.is_npm());
+        assert_eq!(svs.aliased_package_name(), None);
         Ok(())
     }
 
     #[test]
-    fn npm_svd_basic_empty() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("".to_string())?;
-        assert!(svd.is_npm());
-        assert_eq!(svd.aliased_package_name(), None);
+    fn npm_svs_basic_empty() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("".to_string())?;
+        assert!(svs.is_npm());
+        assert_eq!(svs.aliased_package_name(), None);
         Ok(())
     }
 
     #[test]
-    fn npm_svd_alias() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("npm:chazzwazzer@*".to_string())?;
-        assert!(svd.is_npm());
-        assert_eq!(svd.aliased_package_name().unwrap(), "chazzwazzer");
+    fn npm_svs_alias() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("npm:chazzwazzer@*".to_string())?;
+        assert!(svs.is_npm());
+        assert_eq!(svs.aliased_package_name().unwrap(), "chazzwazzer");
         Ok(())
     }
 
     #[test]
-    fn npm_svd_alias_scoped() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("@chastelock/testcase@1.0.x".to_string())?;
-        assert!(svd.is_npm());
-        assert_eq!(svd.aliased_package_name().unwrap(), "@chastelock/testcase");
+    fn npm_svs_alias_scoped() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("@chastelock/testcase@1.0.x".to_string())?;
+        assert!(svs.is_npm());
+        assert_eq!(svs.aliased_package_name().unwrap(), "@chastelock/testcase");
         Ok(())
     }
 
     #[test]
-    fn npm_svd_tag() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("next-11".to_string())?;
-        assert!(svd.is_npm_tag());
+    fn npm_svs_tag() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("next-11".to_string())?;
+        assert!(svs.is_npm_tag());
         Ok(())
     }
 
     #[test]
-    fn tar_svd() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("https://example.com/not-a-git-repo".to_string())?;
-        assert!(svd.is_tar());
+    fn tar_svs() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("https://example.com/not-a-git-repo".to_string())?;
+        assert!(svs.is_tar());
         Ok(())
     }
 
     #[test]
-    fn git_http_svd_unspecified() -> Result<()> {
-        let svd =
-            SourceVersionDescriptor::new("https://codeberg.org/selfisekai/chaste.git".to_string())?;
-        assert!(svd.is_git());
+    fn git_http_svs_unspecified() -> Result<()> {
+        let svs =
+            SourceVersionSpecifier::new("https://codeberg.org/selfisekai/chaste.git".to_string())?;
+        assert!(svs.is_git());
         Ok(())
     }
 
     #[test]
-    fn git_http_svd_unspecified_prefixed() -> Result<()> {
-        let svd =
-            SourceVersionDescriptor::new("git+https://codeberg.org/selfisekai/chaste".to_string())?;
-        assert!(svd.is_git());
+    fn git_http_svs_unspecified_prefixed() -> Result<()> {
+        let svs =
+            SourceVersionSpecifier::new("git+https://codeberg.org/selfisekai/chaste".to_string())?;
+        assert!(svs.is_git());
         Ok(())
     }
 
     #[test]
-    fn git_http_svd_tag() -> Result<()> {
-        let svd = SourceVersionDescriptor::new(
+    fn git_http_svs_tag() -> Result<()> {
+        let svs = SourceVersionSpecifier::new(
             "https://github.com/npm/node-semver.git#v7.6.3".to_string(),
         )?;
-        assert!(svd.is_git());
+        assert!(svs.is_git());
         Ok(())
     }
 
     #[test]
-    fn git_http_svd_semver() -> Result<()> {
-        let svd = SourceVersionDescriptor::new(
+    fn git_http_svs_semver() -> Result<()> {
+        let svs = SourceVersionSpecifier::new(
             "https://github.com/npm/node-semver.git#semver:^7.5.0".to_string(),
         )?;
-        assert!(svd.is_git());
+        assert!(svs.is_git());
         Ok(())
     }
 
     #[test]
-    fn git_ssh_svd_unspecified() -> Result<()> {
-        let svd =
-            SourceVersionDescriptor::new("git@codeberg.org:selfisekai/chaste.git".to_string())?;
-        assert!(svd.is_git());
-        assert_eq!(svd.ssh_path_sep(), Some(":"));
+    fn git_ssh_svs_unspecified() -> Result<()> {
+        let svs =
+            SourceVersionSpecifier::new("git@codeberg.org:selfisekai/chaste.git".to_string())?;
+        assert!(svs.is_git());
+        assert_eq!(svs.ssh_path_sep(), Some(":"));
         Ok(())
     }
 
     #[test]
-    fn git_ssh_svd_unspecified_prefixed() -> Result<()> {
-        let svd = SourceVersionDescriptor::new(
+    fn git_ssh_svs_unspecified_prefixed() -> Result<()> {
+        let svs = SourceVersionSpecifier::new(
             "git+ssh://git@codeberg.org:selfisekai/chaste".to_string(),
         )?;
-        assert!(svd.is_git());
-        assert_eq!(svd.ssh_path_sep(), Some(":"));
+        assert!(svs.is_git());
+        assert_eq!(svs.ssh_path_sep(), Some(":"));
         Ok(())
     }
 
     #[test]
-    fn git_ssh_svd_tag() -> Result<()> {
-        let svd =
-            SourceVersionDescriptor::new("git@github.com:npm/node-semver.git#v7.6.3".to_string())?;
-        assert!(svd.is_git());
-        assert_eq!(svd.ssh_path_sep(), Some(":"));
+    fn git_ssh_svs_tag() -> Result<()> {
+        let svs =
+            SourceVersionSpecifier::new("git@github.com:npm/node-semver.git#v7.6.3".to_string())?;
+        assert!(svs.is_git());
+        assert_eq!(svs.ssh_path_sep(), Some(":"));
         Ok(())
     }
 
     #[test]
-    fn git_ssh_svd_semver() -> Result<()> {
-        let svd = SourceVersionDescriptor::new(
+    fn git_ssh_svs_semver() -> Result<()> {
+        let svs = SourceVersionSpecifier::new(
             "git@github.com:npm/node-semver.git#semver:^7.5.0".to_string(),
         )?;
-        assert!(svd.is_git());
-        assert_eq!(svd.ssh_path_sep(), Some(":"));
+        assert!(svs.is_git());
+        assert_eq!(svs.ssh_path_sep(), Some(":"));
         Ok(())
     }
 
     #[test]
-    fn github_svd_unspecified() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("npm/node-semver".to_string())?;
-        assert!(svd.is_github());
+    fn github_svs_unspecified() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("npm/node-semver".to_string())?;
+        assert!(svs.is_github());
         Ok(())
     }
 
     #[test]
-    fn github_svd_unspecified_prefixed() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("github:npm/node-semver".to_string())?;
-        assert!(svd.is_github());
+    fn github_svs_unspecified_prefixed() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("github:npm/node-semver".to_string())?;
+        assert!(svs.is_github());
         Ok(())
     }
 
     #[test]
-    fn github_svd_tag() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("npm/node-semver#7.5.1".to_string())?;
-        assert!(svd.is_github());
+    fn github_svs_tag() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("npm/node-semver#7.5.1".to_string())?;
+        assert!(svs.is_github());
         Ok(())
     }
 
     #[test]
-    fn github_svd_semver() -> Result<()> {
-        let svd = SourceVersionDescriptor::new("npm/node-semver#semver:^7.5.0".to_string())?;
-        assert!(svd.is_github());
+    fn github_svs_semver() -> Result<()> {
+        let svs = SourceVersionSpecifier::new("npm/node-semver#semver:^7.5.0".to_string())?;
+        assert!(svs.is_github());
         Ok(())
     }
 }

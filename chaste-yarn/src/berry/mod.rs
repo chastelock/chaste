@@ -8,7 +8,7 @@ use std::{fs, io};
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
     Integrity, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
-    SourceVersionDescriptor, ROOT_MODULE_PATH,
+    SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
 use nom::Parser;
 use nom::{
@@ -105,18 +105,18 @@ fn find_dep_pid<'a, S>(
 where
     S: AsRef<str>,
 {
-    let (descriptor_name, descriptor_svd) = (descriptor.0.as_ref(), descriptor.1.as_ref());
+    let (descriptor_name, descriptor_svs) = (descriptor.0.as_ref(), descriptor.1.as_ref());
     if let Some((idx, _)) = yarn_lock.entries.iter().enumerate().find(|(_, e)| {
         e.descriptors.iter().any(|(d_n, d_s)| {
             *d_n == descriptor_name
-                && (*d_s == descriptor_svd || d_s.strip_prefix("npm:") == Some(descriptor_svd))
+                && (*d_s == descriptor_svs || d_s.strip_prefix("npm:") == Some(descriptor_svs))
         })
     }) {
         Ok(*index_to_pid.get(&idx).unwrap())
     } else {
         Err(Error::DependencyNotFound(format!(
             "{0}@{1}",
-            descriptor_name, descriptor_svd
+            descriptor_name, descriptor_svs
         )))
     }
 }
@@ -133,7 +133,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
         if let Some(workspace_path) = entry
             .descriptors
             .iter()
-            .find_map(|(_, e_svd)| e_svd.strip_prefix("workspace:"))
+            .find_map(|(_, e_svs)| e_svs.strip_prefix("workspace:"))
         {
             if workspace_path == "." {
                 chastefile_builder.set_root_package_id(pid)?;
@@ -182,7 +182,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
         for dep_descriptor in &entry.dependencies {
             let dep_pid = find_dep_pid(dep_descriptor, &yarn_lock, &index_to_pid)?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
-            dep.svd(SourceVersionDescriptor::new(dep_descriptor.1.to_string())?);
+            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
             chastefile_builder.add_dependency(dep.build());
         }
     }

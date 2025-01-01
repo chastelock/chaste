@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 use crate::package::PackageID;
-use crate::svd::SourceVersionDescriptor;
+use crate::svs::SourceVersionSpecifier;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
@@ -34,12 +34,12 @@ pub struct Dependency {
     pub kind: DependencyKind,
     pub from: PackageID,
     pub on: PackageID,
-    svd: Option<SourceVersionDescriptor>,
+    svs: Option<SourceVersionSpecifier>,
 }
 
 impl Dependency {
-    pub fn svd(&self) -> Option<&SourceVersionDescriptor> {
-        self.svd.as_ref()
+    pub fn svs(&self) -> Option<&SourceVersionSpecifier> {
+        self.svs.as_ref()
     }
 }
 
@@ -47,7 +47,7 @@ pub struct DependencyBuilder {
     kind: DependencyKind,
     of: PackageID,
     on: PackageID,
-    svd: Option<SourceVersionDescriptor>,
+    svs: Option<SourceVersionSpecifier>,
 }
 
 impl DependencyBuilder {
@@ -56,12 +56,12 @@ impl DependencyBuilder {
             kind,
             of,
             on,
-            svd: None,
+            svs: None,
         }
     }
 
-    pub fn svd(&mut self, svd: SourceVersionDescriptor) {
-        self.svd = Some(svd);
+    pub fn svs(&mut self, svs: SourceVersionSpecifier) {
+        self.svs = Some(svs);
     }
 
     pub fn build(self) -> Dependency {
@@ -69,7 +69,7 @@ impl DependencyBuilder {
             kind: self.kind,
             from: self.of,
             on: self.on,
-            svd: self.svd,
+            svs: self.svs,
         }
     }
 }
