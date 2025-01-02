@@ -419,6 +419,20 @@ mod tests {
     }
 
     #[test]
+    fn v3_tarball_url() -> Result<()> {
+        let chastefile = test_workspace("v3_tarball_url")?;
+        let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
+        let empty_pkg = chastefile.package(empty_pid);
+        assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
+        assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
+        assert_eq!(empty_pkg.integrity().hashes.len(), 1);
+        // TODO: recognize as arbitrary tarball
+        assert_eq!(empty_pkg.source_type(), None);
+
+        Ok(())
+    }
+
+    #[test]
     fn v3_workspace_basic() -> Result<()> {
         let chastefile = test_workspace("v3_workspace_basic")?;
         assert_eq!(chastefile.packages().len(), 4);

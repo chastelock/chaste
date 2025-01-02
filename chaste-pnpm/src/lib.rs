@@ -100,9 +100,14 @@ where
             package.integrity(integrity.parse()?);
         }
         if let Some(tarball_url) = pkg.resolution.tarball {
-            package.source(PackageSource::TarballURL {
-                url: tarball_url.to_string(),
-            });
+            // If there is a checksum, it's a registry.
+            if pkg.resolution.integrity.is_some() {
+                package.source(PackageSource::Npm);
+            } else {
+                package.source(PackageSource::TarballURL {
+                    url: tarball_url.to_string(),
+                });
+            }
         } else if let Some(git_url) = package_svs.strip_prefix("git+") {
             package.source(PackageSource::Git {
                 url: git_url.to_string(),
@@ -233,7 +238,6 @@ mod tests {
         let doipjs_dep = root_dev_deps.first().unwrap();
         let doipjs = chastefile.package(doipjs_dep.on);
         assert_eq!(doipjs.name().unwrap(), "doipjs");
-        // TODO: https://codeberg.org/selfisekai/chaste/issues/45
         assert_eq!(doipjs.source_type(), Some(PackageSourceType::Git));
         assert_eq!(doipjs.integrity().hashes.len(), 0);
 
@@ -306,8 +310,20 @@ mod tests {
         assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
         assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
         assert_eq!(empty_pkg.integrity().hashes.len(), 1);
-        // TODO: recognize custom npm registry.
-        // assert_eq!(empty_pkg.source_type(), None);
+        assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::Npm));
+
+        Ok(())
+    }
+
+    #[test]
+    fn v9_tarball_url() -> Result<()> {
+        let chastefile = test_workspace("v9_tarball_url")?;
+        let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
+        let empty_pkg = chastefile.package(empty_pid);
+        assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
+        assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
+        assert_eq!(empty_pkg.integrity().hashes.len(), 0);
+        assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::TarballURL));
 
         Ok(())
     }

@@ -218,6 +218,19 @@ mod tests {
         Ok(())
     });
 
+    // Not supported by any berry version
+    #[cfg(feature = "classic")]
+    test_workspace!([1], tarball_url, |chastefile: Chastefile, _lv: u8| {
+        let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
+        let empty_pkg = chastefile.package(empty_pid);
+        assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
+        assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
+        assert_eq!(empty_pkg.integrity().hashes.len(), 1);
+        assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::TarballURL));
+
+        Ok(())
+    });
+
     test_workspaces!(workspace_basic, |chastefile: Chastefile, lv: u8| {
         assert_eq!(chastefile.packages().len(), 4);
         let [(balls_pid, _balls_pkg)] = *chastefile
