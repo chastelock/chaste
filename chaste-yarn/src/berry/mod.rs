@@ -10,14 +10,11 @@ use chaste_types::{
     Integrity, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
     SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
-use nom::Parser;
-use nom::{
-    branch::alt,
-    bytes::complete::{tag, take_until, take_while1},
-    combinator::{map, map_res, opt, recognize, rest, verify},
-    sequence::{preceded, terminated},
-    IResult,
-};
+use nom::branch::alt;
+use nom::bytes::complete::{tag, take_until, take_while1};
+use nom::combinator::{map, map_res, opt, recognize, rest, verify};
+use nom::sequence::{preceded, terminated};
+use nom::{IResult, Parser};
 use yarn_lock_parser as yarn;
 
 use crate::error::{Error, Result};
@@ -67,8 +64,33 @@ fn ssh(input: &str) -> IResult<&str, PackageSource> {
     .parse(input)
 }
 
+/// Note: it must end with ".tgz" in berry.
+fn tarball_url(input: &str) -> IResult<&str, PackageSource> {
+    map(
+        verify(
+            recognize((
+                alt((
+                    tag::<&str, &str, nom::error::Error<&str>>("http://"),
+                    tag::<&str, &str, nom::error::Error<&str>>("https://"),
+                )),
+                rest,
+            )),
+            |u: &str| !u.contains("?") && !u.contains("#") && u.ends_with(".tgz"),
+        ),
+        |url| PackageSource::TarballURL {
+            url: url.to_string(),
+        },
+    )
+    .parse(input)
+}
+
 fn parse_source(entry: &yarn::Entry) -> Option<PackageSource> {
-    match preceded(terminated(package_name, tag("@")), opt(alt((npm, ssh)))).parse(entry.resolved) {
+    match preceded(
+        terminated(package_name, tag("@")),
+        opt(alt((npm, ssh, tarball_url))),
+    )
+    .parse(entry.resolved)
+    {
         Ok(("", output)) => output,
         Ok((_, _)) => None,
         Err(_e) => None,

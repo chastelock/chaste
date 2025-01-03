@@ -218,9 +218,7 @@ mod tests {
         Ok(())
     });
 
-    // Not supported by any berry version
-    #[cfg(feature = "classic")]
-    test_workspace!([1], tarball_url, |chastefile: Chastefile, _lv: u8| {
+    test_workspaces!(tarball_url, |chastefile: Chastefile, _lv: u8| {
         let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
         let empty_pkg = chastefile.package(empty_pid);
         assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
