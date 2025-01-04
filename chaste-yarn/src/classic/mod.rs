@@ -7,8 +7,8 @@ use std::{fs, str};
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    Integrity, ModulePath, Package, PackageBuilder, PackageID, PackageName, PackageSource,
-    PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
+    Integrity, ModulePath, Package, PackageBuilder, PackageID, PackageName, PackageNameBorrowed,
+    PackageSource, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
@@ -51,46 +51,55 @@ fn is_github_svs(input: &str) -> bool {
         .is_ok()
 }
 
-fn parse_source_url(entry: &yarn::Entry, url: &str) -> Result<Option<PackageSource>> {
-    Ok(if is_registry_url(entry.name, entry.version, url) {
-        Some(PackageSource::Npm)
-    } else if url.ends_with(".git") {
-        Some(PackageSource::Git {
-            url: url.to_string(),
-        })
+fn parse_source_url(
+    entry: &yarn::Entry,
+    package_name: PackageNameBorrowed<'_>,
+    url: &str,
+) -> Result<Option<PackageSource>> {
+    Ok(
+        if is_registry_url(package_name.as_ref(), entry.version, url) {
+            Some(PackageSource::Npm)
+        } else if url.ends_with(".git") {
+            Some(PackageSource::Git {
+                url: url.to_string(),
+            })
 
-    // Check descriptors whether they are:
-    // a) a tarball URL,
-    // b) the special GitHub tag (in yarn, it resolves to tarballs).
-    //
-    // XXX: This might be wrong with overrides.
-    } else if entry.descriptors.iter().all(|(_, svs)| {
-        svs.starts_with("https://") || svs.starts_with("http://") || is_github_svs(svs)
-    }) {
-        Some(PackageSource::TarballURL {
-            url: url.to_string(),
-        })
+        // Check descriptors whether they are:
+        // a) a tarball URL,
+        // b) the special GitHub tag (in yarn, it resolves to tarballs).
+        //
+        // XXX: This might be wrong with overrides.
+        } else if entry.descriptors.iter().all(|(_, svs)| {
+            svs.starts_with("https://") || svs.starts_with("http://") || is_github_svs(svs)
+        }) {
+            Some(PackageSource::TarballURL {
+                url: url.to_string(),
+            })
 
-    // Not an arbitrary tarball? If it's valid semver, it's probably a custom registry.
-    } else if entry
-        .descriptors
-        .iter()
-        .all(|(_, svs)| PackageVersion::parse(svs).is_ok())
-    {
-        Some(PackageSource::Npm)
-    } else {
-        // TODO: find any cases falling here
-        None
-    })
+        // Not an arbitrary tarball? If it's valid semver, it's probably a custom registry.
+        } else if entry
+            .descriptors
+            .iter()
+            .all(|(_, svs)| PackageVersion::parse(svs).is_ok())
+        {
+            Some(PackageSource::Npm)
+        } else {
+            // TODO: find any cases falling here
+            None
+        },
+    )
 }
 
-fn parse_source<'a>(entry: &'a yarn::Entry) -> Result<Option<(PackageSource, Option<&'a str>)>> {
+fn parse_source<'a>(
+    entry: &'a yarn::Entry,
+    package_name: PackageNameBorrowed<'a>,
+) -> Result<Option<(PackageSource, Option<&'a str>)>> {
     let (url, hash) = entry
         .resolved
         .rsplit_once("#")
         .map(|(u, h)| (u, Some(h)))
         .unwrap_or((entry.resolved, None));
-    let Some(source) = parse_source_url(entry, url)? else {
+    let Some(source) = parse_source_url(entry, package_name, url)? else {
         return Ok(None);
     };
     Ok(Some(match source {
@@ -100,15 +109,28 @@ fn parse_source<'a>(entry: &'a yarn::Entry) -> Result<Option<(PackageSource, Opt
 }
 
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
-    let mut pkg = PackageBuilder::new(
-        Some(PackageName::new(entry.name.to_string())?),
-        Some(entry.version.to_string()),
-    );
+    let first_desc = entry.descriptors.first().unwrap();
+    let name = if first_desc.1.starts_with("npm:") {
+        let svs = SourceVersionSpecifier::new(first_desc.1.to_string())?;
+        if let Some(aliased_name) = svs.aliased_package_name() {
+            aliased_name.to_owned()
+        } else {
+            PackageName::new(first_desc.0.to_string())?
+        }
+    } else {
+        PackageName::new(first_desc.0.to_string())?
+    };
     let mut integrity: Integrity = entry.integrity.parse()?;
-    if let Some((source, maybe_sha1_hex)) = parse_source(entry)? {
+    let source = if let Some((source, maybe_sha1_hex)) = parse_source(entry, name.as_borrowed())? {
         if let Some(sha1_hex) = maybe_sha1_hex {
             integrity = integrity.concat(Integrity::from_hex(sha1_hex, ssri::Sha1)?);
         }
+        Some(source)
+    } else {
+        None
+    };
+    let mut pkg = PackageBuilder::new(Some(name), Some(entry.version.to_string()));
+    if let Some(source) = source {
         pkg.source(source);
     }
     pkg.integrity(integrity);
@@ -228,7 +250,11 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, root_pid, dep_pid);
-            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
+            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            if svs.aliased_package_name().is_some() {
+                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+            }
+            dep.svs(svs);
             chastefile_builder.add_dependency(dep.build());
         }
         for dep_descriptor in &package_json.dev_dependencies {
@@ -240,7 +266,11 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::DevDependency, root_pid, dep_pid);
-            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
+            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            if svs.aliased_package_name().is_some() {
+                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+            }
+            dep.svs(svs);
             chastefile_builder.add_dependency(dep.build());
         }
         for dep_descriptor in &package_json.peer_dependencies {
@@ -252,7 +282,11 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, dep_pid);
-            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
+            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            if svs.aliased_package_name().is_some() {
+                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+            }
+            dep.svs(svs);
             chastefile_builder.add_dependency(dep.build());
         }
         for dep_descriptor in &package_json.optional_dependencies {
@@ -265,7 +299,11 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
             )?;
             let mut dep =
                 DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, dep_pid);
-            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
+            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            if svs.aliased_package_name().is_some() {
+                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+            }
+            dep.svs(svs);
             chastefile_builder.add_dependency(dep.build());
         }
     }
@@ -285,7 +323,11 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
             // It might be peer and/or optional. But in that case, it got added here
             // by root and/or another dependency.
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
-            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
+            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            if svs.aliased_package_name().is_some() {
+                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+            }
+            dep.svs(svs);
             chastefile_builder.add_dependency(dep.build());
         }
     }

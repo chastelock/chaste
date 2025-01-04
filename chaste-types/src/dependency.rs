@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use crate::name::{PackageName, PackageNameBorrowed};
 use crate::package::PackageID;
 use crate::svs::SourceVersionSpecifier;
 
@@ -34,6 +35,7 @@ pub struct Dependency {
     pub kind: DependencyKind,
     pub from: PackageID,
     pub on: PackageID,
+    alias_name: Option<PackageName>,
     svs: Option<SourceVersionSpecifier>,
 }
 
@@ -41,12 +43,45 @@ impl Dependency {
     pub fn svs(&self) -> Option<&SourceVersionSpecifier> {
         self.svs.as_ref()
     }
+
+    /// If the dependency is from npm, aliasing a package with a different name,
+    /// this represents the name under which it's aliased, e.g. if package.json defines
+    /// the dependency as `"lodash": "npm:@chastelock/lodash-fork@^4.0.0"`,
+    /// [`crate::Package::name`] will be `@chastelock/lodash-fork`, but [`crate::Dependency::alias_name`]
+    /// will be `lodash`. (If dependency is not from npm, the behavior is undefined.)
+    ///
+    /// ```
+    /// # use chaste_types::{ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageName};
+    /// # let mut chastefile_builder = ChastefileBuilder::new();
+    /// # let root_pid = chastefile_builder.add_package(
+    /// #     PackageBuilder::new(None, None).build().unwrap(),
+    /// # ).unwrap();
+    /// # chastefile_builder.set_root_package_id(root_pid);
+    /// # let lodash_pid = chastefile_builder.add_package(
+    /// #     PackageBuilder::new(
+    /// #         Some(PackageName::new("@chastelock/lodash-fork".to_string()).unwrap()),
+    /// #         Some("4.0.0".to_string()),
+    /// #     ).build().unwrap(),
+    /// # ).unwrap();
+    /// # let mut dependency_builder = DependencyBuilder::new(DependencyKind::Dependency, root_pid, lodash_pid);
+    /// # dependency_builder.alias_name(PackageName::new("lodash".to_string()).unwrap());
+    /// # chastefile_builder.add_dependency(dependency_builder.build());
+    /// # let chastefile = chastefile_builder.build().unwrap();
+    /// let dependencies = chastefile.package_dependencies(root_pid);
+    /// let dependency = dependencies.first().unwrap();
+    /// assert_eq!(chastefile.package(dependency.on).name().unwrap(), "@chastelock/lodash-fork");
+    /// assert_eq!(dependency.alias_name().unwrap(), "lodash");
+    /// ```
+    pub fn alias_name(&self) -> Option<PackageNameBorrowed> {
+        self.alias_name.as_ref().map(|a| a.as_borrowed())
+    }
 }
 
 pub struct DependencyBuilder {
     kind: DependencyKind,
     of: PackageID,
     on: PackageID,
+    alias_name: Option<PackageName>,
     svs: Option<SourceVersionSpecifier>,
 }
 
@@ -56,8 +91,13 @@ impl DependencyBuilder {
             kind,
             of,
             on,
+            alias_name: None,
             svs: None,
         }
+    }
+
+    pub fn alias_name(&mut self, alias_name: PackageName) {
+        self.alias_name = Some(alias_name);
     }
 
     pub fn svs(&mut self, svs: SourceVersionSpecifier) {
@@ -69,6 +109,7 @@ impl DependencyBuilder {
             kind: self.kind,
             from: self.of,
             on: self.on,
+            alias_name: self.alias_name,
             svs: self.svs,
         }
     }

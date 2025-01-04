@@ -183,6 +183,24 @@ mod tests {
         Ok(())
     });
 
+    test_workspaces!(npm_aliased, |chastefile: Chastefile, lv: u8| {
+        let [pakig_dep] = *chastefile.root_package_dependencies() else {
+            panic!()
+        };
+        assert_eq!(pakig_dep.alias_name().unwrap(), "pakig");
+        assert_eq!(
+            pakig_dep.svs().unwrap().aliased_package_name().unwrap(),
+            "nop"
+        );
+        let pakig = chastefile.package(pakig_dep.on);
+        assert_eq!(pakig.name().unwrap(), "nop");
+        assert_eq!(pakig.version().unwrap().to_string(), "1.0.0");
+        assert_eq!(pakig.integrity().hashes.len(), if lv == 1 { 2 } else { 1 });
+        assert_eq!(pakig.source_type(), Some(PackageSourceType::Npm));
+
+        Ok(())
+    });
+
     test_workspaces!(npm_tag, |chastefile: Chastefile, _lv: u8| {
         let [nop_dep] = *chastefile.root_package_dependencies() else {
             panic!();

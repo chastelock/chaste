@@ -84,14 +84,14 @@ fn tarball_url(input: &str) -> IResult<&str, PackageSource> {
     .parse(input)
 }
 
-fn parse_source(entry: &yarn::Entry) -> Option<PackageSource> {
-    match preceded(
+fn parse_source<'a>(entry: &'a yarn::Entry) -> Option<(&'a str, Option<PackageSource>)> {
+    match (
         terminated(package_name, tag("@")),
         opt(alt((npm, ssh, tarball_url))),
     )
-    .parse(entry.resolved)
+        .parse(entry.resolved)
     {
-        Ok(("", output)) => output,
+        Ok(("", output)) => Some(output),
         Ok((_, _)) => None,
         Err(_e) => None,
     }
@@ -107,15 +107,19 @@ fn parse_checksum(integrity: &str) -> Result<Integrity> {
 }
 
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
+    let source = parse_source(entry);
+    let name = match &source {
+        Some((n, _)) => n,
+        _ => entry.name,
+    };
     let mut pkg = PackageBuilder::new(
-        Some(PackageName::new(entry.name.to_string())?),
+        Some(PackageName::new(name.to_string())?),
         Some(entry.version.to_string()),
     );
-    let integrity: Integrity = parse_checksum(entry.integrity)?;
-    if let Some(source) = parse_source(entry) {
+    pkg.integrity(parse_checksum(entry.integrity)?);
+    if let Some((_, Some(source))) = source {
         pkg.source(source);
     }
-    pkg.integrity(integrity);
     Ok(pkg)
 }
 
@@ -204,7 +208,11 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
         for dep_descriptor in &entry.dependencies {
             let dep_pid = find_dep_pid(dep_descriptor, &yarn_lock, &index_to_pid)?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
-            dep.svs(SourceVersionSpecifier::new(dep_descriptor.1.to_string())?);
+            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            if svs.aliased_package_name().is_some() {
+                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+            }
+            dep.svs(svs);
             chastefile_builder.add_dependency(dep.build());
         }
     }

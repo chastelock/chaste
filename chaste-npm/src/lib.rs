@@ -100,7 +100,11 @@ fn parse_dependencies<'a>(
             self_pid,
             find_pid(path, n, path_pid)?,
         );
-        dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
+        let svs = SourceVersionSpecifier::new(svs.to_string())?;
+        if svs.aliased_package_name().is_some() {
+            dep.alias_name(PackageName::new(n.to_string())?);
+        }
+        dep.svs(svs);
         dependencies.push(dep.build());
     }
     for (n, svs) in tree_package.dev_dependencies.iter() {
@@ -109,7 +113,11 @@ fn parse_dependencies<'a>(
             self_pid,
             find_pid(path, n, path_pid)?,
         );
-        dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
+        let svs = SourceVersionSpecifier::new(svs.to_string())?;
+        if svs.aliased_package_name().is_some() {
+            dep.alias_name(PackageName::new(n.to_string())?);
+        }
+        dep.svs(svs);
         dependencies.push(dep.build());
     }
     for (n, svs) in tree_package.peer_dependencies.iter() {
@@ -130,7 +138,11 @@ fn parse_dependencies<'a>(
                     self_pid,
                     pid,
                 );
-                dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
+                let svs = SourceVersionSpecifier::new(svs.to_string())?;
+                if svs.aliased_package_name().is_some() {
+                    dep.alias_name(PackageName::new(n.to_string())?);
+                }
+                dep.svs(svs);
                 dependencies.push(dep.build());
             }
             // Allowed to fail. Yes, even if not marked as optional - it wasn't getting installed
@@ -146,7 +158,11 @@ fn parse_dependencies<'a>(
             Ok(pid) => {
                 let mut dep =
                     DependencyBuilder::new(DependencyKind::OptionalDependency, self_pid, pid);
-                dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
+                let svs = SourceVersionSpecifier::new(svs.to_string())?;
+                if svs.aliased_package_name().is_some() {
+                    dep.alias_name(PackageName::new(n.to_string())?);
+                }
+                dep.svs(svs);
                 dependencies.push(dep.build());
             }
             // It's optional, ignore.
@@ -375,6 +391,26 @@ mod tests {
         let [chalk2, chalk5] = *chalks else { panic!() };
         assert_eq!(chalk2.version().unwrap().to_string(), "2.4.2");
         assert_eq!(chalk5.version().unwrap().to_string(), "5.4.0");
+
+        Ok(())
+    }
+
+    #[test]
+    fn v3_npm_aliased() -> Result<()> {
+        let chastefile = test_workspace("v3_npm_aliased")?;
+        let [pakig_dep] = *chastefile.root_package_dependencies() else {
+            panic!()
+        };
+        assert_eq!(pakig_dep.alias_name().unwrap(), "pakig");
+        assert_eq!(
+            pakig_dep.svs().unwrap().aliased_package_name().unwrap(),
+            "nop"
+        );
+        let pakig = chastefile.package(pakig_dep.on);
+        assert_eq!(pakig.name().unwrap(), "nop");
+        assert_eq!(pakig.version().unwrap().to_string(), "1.0.0");
+        assert_eq!(pakig.integrity().hashes.len(), 1);
+        assert_eq!(pakig.source_type(), Some(PackageSourceType::Npm));
 
         Ok(())
     }

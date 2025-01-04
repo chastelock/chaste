@@ -100,7 +100,7 @@ where
             package.integrity(integrity.parse()?);
         }
         if let Some(tarball_url) = pkg.resolution.tarball {
-            // If there is a checksum, it's a registry.
+            // If there is a checksum, it's a custom registry.
             if pkg.resolution.integrity.is_some() {
                 package.source(PackageSource::Npm);
             } else {
@@ -112,6 +112,9 @@ where
             package.source(PackageSource::Git {
                 url: git_url.to_string(),
             });
+        } else if SourceVersionSpecifier::new(package_svs.to_string()).is_ok_and(|svs| svs.is_npm())
+        {
+            package.source(PackageSource::Npm);
         }
         let pkg_pid = chastefile.add_package(package.build()?)?;
         desc_pid.insert(pkg_desc, pkg_pid);
@@ -125,11 +128,18 @@ where
                 continue;
             }
             let dep_desc = format!("{dep_name}@{}", d.version);
+            let mut is_aliased = false;
             let dep_pid = *desc_pid
                 .get(dep_desc.as_str())
-                .or_else(|| desc_pid.get(d.version))
+                .or_else(|| {
+                    is_aliased = true;
+                    desc_pid.get(d.version)
+                })
                 .ok_or_else(|| Error::DependencyPackageNotFound(dep_desc))?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, importer_pid, dep_pid);
+            if is_aliased {
+                dep.alias_name(PackageName::new(dep_name.to_string())?);
+            }
             dep.svs(SourceVersionSpecifier::new(d.specifier.to_string())?);
             chastefile.add_dependency(dep.build());
         }
@@ -139,12 +149,19 @@ where
                 continue;
             }
             let dep_desc = format!("{dep_name}@{}", d.version);
+            let mut is_aliased = false;
             let dep_pid = *desc_pid
                 .get(dep_desc.as_str())
-                .or_else(|| desc_pid.get(d.version))
+                .or_else(|| {
+                    is_aliased = true;
+                    desc_pid.get(d.version)
+                })
                 .ok_or_else(|| Error::DependencyPackageNotFound(dep_desc))?;
             let mut dep =
                 DependencyBuilder::new(DependencyKind::DevDependency, importer_pid, dep_pid);
+            if is_aliased {
+                dep.alias_name(PackageName::new(dep_name.to_string())?);
+            }
             dep.svs(SourceVersionSpecifier::new(d.specifier.to_string())?);
             chastefile.add_dependency(dep.build());
         }
@@ -273,6 +290,26 @@ mod tests {
         let [chalk2, chalk5] = *chalks else { panic!() };
         assert_eq!(chalk2.version().unwrap().to_string(), "2.4.2");
         assert_eq!(chalk5.version().unwrap().to_string(), "5.4.1");
+
+        Ok(())
+    }
+
+    #[test]
+    fn v9_npm_aliased() -> Result<()> {
+        let chastefile = test_workspace("v9_npm_aliased")?;
+        let [pakig_dep] = *chastefile.root_package_dependencies() else {
+            panic!()
+        };
+        assert_eq!(pakig_dep.alias_name().unwrap(), "pakig");
+        assert_eq!(
+            pakig_dep.svs().unwrap().aliased_package_name().unwrap(),
+            "nop"
+        );
+        let pakig = chastefile.package(pakig_dep.on);
+        assert_eq!(pakig.name().unwrap(), "nop");
+        assert_eq!(pakig.version().unwrap().to_string(), "1.0.0");
+        assert_eq!(pakig.integrity().hashes.len(), 1);
+        assert_eq!(pakig.source_type(), Some(PackageSourceType::Npm));
 
         Ok(())
     }
