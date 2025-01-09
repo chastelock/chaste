@@ -1,0 +1,13 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.0.1",
+    "dependencies": {
+        "express": "4.21.0"
+    },
+    "resolutions": {
+        "express@npm:4.21.0/content-type": "~1.0.5",
+        "path-to-regexp": "0.1.12",
+        "side-channel/side-channel-weakmap": "https://github.com/ljharb/side-channel-weakmap/archive/refs/tags/v1.0.1.tar.gz"
+    },
+    "packageManager": "yarn@2.4.3"
+}

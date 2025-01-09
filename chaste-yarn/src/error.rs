@@ -17,6 +17,12 @@ pub enum Error {
     #[error(".yarn-state.yml package {0:?} not found")]
     StatePackageNotFound(String),
 
+    #[error("Invalid resolution key: {0:?}")]
+    InvalidResolution(String),
+
+    #[error("Couldn't recognize the resolution to follow to replace {0:?}")]
+    AmbiguousResolution(String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 

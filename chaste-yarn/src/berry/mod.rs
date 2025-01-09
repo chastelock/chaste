@@ -8,16 +8,19 @@ use std::{fs, io};
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
     Integrity, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
-    SourceVersionSpecifier, ROOT_MODULE_PATH,
+    SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until, take_while1};
-use nom::combinator::{map, map_res, opt, recognize, rest, verify};
+use nom::combinator::{eof, map, map_res, opt, recognize, rest, verify};
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
 use yarn_lock_parser as yarn;
 
+use crate::berry::types::PackageJson;
 use crate::error::{Error, Result};
+
+mod types;
 
 fn package_name_part(input: &str) -> IResult<&str, &str> {
     verify(
@@ -123,21 +126,71 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     Ok(pkg)
 }
 
+fn until_just_package_name_is_left(input: &str) -> IResult<&str, &str> {
+    let last_slash = input.rfind("/");
+    if let Some((il, ir)) = last_slash.map(|lsi| (&input[..lsi], &input[lsi..])) {
+        let previous_slash = il.rfind("/");
+        if let Some((pl, pr)) = previous_slash.map(|lsi| (&input[..lsi], &input[lsi..])) {
+            if !pl.is_empty() && pr.starts_with("/@") {
+                return Ok((pr, pl));
+            }
+        }
+        return Ok((ir, il));
+    }
+    Err(nom::Err::Failure(nom::error::Error::new(
+        input,
+        nom::error::ErrorKind::Verify,
+    )))
+}
+
+fn parse_resolution_key(input: &str) -> Result<(Option<(&str, Option<&str>)>, &str)> {
+    (
+        opt(terminated(
+            (
+                package_name,
+                opt(preceded(tag("@"), until_just_package_name_is_left)),
+            ),
+            tag("/"),
+        )),
+        terminated(package_name, eof),
+    )
+        .parse(input)
+        .map(|(_, r)| r)
+        .map_err(|_| Error::InvalidResolution(input.to_string()))
+}
+
 fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
+    resolutions: &HashMap<(Option<(&str, Option<&str>)>, &str), &str>,
     index_to_pid: &HashMap<usize, PackageID>,
 ) -> Result<PackageID>
 where
     S: AsRef<str>,
 {
     let (descriptor_name, descriptor_svs) = (descriptor.0.as_ref(), descriptor.1.as_ref());
-    if let Some((idx, _)) = yarn_lock.entries.iter().enumerate().find(|(_, e)| {
+    let candidate_resolutions = resolutions
+        .iter()
+        .filter(|((_, pn), _svs)| *pn == descriptor_name)
+        .map(|(_, svs)| svs)
+        .collect::<Vec<&&str>>();
+    let mut candidate_entries = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
         e.descriptors.iter().any(|(d_n, d_s)| {
             *d_n == descriptor_name
-                && (*d_s == descriptor_svs || d_s.strip_prefix("npm:") == Some(descriptor_svs))
+                && (*d_s == descriptor_svs
+                    || d_s.strip_prefix("npm:") == Some(descriptor_svs)
+                    || candidate_resolutions
+                        .iter()
+                        .any(|r_s| d_s == *r_s || d_s.strip_prefix("npm:") == Some(r_s)))
         })
-    }) {
+    });
+    if let Some((idx, _)) = candidate_entries.next() {
+        if candidate_entries.next().is_some() {
+            return Err(Error::AmbiguousResolution(format!(
+                "{0}@{1}",
+                descriptor_name, descriptor_svs
+            )));
+        }
         Ok(*index_to_pid.get(&idx).unwrap())
     } else {
         Err(Error::DependencyNotFound(format!(
@@ -148,6 +201,14 @@ where
 }
 
 pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<Chastefile> {
+    let root_package_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_FILENAME))?;
+    let root_package_json: PackageJson = serde_json::from_str(&root_package_contents)?;
+
+    let mut resolutions = HashMap::new();
+    for (rk, rv) in &root_package_json.resolutions {
+        resolutions.insert(parse_resolution_key(rk)?, rv.as_ref());
+    }
+
     let mut chastefile_builder = ChastefileBuilder::new();
     let mut index_to_pid: HashMap<usize, PackageID> =
         HashMap::with_capacity(yarn_lock.entries.len());
@@ -206,7 +267,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
         for dep_descriptor in &entry.dependencies {
-            let dep_pid = find_dep_pid(dep_descriptor, &yarn_lock, &index_to_pid)?;
+            let dep_pid = find_dep_pid(dep_descriptor, &yarn_lock, &resolutions, &index_to_pid)?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
             let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
             if svs.aliased_package_name().is_some() {
@@ -217,4 +278,34 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
         }
     }
     Ok(chastefile_builder.build()?)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::error::Result;
+
+    use super::parse_resolution_key;
+
+    #[test]
+    fn resolution_keys() -> Result<()> {
+        assert_eq!(parse_resolution_key("lodash")?, (None, "lodash"));
+        assert_eq!(
+            parse_resolution_key("@chastelock/testcase")?,
+            (None, "@chastelock/testcase")
+        );
+        assert_eq!(
+            parse_resolution_key("lodash/@chastelock/testcase")?,
+            (Some(("lodash", None)), "@chastelock/testcase")
+        );
+        assert_eq!(
+            parse_resolution_key("lodash@1/react")?,
+            (Some(("lodash", Some("1"))), "react")
+        );
+        assert_eq!(
+            parse_resolution_key("lodash@1/@chastelock/testcase")?,
+            (Some(("lodash", Some("1"))), "@chastelock/testcase")
+        );
+
+        Ok(())
+    }
 }

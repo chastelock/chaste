@@ -222,6 +222,45 @@ mod tests {
         Ok(())
     });
 
+    test_workspaces!(resolutions, |chastefile: Chastefile, lv: u8| {
+        let [(path_pid, path_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "path-to-regexp"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(path_pkg.version().unwrap().to_string(), "0.1.12");
+        assert_eq!(path_pkg.source_type(), Some(PackageSourceType::Npm));
+        let path_svss = chastefile
+            .package_dependents(path_pid)
+            .into_iter()
+            .map(|d| d.svs().unwrap().as_ref())
+            .collect::<Vec<&str>>();
+        assert_eq!(path_svss, [if lv == 8 { "npm:0.1.10" } else { "0.1.10" }]);
+
+        let [(scwm_pid, scwm_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "side-channel-weakmap"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(scwm_pkg.version().unwrap().to_string(), "1.0.1");
+        // TODO: Recognize as tarball
+        assert_eq!(scwm_pkg.source_type(), None);
+        let scwm_svss = chastefile
+            .package_dependents(scwm_pid)
+            .into_iter()
+            .map(|d| d.svs().unwrap().as_ref())
+            .collect::<Vec<&str>>();
+        assert_eq!(scwm_svss, [if lv == 8 { "npm:^1.0.2" } else { "^1.0.2" }]);
+
+        Ok(())
+    });
+
     test_workspaces!(scope_registry, |chastefile: Chastefile, lv: u8| {
         let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
         let empty_pkg = chastefile.package(empty_pid);
