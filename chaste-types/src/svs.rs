@@ -183,6 +183,17 @@ impl SourceVersionSpecifierPositions {
     }
 }
 
+impl AsRef<str> for SourceVersionSpecifier {
+    fn as_ref(&self) -> &str {
+        &self.inner
+    }
+}
+impl PartialEq<str> for SourceVersionSpecifier {
+    fn eq(&self, other: &str) -> bool {
+        self.inner == other
+    }
+}
+
 impl SourceVersionSpecifier {
     pub fn is_npm(&self) -> bool {
         matches!(self.positions, SourceVersionSpecifierPositions::Npm { .. })
