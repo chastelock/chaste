@@ -429,6 +429,65 @@ mod tests {
     }
 
     #[test]
+    fn v3_overrides() -> Result<()> {
+        let chastefile = test_workspace("v3_overrides")?;
+        let [(ms_pid, ms_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "ms"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(ms_pkg.version().unwrap().to_string(), "2.1.3");
+        assert_eq!(ms_pkg.source_type(), Some(PackageSourceType::Npm));
+        let mut ms_svss = chastefile
+            .package_dependents(ms_pid)
+            .into_iter()
+            .map(|d| d.svs().unwrap().as_ref())
+            .collect::<Vec<&str>>();
+        ms_svss.sort_unstable();
+        assert_eq!(ms_svss, ["2.0.0", "2.1.3", "^2.1"]);
+
+        let [(path_pid, path_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "path-to-regexp"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(path_pkg.version().unwrap().to_string(), "0.1.12");
+        assert_eq!(path_pkg.source_type(), Some(PackageSourceType::Npm));
+        let path_svss = chastefile
+            .package_dependents(path_pid)
+            .into_iter()
+            .map(|d| d.svs().unwrap().as_ref())
+            .collect::<Vec<&str>>();
+        assert_eq!(path_svss, ["0.1.10"]);
+
+        let [(scwm_pid, scwm_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "side-channel-weakmap"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(scwm_pkg.version().unwrap().to_string(), "1.0.1");
+        // TODO: Recognize as tarball
+        assert_eq!(scwm_pkg.source_type(), None);
+        let scwm_svss = chastefile
+            .package_dependents(scwm_pid)
+            .into_iter()
+            .map(|d| d.svs().unwrap().as_ref())
+            .collect::<Vec<&str>>();
+        assert_eq!(scwm_svss, ["^1.0.2"]);
+
+        Ok(())
+    }
+
+    #[test]
     fn v3_peer_unsatisfied() -> Result<()> {
         let chastefile = test_workspace("v3_peer_unsatisfied")?;
         assert!(!chastefile.packages().into_iter().any(|p| p
