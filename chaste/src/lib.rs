@@ -24,24 +24,23 @@ where
 
     #[cfg(feature = "npm")]
     {
-        let npm_lock = root_path.join(npm::LOCKFILE_NAME);
-        if npm_lock.exists() {
+        if root_path.join(npm::SHRINKWRAP_NAME).exists()
+            || root_path.join(npm::LOCKFILE_NAME).exists()
+        {
             return Ok(npm::parse(root_path)?);
         }
     }
 
     #[cfg(feature = "pnpm")]
     {
-        let pnpm_lock = root_path.join(pnpm::LOCKFILE_NAME);
-        if pnpm_lock.exists() {
+        if root_path.join(pnpm::LOCKFILE_NAME).exists() {
             return Ok(pnpm::parse(root_path)?);
         }
     }
 
     #[cfg(any(feature = "yarn-berry", feature = "yarn-classic"))]
     {
-        let yarn_lock = root_path.join(yarn::LOCKFILE_NAME);
-        if yarn_lock.exists() {
+        if root_path.join(yarn::LOCKFILE_NAME).exists() {
             return Ok(yarn::parse(root_path)?);
         }
     }

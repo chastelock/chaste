@@ -242,6 +242,23 @@ fn v3_scope_registry() -> Result<()> {
 }
 
 #[test]
+fn v3_shrinkwrap() -> Result<()> {
+    let chastefile = test_workspace("v3_shrinkwrap")?;
+    let root = chastefile.root_package();
+    assert_eq!(root.name().unwrap(), "@chastelock/testcase");
+    assert_eq!(root.version().unwrap().to_string(), "0.0.0");
+    assert_eq!(chastefile.packages().len(), 9);
+    assert_eq!(
+        chastefile
+            .recursive_package_dependencies(chastefile.root_package_id())
+            .len(),
+        8
+    );
+
+    Ok(())
+}
+
+#[test]
 fn v3_tarball_url() -> Result<()> {
     let chastefile = test_workspace("v3_tarball_url")?;
     let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;

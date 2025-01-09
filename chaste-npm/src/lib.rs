@@ -3,8 +3,8 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
+use std::{fs, io};
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
@@ -22,6 +22,7 @@ mod tests;
 mod types;
 
 pub static LOCKFILE_NAME: &str = "package-lock.json";
+pub static SHRINKWRAP_NAME: &str = "npm-shrinkwrap.json";
 
 struct PackageParser<'a> {
     package_lock: &'a PackageLock<'a>,
@@ -266,7 +267,13 @@ pub fn parse<P>(root_dir: P) -> Result<Chastefile>
 where
     P: AsRef<Path>,
 {
-    let lockfile_contents = fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?;
+    let lockfile_contents = match fs::read_to_string(root_dir.as_ref().join(SHRINKWRAP_NAME)) {
+        Ok(c) => c,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => {
+            fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?
+        }
+        Err(e) => return Err(Error::IoError(e)),
+    };
     let package_lock: PackageLock = serde_json::from_str(&lockfile_contents)?;
     parse_lock(&package_lock)
 }
