@@ -328,6 +328,45 @@ mod tests {
     }
 
     #[test]
+    fn v9_overrides() -> Result<()> {
+        let chastefile = test_workspace("v9_overrides")?;
+        let [(_ms_pid, ms_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "ms"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(ms_pkg.version().unwrap().to_string(), "2.1.3");
+        assert_eq!(ms_pkg.source_type(), Some(PackageSourceType::Npm));
+
+        let [(_path_pid, path_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "path-to-regexp"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(path_pkg.version().unwrap().to_string(), "0.1.12");
+        assert_eq!(path_pkg.source_type(), Some(PackageSourceType::Npm));
+
+        let [(_scwm_pid, scwm_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "side-channel-weakmap"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(scwm_pkg.version().unwrap().to_string(), "1.0.1");
+        assert_eq!(scwm_pkg.source_type(), Some(PackageSourceType::TarballURL));
+
+        Ok(())
+    }
+
+    #[test]
     fn v9_peer_unsatisfied() -> Result<()> {
         let chastefile = test_workspace("v9_peer_unsatisfied")?;
         assert!(!chastefile.packages().into_iter().any(|p| p
