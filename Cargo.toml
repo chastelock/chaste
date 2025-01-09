@@ -19,6 +19,7 @@ authors = ["The Chaste Authors"]
 license = "Apache-2.0 OR BSD-2-Clause"
 categories = ["parser-implementations", "data-structures"]
 repository = "https://codeberg.org/selfisekai/chaste"
+exclude = ["/test_workspaces", "/tests"]
 
 [workspace.dependencies]
 chaste = { version = "=0.3.0", default-features = false, path = "chaste" }
