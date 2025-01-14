@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use chaste_types::{Chastefile, Package, PackageID, PackageSourceType};
+use chaste_types::{Chastefile, Dependency, Package, PackageID, PackageSourceType};
 use concat_idents::concat_idents;
 
 use super::{parse, Result};
@@ -146,6 +146,49 @@ test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
 
     Ok(())
 });
+
+#[cfg(feature = "classic")]
+test_workspace!(
+    [1],
+    npm_alias_duplicate,
+    |chastefile: Chastefile, _lv: u8| {
+        assert_eq!(
+            chastefile
+                .recursive_package_dependencies(chastefile.root_package_id())
+                .len(),
+            8
+        );
+        let root_package_dependencies = chastefile.root_package_dependencies();
+        assert_eq!(root_package_dependencies.len(), 2);
+        let mut root_dep_packages: Vec<(PackageID, &Package)> = root_package_dependencies
+            .iter()
+            .map(|d| (d.on, chastefile.package(d.on)))
+            .collect();
+        root_dep_packages.sort_unstable_by_key(|(_pid, p)| p.name());
+        let [(event_stream_pid, event_stream_pkg), (map_stream_pid, map_stream_pkg)] =
+            *root_dep_packages
+        else {
+            panic!()
+        };
+        assert_eq!(event_stream_pkg.name().unwrap(), "event-stream");
+        assert_eq!(map_stream_pkg.name().unwrap(), "map-stream");
+        let mut map_stream_dependents: Vec<(&Dependency, &Package)> = chastefile
+            .package_dependents(map_stream_pid)
+            .into_iter()
+            .map(|d| (d, chastefile.package(d.from)))
+            .collect();
+        map_stream_dependents.sort_unstable_by_key(|(_pid, pkg)| pkg.name());
+        let [(root_dep, _), (es_dep, _)] = *map_stream_dependents else {
+            panic!();
+        };
+        assert_eq!(root_dep.from, chastefile.root_package_id());
+        assert_eq!(root_dep.alias_name().unwrap(), "map");
+        assert_eq!(es_dep.from, event_stream_pid);
+        assert_eq!(es_dep.alias_name(), None);
+
+        Ok(())
+    }
+);
 
 test_workspaces!(npm_aliased, |chastefile: Chastefile, lv: u8| {
     let [pakig_dep] = *chastefile.root_package_dependencies() else {

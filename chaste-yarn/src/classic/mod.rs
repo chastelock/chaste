@@ -232,7 +232,13 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
     // Now, add everything else.
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let pkg = parse_package(entry)?;
-        let pid = chastefile_builder.add_package(pkg.build()?)?;
+        // When a package is depended on both as a regular npm dependency and via an npm alias,
+        // the lockfile duplicates that package. This is specific to v1. Ignore failures and reuse PackageID.
+        let pid = match chastefile_builder.add_package(pkg.build()?) {
+            Ok(pid) => pid,
+            Err(chaste_types::Error::DuplicatePackage(pid)) => pid,
+            Err(e) => return Err(Error::ChasteError(e)),
+        };
         index_to_pid.insert(index, pid);
     }
 
