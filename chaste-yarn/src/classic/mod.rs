@@ -21,12 +21,12 @@ use crate::error::{Error, Result};
 
 mod types;
 
-fn is_registry_url<'a>(name: &'a str, version: &'a str, input: &'a str) -> bool {
+fn is_registry_url<'a>(name: PackageNameBorrowed<'a>, version: &'a str, input: &'a str) -> bool {
     (
         tag::<&str, &str, ()>("https://registry.yarnpkg.com/"),
-        tag(name),
+        tag(name.as_ref()),
         tag("/-/"),
-        tag(name),
+        tag(name.name_rest()),
         tag("-"),
         tag(version),
         tag(".tgz"),
@@ -56,38 +56,36 @@ fn parse_source_url(
     package_name: PackageNameBorrowed<'_>,
     url: &str,
 ) -> Result<Option<PackageSource>> {
-    Ok(
-        if is_registry_url(package_name.as_ref(), entry.version, url) {
-            Some(PackageSource::Npm)
-        } else if url.ends_with(".git") {
-            Some(PackageSource::Git {
-                url: url.to_string(),
-            })
+    Ok(if is_registry_url(package_name, entry.version, url) {
+        Some(PackageSource::Npm)
+    } else if url.ends_with(".git") {
+        Some(PackageSource::Git {
+            url: url.to_string(),
+        })
 
-        // Check descriptors whether they are:
-        // a) a tarball URL,
-        // b) the special GitHub tag (in yarn, it resolves to tarballs).
-        //
-        // XXX: This might be wrong with overrides.
-        } else if entry.descriptors.iter().all(|(_, svs)| {
-            svs.starts_with("https://") || svs.starts_with("http://") || is_github_svs(svs)
-        }) {
-            Some(PackageSource::TarballURL {
-                url: url.to_string(),
-            })
+    // Check descriptors whether they are:
+    // a) a tarball URL,
+    // b) the special GitHub tag (in yarn, it resolves to tarballs).
+    //
+    // XXX: This might be wrong with overrides.
+    } else if entry.descriptors.iter().all(|(_, svs)| {
+        svs.starts_with("https://") || svs.starts_with("http://") || is_github_svs(svs)
+    }) {
+        Some(PackageSource::TarballURL {
+            url: url.to_string(),
+        })
 
-        // Not an arbitrary tarball? If it's valid semver, it's probably a custom registry.
-        } else if entry
-            .descriptors
-            .iter()
-            .all(|(_, svs)| PackageVersion::parse(svs).is_ok())
-        {
-            Some(PackageSource::Npm)
-        } else {
-            // TODO: find any cases falling here
-            None
-        },
-    )
+    // Not an arbitrary tarball? If it's valid semver, it's probably a custom registry.
+    } else if entry
+        .descriptors
+        .iter()
+        .all(|(_, svs)| PackageVersion::parse(svs).is_ok())
+    {
+        Some(PackageSource::Npm)
+    } else {
+        // TODO: find any cases falling here
+        None
+    })
 }
 
 fn parse_source<'a>(
@@ -342,7 +340,9 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
 #[cfg(test)]
 mod tests {
-    use super::{is_github_svs, Result};
+    use chaste_types::PackageName;
+
+    use super::{is_github_svs, is_registry_url, Result};
 
     #[test]
     fn github_cvd() -> Result<()> {
@@ -350,6 +350,21 @@ mod tests {
         assert!(is_github_svs("github:isaacs/minimatch#v10.0.1"));
         assert!(is_github_svs("isaacs/minimatch"));
 
+        Ok(())
+    }
+
+    #[test]
+    fn registry_url() -> Result<()> {
+        assert!(is_registry_url(
+            PackageName::new("is-buffer".to_string())?.as_borrowed(),
+            "1.1.6",
+            "https://registry.yarnpkg.com/is-buffer/-/is-buffer-1.1.6.tgz"
+        ));
+        assert!(is_registry_url(
+            PackageName::new("@chastelock/recursion-a".to_string())?.as_borrowed(),
+            "0.1.0",
+            "https://registry.yarnpkg.com/@chastelock/recursion-a/-/recursion-a-0.1.0.tgz"
+        ));
         Ok(())
     }
 }
