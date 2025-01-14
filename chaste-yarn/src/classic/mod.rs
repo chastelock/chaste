@@ -23,7 +23,13 @@ mod types;
 
 fn is_registry_url<'a>(name: PackageNameBorrowed<'a>, version: &'a str, input: &'a str) -> bool {
     (
-        tag::<&str, &str, ()>("https://registry.yarnpkg.com/"),
+        alt((tag("https://"), tag("http://"))),
+        alt((
+            tag("registry.yarnpkg.com"),
+            tag("registry.npmjs.org"),
+            tag("registry.npmjs.com"),
+        )),
+        tag::<&str, &str, ()>("/"),
         tag(name.as_ref()),
         tag("/-/"),
         tag(name.name_rest()),
@@ -359,6 +365,11 @@ mod tests {
             PackageName::new("is-buffer".to_string())?.as_borrowed(),
             "1.1.6",
             "https://registry.yarnpkg.com/is-buffer/-/is-buffer-1.1.6.tgz"
+        ));
+        assert!(is_registry_url(
+            PackageName::new("is-buffer".to_string())?.as_borrowed(),
+            "1.1.6",
+            "https://registry.npmjs.org/is-buffer/-/is-buffer-1.1.6.tgz"
         ));
         assert!(is_registry_url(
             PackageName::new("@chastelock/recursion-a".to_string())?.as_borrowed(),
