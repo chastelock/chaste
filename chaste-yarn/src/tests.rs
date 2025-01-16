@@ -61,7 +61,11 @@ test_workspaces!(git_ssh, |chastefile: Chastefile, lv: u8| {
     assert_eq!(semver.version().unwrap().to_string(), "7.6.3");
     assert_eq!(semver.source_type(), Some(PackageSourceType::Git));
     // XXX: https://codeberg.org/selfisekai/chaste/issues/23
-    assert_eq!(semver.integrity().hashes.len(), if lv == 1 { 0 } else { 1 });
+    if lv == 1 {
+        assert!(semver.checksums().is_none());
+    } else {
+        assert_eq!(semver.checksums().unwrap().integrity().hashes.len(), 1);
+    }
     Ok(())
 });
 
@@ -87,10 +91,11 @@ test_workspaces!(git_url, |chastefile: Chastefile, lv: u8| {
         }
     );
     // XXX: https://codeberg.org/selfisekai/chaste/issues/23
-    assert_eq!(
-        minimatch.integrity().hashes.len(),
-        if lv == 1 { 0 } else { 1 }
-    );
+    if lv == 1 {
+        assert!(minimatch.checksums().is_none());
+    } else {
+        assert_eq!(minimatch.checksums().unwrap().integrity().hashes.len(), 1);
+    }
     Ok(())
 });
 
@@ -122,10 +127,11 @@ test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
         }
     );
     // XXX: https://codeberg.org/selfisekai/chaste/issues/23
-    assert_eq!(
-        package.integrity().hashes.len(),
-        if lv == 1 { 0 } else { 1 }
-    );
+    if lv == 1 {
+        assert!(package.checksums().is_none());
+    } else {
+        assert_eq!(package.checksums().unwrap().integrity().hashes.len(), 1);
+    }
 
     let package = root_dep_packages[1];
     assert_eq!(package.name().unwrap(), "node-semver");
@@ -139,10 +145,11 @@ test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
         }
     );
     // XXX: https://codeberg.org/selfisekai/chaste/issues/23
-    assert_eq!(
-        package.integrity().hashes.len(),
-        if lv == 1 { 0 } else { 1 }
-    );
+    if lv == 1 {
+        assert!(package.checksums().is_none());
+    } else {
+        assert_eq!(package.checksums().unwrap().integrity().hashes.len(), 1);
+    }
 
     Ok(())
 });
@@ -202,7 +209,10 @@ test_workspaces!(npm_aliased, |chastefile: Chastefile, lv: u8| {
     let pakig = chastefile.package(pakig_dep.on);
     assert_eq!(pakig.name().unwrap(), "nop");
     assert_eq!(pakig.version().unwrap().to_string(), "1.0.0");
-    assert_eq!(pakig.integrity().hashes.len(), if lv == 1 { 2 } else { 1 });
+    assert_eq!(
+        pakig.checksums().unwrap().integrity().hashes.len(),
+        if lv == 1 { 2 } else { 1 }
+    );
     assert_eq!(pakig.source_type(), Some(PackageSourceType::Npm));
 
     Ok(())
@@ -272,7 +282,7 @@ test_workspaces!(scope_registry, |chastefile: Chastefile, lv: u8| {
     assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
     assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
     assert_eq!(
-        empty_pkg.integrity().hashes.len(),
+        empty_pkg.checksums().unwrap().integrity().hashes.len(),
         if lv == 1 { 2 } else { 1 }
     );
     assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::Npm));
@@ -285,7 +295,7 @@ test_workspaces!(tarball_url, |chastefile: Chastefile, _lv: u8| {
     let empty_pkg = chastefile.package(empty_pid);
     assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
     assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
-    assert_eq!(empty_pkg.integrity().hashes.len(), 1);
+    assert_eq!(empty_pkg.checksums().unwrap().integrity().hashes.len(), 1);
     assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::TarballURL));
 
     Ok(())

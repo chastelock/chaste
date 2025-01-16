@@ -4,6 +4,7 @@
 pub static PACKAGE_JSON_FILENAME: &str = "package.json";
 
 pub use crate::chastefile::*;
+pub use crate::checksums::*;
 pub use crate::dependency::*;
 pub use crate::error::{Error, Result};
 pub use crate::installation::*;
@@ -14,6 +15,7 @@ pub use crate::source::*;
 pub use crate::svs::*;
 
 mod chastefile;
+mod checksums;
 mod dependency;
 pub mod error;
 mod installation;

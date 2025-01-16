@@ -6,9 +6,9 @@ use std::fs;
 use std::path::Path;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    ModulePath, PackageBuilder, PackageName, PackageSource, SourceVersionSpecifier,
-    PACKAGE_JSON_FILENAME,
+    Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
+    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageName, PackageSource,
+    SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
 };
 use nom::bytes::complete::{tag, take_while1};
 use nom::combinator::{opt, recognize, rest, verify};
@@ -99,7 +99,10 @@ where
         let mut package =
             PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), version);
         if let Some(integrity) = pkg.resolution.integrity {
-            package.integrity(integrity.parse()?);
+            let inte: Integrity = integrity.parse()?;
+            if !inte.hashes.is_empty() {
+                package.checksums(Checksums::Tarball(inte));
+            }
         }
         if let Some(tarball_url) = pkg.resolution.tarball {
             // If there is a checksum, it's a custom registry.

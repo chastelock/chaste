@@ -7,9 +7,9 @@ use std::path::Path;
 use std::{fs, io};
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
-    InstallationBuilder, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource,
-    SourceVersionSpecifier,
+    Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder, DependencyKind,
+    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
+    PackageSource, SourceVersionSpecifier,
 };
 
 pub use crate::error::{Error, Result};
@@ -59,7 +59,10 @@ fn parse_package(
     }
     let mut pkg = PackageBuilder::new(name, tree_package.version.as_ref().map(|s| s.to_string()));
     if let Some(integrity) = &tree_package.integrity {
-        pkg.integrity(integrity.parse()?);
+        let inte: Integrity = integrity.parse()?;
+        if !inte.hashes.is_empty() {
+            pkg.checksums(Checksums::Tarball(inte));
+        }
     }
     if let Some(resolved) = &tree_package.resolved {
         if let Some(source) = recognize_source(resolved) {

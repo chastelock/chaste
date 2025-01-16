@@ -6,9 +6,9 @@ use std::path::Path;
 use std::{fs, io};
 
 use chaste_types::{
-    ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    Integrity, ModulePath, PackageBuilder, PackageID, PackageName, PackageSource, PackageVersion,
-    SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
+    ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
+    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
+    PackageSource, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_until, take_while1};
@@ -100,13 +100,16 @@ fn parse_source<'a>(entry: &'a yarn::Entry) -> Option<(&'a str, Option<PackageSo
     }
 }
 
-fn parse_checksum(integrity: &str) -> Result<Integrity> {
+fn parse_checksum(integrity: &str) -> Result<Checksums> {
     // In v8 lockfiles, there is a prefix like "10/".
     let integrity = integrity
         .split_once("/")
         .map(|(_, i)| i)
         .unwrap_or(integrity);
-    Ok(Integrity::from_hex(integrity, ssri::Algorithm::Sha512)?)
+    Ok(Checksums::RepackZip(Integrity::from_hex(
+        integrity,
+        ssri::Algorithm::Sha512,
+    )?))
 }
 
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
@@ -119,7 +122,7 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
         Some(PackageName::new(name.to_string())?),
         Some(entry.version.to_string()),
     );
-    pkg.integrity(parse_checksum(entry.integrity)?);
+    pkg.checksums(parse_checksum(entry.integrity)?);
     if let Some((_, Some(source))) = source {
         pkg.source(source);
     }

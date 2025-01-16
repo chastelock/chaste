@@ -61,7 +61,7 @@ fn v9_git_url() -> Result<()> {
     let doipjs = chastefile.package(doipjs_dep.on);
     assert_eq!(doipjs.name().unwrap(), "doipjs");
     assert_eq!(doipjs.source_type(), Some(PackageSourceType::Git));
-    assert_eq!(doipjs.integrity().hashes.len(), 0);
+    assert!(doipjs.checksums().is_none());
 
     Ok(())
 }
@@ -78,7 +78,7 @@ fn v9_github_ref() -> Result<()> {
     let minimatch = chastefile.package(minimatch_dep.on);
     assert_eq!(minimatch.name().unwrap(), "minimatch");
     assert_eq!(minimatch.source_type(), Some(PackageSourceType::TarballURL));
-    assert_eq!(minimatch.integrity().hashes.len(), 0);
+    assert!(minimatch.checksums().is_none());
 
     Ok(())
 }
@@ -113,7 +113,7 @@ fn v9_npm_aliased() -> Result<()> {
     let pakig = chastefile.package(pakig_dep.on);
     assert_eq!(pakig.name().unwrap(), "nop");
     assert_eq!(pakig.version().unwrap().to_string(), "1.0.0");
-    assert_eq!(pakig.integrity().hashes.len(), 1);
+    assert_eq!(pakig.checksums().unwrap().integrity().hashes.len(), 1);
     assert_eq!(pakig.source_type(), Some(PackageSourceType::Npm));
 
     Ok(())
@@ -188,7 +188,7 @@ fn v9_scope_registry() -> Result<()> {
     let empty_pkg = chastefile.package(empty_pid);
     assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
     assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
-    assert_eq!(empty_pkg.integrity().hashes.len(), 1);
+    assert_eq!(empty_pkg.checksums().unwrap().integrity().hashes.len(), 1);
     assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::Npm));
 
     Ok(())
@@ -201,7 +201,7 @@ fn v9_tarball_url() -> Result<()> {
     let empty_pkg = chastefile.package(empty_pid);
     assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
     assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
-    assert_eq!(empty_pkg.integrity().hashes.len(), 0);
+    assert!(empty_pkg.checksums().is_none());
     assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::TarballURL));
 
     Ok(())

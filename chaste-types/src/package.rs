@@ -4,9 +4,8 @@
 use std::cmp;
 
 pub use nodejs_semver::Version as PackageVersion;
-pub use ssri;
-pub use ssri::{Error as SSRIError, Integrity};
 
+use crate::checksums::Checksums;
 use crate::error::Result;
 use crate::name::PackageName;
 use crate::source::{PackageSource, PackageSourceType};
@@ -15,7 +14,7 @@ use crate::source::{PackageSource, PackageSourceType};
 pub struct Package {
     name: Option<PackageName>,
     version: Option<PackageVersion>,
-    integrity: Integrity,
+    checksums: Option<Checksums>,
     source: Option<PackageSource>,
 }
 
@@ -28,8 +27,8 @@ impl Package {
         self.version.as_ref()
     }
 
-    pub fn integrity(&self) -> &Integrity {
-        &self.integrity
+    pub fn checksums(&self) -> Option<&Checksums> {
+        self.checksums.as_ref()
     }
 
     pub fn source(&self) -> Option<&PackageSource> {
@@ -58,7 +57,7 @@ impl PartialOrd for Package {
 pub struct PackageBuilder {
     name: Option<PackageName>,
     version: Option<String>,
-    integrity: Option<Integrity>,
+    checksums: Option<Checksums>,
     source: Option<PackageSource>,
 }
 
@@ -67,7 +66,7 @@ impl PackageBuilder {
         PackageBuilder {
             name,
             version,
-            integrity: None,
+            checksums: None,
             source: None,
         }
     }
@@ -80,8 +79,8 @@ impl PackageBuilder {
         self.name = new_name;
     }
 
-    pub fn integrity(&mut self, new_integrity: Integrity) {
-        self.integrity = Some(new_integrity);
+    pub fn checksums(&mut self, new_checksums: Checksums) {
+        self.checksums = Some(new_checksums);
     }
 
     pub fn source(&mut self, new_source: PackageSource) {
@@ -92,9 +91,7 @@ impl PackageBuilder {
         Ok(Package {
             name: self.name,
             version: self.version.map(PackageVersion::parse).transpose()?,
-            integrity: self
-                .integrity
-                .unwrap_or_else(|| Integrity { hashes: Vec::new() }),
+            checksums: self.checksums,
             source: self.source,
         })
     }

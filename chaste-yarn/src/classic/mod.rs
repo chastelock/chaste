@@ -6,9 +6,10 @@ use std::path::Path;
 use std::{fs, str};
 
 use chaste_types::{
-    ssri, Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    Integrity, ModulePath, Package, PackageBuilder, PackageID, PackageName, PackageNameBorrowed,
-    PackageSource, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
+    ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
+    InstallationBuilder, Integrity, ModulePath, Package, PackageBuilder, PackageID, PackageName,
+    PackageNameBorrowed, PackageSource, PackageVersion, SourceVersionSpecifier,
+    PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
@@ -137,7 +138,9 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     if let Some(source) = source {
         pkg.source(source);
     }
-    pkg.integrity(integrity);
+    if !integrity.hashes.is_empty() {
+        pkg.checksums(Checksums::Tarball(integrity));
+    }
     Ok(pkg)
 }
 

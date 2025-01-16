@@ -31,13 +31,15 @@ pub fn run(_sub: Audit) -> Result<()> {
         if pid == root_pid || member_pids.contains(&pid) {
             continue;
         }
-        let integrity = package.integrity();
-        if integrity.hashes.is_empty() {
+        let maybe_checksums = package.checksums();
+        if let Some(checksums) = maybe_checksums {
+            if ![Algorithm::Sha512, Algorithm::Sha384, Algorithm::Sha256]
+                .contains(&checksums.integrity().pick_algorithm())
+            {
+                insufficient_checksums.push(package);
+            }
+        } else {
             checksumless.push(package);
-        } else if ![Algorithm::Sha512, Algorithm::Sha384, Algorithm::Sha256]
-            .contains(&integrity.pick_algorithm())
-        {
-            insufficient_checksums.push(package);
         }
         if package.source().is_none() {
             unknown_source.push(package);
