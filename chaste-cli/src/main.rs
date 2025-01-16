@@ -4,6 +4,7 @@
 use anyhow::Result;
 use argh::FromArgs;
 
+mod audit;
 mod why;
 
 #[derive(FromArgs)]
@@ -16,12 +17,14 @@ struct Args {
 #[derive(FromArgs)]
 #[argh(subcommand)]
 enum Subcommand {
+    Audit(audit::Audit),
     Why(why::Why),
 }
 
 fn main() -> Result<()> {
     let args: Args = argh::from_env();
     match args.subcommand {
+        Subcommand::Audit(audit) => audit::run(audit),
         Subcommand::Why(why) => why::run(why),
     }
 }
