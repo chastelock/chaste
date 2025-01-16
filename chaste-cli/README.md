@@ -7,6 +7,18 @@ Chaste parses npmjs lockfiles.
 
 Development status: alpha.
 
+## `chaste audit`
+
+Opinionated checks on your dependencies.
+
+```
+$ chaste audit
+All good! Out of 2116 dependencies:
+✅ No packages with no checksums
+✅ No packages with insecure checksums
+✅ No packages with unrecognized source
+```
+
 ## `chaste why`
 
 "Why does my tree depend on this package?"
