@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use chaste_types::{Chastefile, Dependency, Package, PackageID, PackageSourceType};
+use chaste_types::{Chastefile, Checksums, Dependency, Package, PackageID, PackageSourceType};
 use concat_idents::concat_idents;
 
 use super::{parse, Result};
@@ -60,11 +60,12 @@ test_workspaces!(git_ssh, |chastefile: Chastefile, lv: u8| {
     assert_eq!(semver.name().unwrap(), "node-semver");
     assert_eq!(semver.version().unwrap().to_string(), "7.6.3");
     assert_eq!(semver.source_type(), Some(PackageSourceType::Git));
-    // XXX: https://codeberg.org/selfisekai/chaste/issues/23
     if lv == 1 {
         assert!(semver.checksums().is_none());
     } else {
-        assert_eq!(semver.checksums().unwrap().integrity().hashes.len(), 1);
+        let checksums = semver.checksums().unwrap();
+        assert!(matches!(checksums, Checksums::RepackZip(_)));
+        assert_eq!(checksums.integrity().hashes.len(), 1);
     }
     Ok(())
 });
@@ -90,11 +91,12 @@ test_workspaces!(git_url, |chastefile: Chastefile, lv: u8| {
             None
         }
     );
-    // XXX: https://codeberg.org/selfisekai/chaste/issues/23
     if lv == 1 {
         assert!(minimatch.checksums().is_none());
     } else {
-        assert_eq!(minimatch.checksums().unwrap().integrity().hashes.len(), 1);
+        let checksums = minimatch.checksums().unwrap();
+        assert!(matches!(checksums, Checksums::RepackZip(_)));
+        assert_eq!(checksums.integrity().hashes.len(), 1);
     }
     Ok(())
 });
@@ -126,11 +128,12 @@ test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
             None
         }
     );
-    // XXX: https://codeberg.org/selfisekai/chaste/issues/23
     if lv == 1 {
         assert!(package.checksums().is_none());
     } else {
-        assert_eq!(package.checksums().unwrap().integrity().hashes.len(), 1);
+        let checksums = package.checksums().unwrap();
+        assert!(matches!(checksums, Checksums::RepackZip(_)));
+        assert_eq!(checksums.integrity().hashes.len(), 1);
     }
 
     let package = root_dep_packages[1];
@@ -144,11 +147,12 @@ test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
             None
         }
     );
-    // XXX: https://codeberg.org/selfisekai/chaste/issues/23
     if lv == 1 {
         assert!(package.checksums().is_none());
     } else {
-        assert_eq!(package.checksums().unwrap().integrity().hashes.len(), 1);
+        let checksums = package.checksums().unwrap();
+        assert!(matches!(checksums, Checksums::RepackZip(_)));
+        assert_eq!(checksums.integrity().hashes.len(), 1);
     }
 
     Ok(())
