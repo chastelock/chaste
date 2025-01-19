@@ -29,7 +29,7 @@ pub enum DependencyKind {
 
 impl DependencyKind {
     pub fn is_prod(self) -> bool {
-        matches!(self, DependencyKind::DevDependency)
+        !matches!(self, DependencyKind::DevDependency)
     }
     pub fn is_dev(self) -> bool {
         matches!(self, DependencyKind::DevDependency)
