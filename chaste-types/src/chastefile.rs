@@ -48,14 +48,17 @@ impl<'a> Chastefile {
             .filter(move |d| d.kind.is_prod() && d.from == package_id)
     }
 
+    /// Direct dependencies of any kind from specified package
     pub fn package_dependencies(&'a self, package_id: PackageID) -> Vec<&'a Dependency> {
         self.package_dependencies_iter(package_id).collect()
     }
 
+    /// Direct dependencies of any kind other than [`crate::DependencyKind::DevDependency`] from specified package
     pub fn package_prod_dependencies(&'a self, package_id: PackageID) -> Vec<&'a Dependency> {
         self.package_prod_dependencies_iter(package_id).collect()
     }
 
+    /// Dependencies, direct and transitive, of any kind from specified package
     pub fn recursive_package_dependencies(&'a self, package_id: PackageID) -> Vec<&'a Dependency> {
         let mut result = self.package_dependencies(package_id);
         let mut seen = HashSet::with_capacity(result.len());
@@ -75,6 +78,8 @@ impl<'a> Chastefile {
         result
     }
 
+    /// Dependencies, direct and transitive, of any kind other than [`crate::DependencyKind::DevDependency`]
+    /// from specified package
     pub fn recursive_prod_package_dependencies(
         &'a self,
         package_id: PackageID,
@@ -104,7 +109,7 @@ impl<'a> Chastefile {
         self.dependencies.iter().filter(move |d| d.on == package_id)
     }
 
-    /// Direct dependencies on the specified package.
+    /// Direct dependencies of any kind *on* the specified package (reverse dependencies)
     pub fn package_dependents(&'a self, package_id: PackageID) -> Vec<&'a Dependency> {
         self.package_dependents_iter(package_id).collect()
     }

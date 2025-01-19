@@ -7,11 +7,23 @@ use crate::svs::SourceVersionSpecifier;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[non_exhaustive]
+/// The type of a [Dependency].
 pub enum DependencyKind {
+    /// Either defined as a regular dependency (in the `"dependencies"` field of package.json),
+    /// or, in some cases (implementation-dependent), as any other kind that is not [`DependencyKind::DevDependency`].
     Dependency,
+    /// Defined in `"devDependencies"`.
     DevDependency,
+    /// Defined in `"peerDependencies"`. If known to be [defined as optional],
+    /// it will be marked as [`DependencyKind::OptionalPeerDependency`] instead.
+    ///
+    /// [defined as optional]: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#peerdependenciesmeta
     PeerDependency,
+    /// Defined in `"optionalDependencies"`.
     OptionalDependency,
+    /// Defined in `"peerDependency"` and known to be [defined as optional].
+    ///
+    /// [defined as optional]: https://docs.npmjs.com/cli/v11/configuring-npm/package-json#peerdependenciesmeta
     OptionalPeerDependency,
 }
 
@@ -31,15 +43,45 @@ impl DependencyKind {
 }
 
 #[derive(Debug, Clone)]
+/// A relation of dependency between 2 [`crate::Package`]s
 pub struct Dependency {
+    /// Type of dependency
     pub kind: DependencyKind,
+    /// ID of the package that defined this dependency
     pub from: PackageID,
+    /// ID of the package that is being depended on
     pub on: PackageID,
     alias_name: Option<PackageName>,
     svs: Option<SourceVersionSpecifier>,
 }
 
 impl Dependency {
+    /// The source and version range chosen by the dependent package.
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::{ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageName, SourceVersionSpecifier};
+    /// # let mut chastefile_builder = ChastefileBuilder::new();
+    /// # let root_pid = chastefile_builder.add_package(
+    /// #     PackageBuilder::new(None, None).build().unwrap(),
+    /// # ).unwrap();
+    /// # chastefile_builder.set_root_package_id(root_pid);
+    /// # let lodash_pid = chastefile_builder.add_package(
+    /// #     PackageBuilder::new(
+    /// #         Some(PackageName::new("lodash".to_string()).unwrap()),
+    /// #         Some("4.2.1".to_string()),
+    /// #     ).build().unwrap(),
+    /// # ).unwrap();
+    /// # let mut dependency_builder = DependencyBuilder::new(DependencyKind::Dependency, root_pid, lodash_pid);
+    /// # dependency_builder.svs(SourceVersionSpecifier::new("^4.2.0".to_string()).unwrap());
+    /// # chastefile_builder.add_dependency(dependency_builder.build());
+    /// # let chastefile = chastefile_builder.build().unwrap();
+    /// # let dependencies = chastefile.package_dependencies(root_pid);
+    /// # let dependency = dependencies.first().unwrap();
+    /// let svs = dependency.svs().unwrap();
+    /// assert_eq!(svs, "^4.2.0");
+    /// assert!(svs.is_npm());
+    /// ```
     pub fn svs(&self) -> Option<&SourceVersionSpecifier> {
         self.svs.as_ref()
     }
@@ -50,6 +92,7 @@ impl Dependency {
     /// [`crate::Package::name`] will be `@chastelock/lodash-fork`, but [`crate::Dependency::alias_name`]
     /// will be `lodash`. (If dependency is not from npm, the behavior is undefined.)
     ///
+    /// # Example
     /// ```
     /// # use chaste_types::{ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageName};
     /// # let mut chastefile_builder = ChastefileBuilder::new();
