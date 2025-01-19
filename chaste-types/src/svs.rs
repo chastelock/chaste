@@ -11,8 +11,24 @@ use nom::Parser;
 use crate::error::{Error, Result};
 use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
 
-/// Source/version specifier. It is a constraint defined by a specific [`crate::Dependency`]
-/// rather than by a [`crate::PackageSource`].
+/// Source/version specifier. It is a constraint defined by a specific [`crate::Dependency`],
+/// and is used by package managers to choose a specific [`crate::PackageSource`].
+///
+/// # Example
+/// ```
+/// # use chaste_types::SourceVersionSpecifier;
+/// let svs1 = SourceVersionSpecifier::new(
+///     "^1.0.0".to_string()).unwrap();
+/// assert!(svs1.is_npm());
+///
+/// let svs2 = SourceVersionSpecifier::new(
+///     "git@codeberg.org:22/selfisekai/chaste.git".to_string()).unwrap();
+/// assert!(svs2.is_git());
+///
+/// let svs3 = SourceVersionSpecifier::new(
+///     "https://s.lnl.gay/YMSRcUPRNMxx.tgz".to_string()).unwrap();
+/// assert!(svs3.is_tar());
+/// ```
 #[derive(Debug, Clone)]
 pub struct SourceVersionSpecifier {
     inner: String,
@@ -195,10 +211,38 @@ impl PartialEq<str> for SourceVersionSpecifier {
 }
 
 impl SourceVersionSpecifier {
+    /// Whether the SVS chooses an npm version range.
+    /// This does not include npm tags (see [`SourceVersionSpecifier::is_npm_tag`]).
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs1 = SourceVersionSpecifier::new(
+    ///     "^4".to_string()).unwrap();
+    /// assert!(svs1.is_npm());
+    ///
+    /// let svs2 = SourceVersionSpecifier::new(
+    ///     "npm:@chastelock/testcase@^2.1.37".to_string()).unwrap();
+    /// assert!(svs2.is_npm());
+    /// ```
     pub fn is_npm(&self) -> bool {
         matches!(self.positions, SourceVersionSpecifierPositions::Npm { .. })
     }
 
+    /// Whether the SVS chooses an npm tag.
+    /// This does not include npm version ranges (see [`SourceVersionSpecifier::is_npm`]).
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs1 = SourceVersionSpecifier::new(
+    ///     "latest".to_string()).unwrap();
+    /// assert!(svs1.is_npm_tag());
+    ///
+    /// let svs2 = SourceVersionSpecifier::new(
+    ///     "next-11".to_string()).unwrap();
+    /// assert!(svs2.is_npm_tag());
+    /// ```
     pub fn is_npm_tag(&self) -> bool {
         matches!(
             self.positions,
@@ -206,6 +250,19 @@ impl SourceVersionSpecifier {
         )
     }
 
+    /// Whether the SVS chooses an arbitrary tarball URL.
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs1 = SourceVersionSpecifier::new(
+    ///     "https://s.lnl.gay/YMSRcUPRNMxx.tgz".to_string()).unwrap();
+    /// assert!(svs1.is_tar());
+    ///
+    /// let svs2 = SourceVersionSpecifier::new(
+    ///     "https://codeberg.org/libselfisekai/-/packages/npm/@a%2Fempty/0.0.1/files/1152452".to_string()).unwrap();
+    /// assert!(svs2.is_tar());
+    /// ```
     pub fn is_tar(&self) -> bool {
         matches!(
             self.positions,
@@ -213,10 +270,43 @@ impl SourceVersionSpecifier {
         )
     }
 
+    /// Whether the SVS chooses a git repository as the source.
+    /// This does not include the short-form GitHub slugs (see [`SourceVersionSpecifier::is_github`]).
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs1 = SourceVersionSpecifier::new(
+    ///     "ssh://git@github.com/npm/node-semver.git#semver:^7.5.0".to_string()).unwrap();
+    /// assert!(svs1.is_git());
+    ///
+    /// let svs2 = SourceVersionSpecifier::new(
+    ///     "https://github.com/isaacs/minimatch.git#v10.0.1".to_string()).unwrap();
+    /// assert!(svs2.is_git());
+    /// ```
     pub fn is_git(&self) -> bool {
         matches!(self.positions, SourceVersionSpecifierPositions::Git { .. })
     }
 
+    /// Whether the SVS chooses a GitHub.com repository as the source.
+    /// This includes the short-form GitHub slugs, and does not include
+    /// full-formed Git URLs to github.com (for those, see [`SourceVersionSpecifier::is_git`]).
+    ///
+    /// While regular Git URLs specify a protocol, in this special case
+    /// a package manager can choose between Git over HTTPS, Git over SSH,
+    /// and tarball URLs. See [`crate::Package::source`] to find out the real source.
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs1 = SourceVersionSpecifier::new(
+    ///     "npm/node-semver#semver:^7.5.0".to_string()).unwrap();
+    /// assert!(svs1.is_github());
+    ///
+    /// let svs2 = SourceVersionSpecifier::new(
+    ///     "github:isaacs/minimatch#v10.0.1".to_string()).unwrap();
+    /// assert!(svs2.is_github());
+    /// ```
     pub fn is_github(&self) -> bool {
         matches!(
             self.positions,
@@ -225,6 +315,12 @@ impl SourceVersionSpecifier {
     }
 
     /// Package name specified as aliased in the version specifier.
+    ///
+    /// This is useful for a specific case: npm dependencies defined with a name alias,
+    /// e.g. `"lodash": "npm:@chastelock/lodash-fork@^4.1.0"`,
+    /// which means that the package `@chastelock/lodash-fork` is available for import
+    /// as `lodash`. Normally, there is no rename, and the package's registry name
+    /// (available in [`crate::Package::name`]) is used.
     ///
     /// # Example
     /// ```
@@ -249,6 +345,21 @@ impl SourceVersionSpecifier {
         }
     }
 
+    /// If the dependency source is Git over SSH, this returns the separator used
+    /// between the server part and the path. This is either `:` or `/`.
+    /// There are quirks in support for these addresses between implementations.
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs1 = SourceVersionSpecifier::new(
+    ///     "git@codeberg.org:selfisekai/chaste.git".to_string()).unwrap();
+    /// assert_eq!(svs1.ssh_path_sep().unwrap(), ":");
+    ///
+    /// let svs2 = SourceVersionSpecifier::new(
+    ///     "git@codeberg.org:22/selfisekai/chaste.git".to_string()).unwrap();
+    /// assert_eq!(svs2.ssh_path_sep().unwrap(), "/");
+    /// ```
     pub fn ssh_path_sep(&self) -> Option<&str> {
         self.positions
             .ssh_path_sep()
