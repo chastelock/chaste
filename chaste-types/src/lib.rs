@@ -11,6 +11,7 @@ pub use crate::installation::*;
 pub use crate::module_path::*;
 pub use crate::name::*;
 pub use crate::package::*;
+pub use crate::quirks::*;
 pub use crate::source::*;
 pub use crate::svs::*;
 
@@ -23,5 +24,6 @@ mod misc;
 mod module_path;
 mod name;
 mod package;
+mod quirks;
 mod source;
 mod svs;

@@ -10,6 +10,7 @@ use nom::Parser;
 
 use crate::error::{Error, Result};
 use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
+use crate::quirks::QuirksMode;
 
 /// Source/version specifier. It is a constraint defined by a specific [`crate::Dependency`],
 /// and is used by package managers to choose a specific [`crate::PackageSource`].
@@ -160,11 +161,19 @@ fn npm_tag(input: &str) -> Option<SourceVersionSpecifierPositions> {
 }
 
 impl SourceVersionSpecifierPositions {
-    fn parse(svs: &str) -> Result<Self> {
+    fn parse(svs: &str, quirks: Option<QuirksMode>) -> Result<Self> {
         npm(svs)
             .or_else(|| url(svs))
             .or_else(|| github(svs))
-            .or_else(|| ssh(svs))
+            .or_else(|| {
+                ssh(svs).filter(|s| {
+                    // in yarn(classic), "ssh://git@github.com:npm/node-semver.git" is interpreted as an npm tag
+                    !matches!(quirks, Some(QuirksMode::Yarn(1)))
+                        || s.ssh_path_sep()
+                            .map(|(st, en)| &svs[st..en])
+                            .is_none_or(|sep| sep == "/")
+                })
+            })
             .or_else(|| npm_tag(svs))
             .ok_or_else(|| Error::InvalidSVS(svs.to_string()))
     }
@@ -172,7 +181,14 @@ impl SourceVersionSpecifierPositions {
 impl SourceVersionSpecifier {
     pub fn new(svs: String) -> Result<Self> {
         Ok(Self {
-            positions: SourceVersionSpecifierPositions::parse(&svs)?,
+            positions: SourceVersionSpecifierPositions::parse(&svs, None)?,
+            inner: svs,
+        })
+    }
+
+    pub fn with_quirks(svs: String, quirks: QuirksMode) -> Result<Self> {
+        Ok(Self {
+            positions: SourceVersionSpecifierPositions::parse(&svs, Some(quirks))?,
             inner: svs,
         })
     }

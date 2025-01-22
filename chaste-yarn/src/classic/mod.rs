@@ -8,7 +8,7 @@ use std::{fs, str};
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
     InstallationBuilder, Integrity, ModulePath, Package, PackageBuilder, PackageID, PackageName,
-    PackageNameBorrowed, PackageSource, PackageVersion, SourceVersionSpecifier,
+    PackageNameBorrowed, PackageSource, PackageVersion, QuirksMode, SourceVersionSpecifier,
     PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
@@ -21,6 +21,8 @@ use crate::classic::types::PackageJson;
 use crate::error::{Error, Result};
 
 mod types;
+
+static QUIRKS: QuirksMode = QuirksMode::Yarn(1);
 
 fn is_registry_url<'a>(name: PackageNameBorrowed<'a>, version: &'a str, input: &'a str) -> bool {
     (
@@ -116,7 +118,7 @@ fn parse_source<'a>(
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     let first_desc = entry.descriptors.first().unwrap();
     let name = if first_desc.1.starts_with("npm:") {
-        let svs = SourceVersionSpecifier::new(first_desc.1.to_string())?;
+        let svs = SourceVersionSpecifier::with_quirks(first_desc.1.to_string(), QUIRKS)?;
         if let Some(aliased_name) = svs.aliased_package_name() {
             aliased_name.to_owned()
         } else {
@@ -263,7 +265,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, root_pid, dep_pid);
-            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
             if svs.aliased_package_name().is_some() {
                 dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
             }
@@ -279,7 +281,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::DevDependency, root_pid, dep_pid);
-            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
             if svs.aliased_package_name().is_some() {
                 dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
             }
@@ -295,7 +297,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 &mpj_idx_to_pid,
             )?;
             let mut dep = DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, dep_pid);
-            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
             if svs.aliased_package_name().is_some() {
                 dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
             }
@@ -312,7 +314,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
             )?;
             let mut dep =
                 DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, dep_pid);
-            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
             if svs.aliased_package_name().is_some() {
                 dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
             }
@@ -336,7 +338,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
             // It might be peer and/or optional. But in that case, it got added here
             // by root and/or another dependency.
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
-            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
             if svs.aliased_package_name().is_some() {
                 dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
             }
