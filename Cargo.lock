@@ -111,6 +111,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "chaste-bun"
+version = "0.1.0"
+dependencies = [
+ "chaste-types",
+ "serde",
+ "thiserror 2.0.4",
+]
+
+[[package]]
 name = "chaste-cli"
 version = "0.4.0"
 dependencies = [
