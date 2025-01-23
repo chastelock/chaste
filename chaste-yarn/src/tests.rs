@@ -232,9 +232,7 @@ test_workspaces!(npm_tag, |chastefile: Chastefile, _lv: u8| {
     Ok(())
 });
 
-// TODO: Expand to berry. https://codeberg.org/selfisekai/chaste/issues/37
-#[cfg(feature = "classic")]
-test_workspace!([1], peer_unsatisfied, |chastefile: Chastefile, _lv: u8| {
+test_workspaces!(peer_unsatisfied, |chastefile: Chastefile, _lv: u8| {
     assert!(!chastefile.packages().into_iter().any(|p| p
         .name()
         .is_some_and(|n| n == "@bazel/bazelisk" || n == "@bazel/concatjs" || n == "typescript")));

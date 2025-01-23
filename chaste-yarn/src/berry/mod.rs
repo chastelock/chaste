@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 use std::{fs, io};
@@ -11,7 +12,7 @@ use chaste_types::{
     PackageSource, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_until, take_while1};
+use nom::bytes::complete::{tag, take, take_until, take_while1};
 use nom::combinator::{eof, map, map_res, opt, recognize, rest, verify};
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
@@ -162,6 +163,29 @@ fn parse_resolution_key(input: &str) -> Result<(Option<(&str, Option<&str>)>, &s
         .map_err(|_| Error::InvalidResolution(input.to_string()))
 }
 
+fn resolution_from_state_key<'a>(state_key: &'a str) -> Cow<'a, str> {
+    if state_key.len() > 137 {
+        // "tsec@virtual:ea43cfe65230d5ab1f93db69b01a1f672ecef3abbfb61f3ac71a2f930c090b853c9c93d03a1e3590a6d9dfed177d3a468279e756df1df2b5720d71b64487719c#npm:0.2.8"
+        if let Some((_, (package_name, _virt, _hex, _hash_char, descriptor))) = (
+            package_name,
+            tag("@virtual:"),
+            verify(take(128usize), |hex: &str| {
+                hex.as_bytes()
+                    .iter()
+                    .all(|b| (b'a'..=b'f').contains(b) || (b'0'..=b'9').contains(b))
+            }),
+            tag("#"),
+            rest,
+        )
+            .parse(state_key)
+            .ok()
+        {
+            return Cow::Owned(format!("{package_name}@{descriptor}"));
+        }
+    }
+    Cow::Borrowed(state_key)
+}
+
 fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
@@ -251,12 +275,13 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
         .transpose()?;
     if let Some(state) = maybe_state {
         for st8_pkg in &state.packages {
+            let expected_resolution = resolution_from_state_key(st8_pkg.resolution);
             let (p_idx, _) = yarn_lock
                 .entries
                 .iter()
                 .enumerate()
-                .find(|(_, e)| e.resolved == st8_pkg.resolution)
-                .ok_or_else(|| Error::StatePackageNotFound(st8_pkg.resolution.to_string()))?;
+                .find(|(_, e)| e.resolved == expected_resolution)
+                .ok_or_else(|| Error::StatePackageNotFound(expected_resolution.to_string()))?;
             let pid = index_to_pid.get(&p_idx).unwrap();
             for st8_location in &st8_pkg.locations {
                 let installation =
