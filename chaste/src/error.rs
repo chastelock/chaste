@@ -15,6 +15,10 @@ pub enum Error {
     #[error("Chaste core error: {0:?}")]
     CoreError(#[from] chaste_types::Error),
 
+    #[error("Chaste bun error: {0:?}")]
+    #[cfg(feature = "bun")]
+    BunError(#[from] chaste_bun::Error),
+
     #[error("Chaste npm error: {0:?}")]
     #[cfg(feature = "npm")]
     NpmError(#[from] chaste_npm::Error),

@@ -24,6 +24,7 @@ exclude = ["/test_workspaces", "/tests", "tests.rs"]
 
 [workspace.dependencies]
 chaste = { version = "=0.4.0", default-features = false, path = "chaste" }
+chaste-bun = { version = "=0.4.0", default-features = false, path = "chaste-bun" }
 chaste-npm = { version = "=0.4.0", default-features = false, path = "chaste-npm" }
 chaste-types = { version = "=0.4.0", default-features = false, path = "chaste-types" }
 chaste-pnpm = { version = "=0.4.0", default-features = false, path = "chaste-pnpm" }

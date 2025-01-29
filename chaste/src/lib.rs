@@ -3,6 +3,8 @@
 
 use std::path::Path;
 
+#[cfg(feature = "bun")]
+pub use chaste_bun as bun;
 #[cfg(feature = "npm")]
 pub use chaste_npm as npm;
 #[cfg(feature = "pnpm")]
@@ -21,6 +23,13 @@ where
     P: AsRef<Path>,
 {
     let root_path = root_path.as_ref();
+
+    #[cfg(feature = "bun")]
+    {
+        if root_path.join(bun::LOCKFILE_NAME).exists() {
+            return Ok(bun::parse(root_path)?);
+        }
+    }
 
     #[cfg(feature = "npm")]
     {

@@ -18,8 +18,9 @@ name = "chaste"
 path = "src/main.rs"
 
 [features]
-default = ["npm", "pnpm", "yarn"]
+default = ["bun", "npm", "pnpm", "yarn"]
 
+bun = ["chaste/bun"]
 npm = ["chaste/npm"]
 pnpm = ["chaste/pnpm"]
 yarn = ["chaste/yarn", "yarn-berry", "yarn-classic"]
