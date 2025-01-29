@@ -1,0 +1,7 @@
+{
+  "name": "@chastelock/testcase",
+  "version": "0.0.0",
+  "dependencies": {
+    "node-semver": "git@github.com:npm/node-semver.git#v7.5.0"
+  }
+}

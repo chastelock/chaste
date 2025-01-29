@@ -1,0 +1,17 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.0.1",
+    "dependencies": {
+        "express": "4.21.0",
+        "ms": "^2.1"
+    },
+    "overrides": {
+        "express": {
+            "side-channel@1.1.0": {
+                "side-channel-weakmap": "https://github.com/ljharb/side-channel-weakmap/archive/refs/tags/v1.0.1.tar.gz"
+            }
+        },
+        "ms": "$ms",
+        "path-to-regexp": "0.1.12"
+    }
+}

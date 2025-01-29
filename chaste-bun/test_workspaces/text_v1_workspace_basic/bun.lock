@@ -1,0 +1,27 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {},
+    "balls": {
+      "name": "@chastelock/balls",
+      "version": "1.0.0",
+      "dependencies": {
+        "ligma-api": "^1.0.0",
+      },
+    },
+    "ligma-api": {
+      "name": "ligma-api",
+      "version": "1.0.0",
+      "dependencies": {
+        "long": "^5.0.0",
+      },
+    },
+  },
+  "packages": {
+    "@chastelock/balls": ["@chastelock/balls@workspace:balls"],
+
+    "ligma-api": ["ligma-api@workspace:ligma-api"],
+
+    "long": ["long@5.2.4", "", {}, "sha512-qtzLbJE8hq7VabR3mISmVGtoXP8KGc2Z/AT8OuqlYD7JTR3oqrgwdjnk07wpj1twXxYmgDXgoKVWUG/fReSzHg=="],
+  }
+}

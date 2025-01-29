@@ -1,0 +1,14 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@chastelock/testcase",
+      "dependencies": {
+        "@a/empty": "https://codeberg.org/libselfisekai/-/packages/npm/@a%2Fempty/0.0.1/files/1152452",
+      },
+    },
+  },
+  "packages": {
+    "@a/empty": ["@a/empty@https://codeberg.org/libselfisekai/-/packages/npm/@a%2Fempty/0.0.1/files/1152452", {}],
+  }
+}

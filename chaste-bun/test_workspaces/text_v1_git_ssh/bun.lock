@@ -1,0 +1,18 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@chastelock/testcase",
+      "dependencies": {
+        "node-semver": "git@github.com:npm/node-semver.git#v7.5.0",
+      },
+    },
+  },
+  "packages": {
+    "lru-cache": ["lru-cache@6.0.0", "", { "dependencies": { "yallist": "^4.0.0" } }, "sha512-Jo6dJ04CmSjuznwJSS3pUeWmd/H0ffTlkXXgwZi+eq1UCmqQwCh+eLsYOYCwY991i2Fah4h1BEMCx4qThGbsiA=="],
+
+    "node-semver": ["semver@git+ssh://git@github.com:npm/node-semver.git#5b02ad7163a3ddcbcadf499e4f6195d6f2226dce", { "dependencies": { "lru-cache": "^6.0.0" }, "bin": { "semver": "bin/semver.js" } }, "5b02ad7163a3ddcbcadf499e4f6195d6f2226dce"],
+
+    "yallist": ["yallist@4.0.0", "", {}, "sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A=="],
+  }
+}

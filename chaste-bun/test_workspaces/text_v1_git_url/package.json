@@ -1,0 +1,10 @@
+{
+  "name": "@chastelock/testcase",
+  "version": "0.0.0",
+  "dependencies": {
+    "is-even": "1.0.0"
+  },
+  "devDependencies": {
+    "doipjs": "git+https://codeberg.org/keyoxide/doipjs.git#2.0.1"
+  }
+}

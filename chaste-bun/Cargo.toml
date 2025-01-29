@@ -16,6 +16,8 @@ exclude.workspace = true
 
 [dependencies]
 chaste-types.workspace = true
+json5.workspace = true
+nom.workspace = true
 thiserror.workspace = true
 
 [dependencies.serde]
