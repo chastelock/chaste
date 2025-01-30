@@ -18,6 +18,9 @@ pub enum Error {
     #[error("Dependency {0:?} not found")]
     DependencyNotFound(String),
 
+    #[error("Data variant mismatched with source/version marker in key {0:?}")]
+    VariantMarkerMismatch(String),
+
     #[error("I/O error: {0:?}")]
     IOError(#[from] io::Error),
 

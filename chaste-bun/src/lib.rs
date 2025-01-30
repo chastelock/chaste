@@ -8,7 +8,7 @@ use std::{collections::HashMap, fs};
 use chaste_types::{
     Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
-    PackageSource, SourceVersionSpecifier,
+    PackageSource, SourceVersionSpecifier, SourceVersionSpecifierKind,
 };
 use nom::{
     bytes::complete::{tag, take_while1},
@@ -83,7 +83,7 @@ where
     let bun_lock_contents = fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?;
     let bun_lock: BunLock = json5::from_str(&bun_lock_contents)?;
 
-    if bun_lock.lockfile_version != 1 {
+    if !matches!(bun_lock.lockfile_version, (0..=1)) {
         return Err(Error::UnknownLockfileVersion(bun_lock.lockfile_version));
     }
 
@@ -125,62 +125,53 @@ where
                 presolved_unhoistable.insert((source_key, installation_package_name), *pid);
             }
         } else {
-            let (package_name, svs_str) = parse_descriptor(descriptor)?;
-            let pid = match &lock_pkg {
-                types::LockPackage::WorkspaceMember { .. } => {
-                    match svs_str
-                        .strip_prefix("workspace:")
-                        .map(|l| ws_location_to_pid.get(l))
-                    {
-                        Some(Some(pid)) => *pid,
-                        _ => return Err(Error::InvalidDescriptor(descriptor.to_string())),
-                    }
-                }
-                _ => {
-                    let svs = SourceVersionSpecifier::new(svs_str.to_string())?;
-                    let pkg_builder = match &lock_pkg {
-                        types::LockPackage::Registry { integrity, .. } => {
-                            let mut pkg_builder = PackageBuilder::new(
-                                Some(PackageName::new(package_name.to_string())?),
-                                Some(svs_str.to_string()),
-                            );
-                            let integrity = integrity.parse::<Integrity>()?;
-                            if !integrity.hashes.is_empty() {
-                                pkg_builder.checksums(Checksums::Tarball(integrity));
-                            }
-                            pkg_builder.source(PackageSource::Npm);
-                            pkg_builder
+            let (package_name, sv_marker) = parse_descriptor(descriptor)?;
+            let pid = if let Some(pid) = sv_marker
+                .strip_prefix("workspace:")
+                .and_then(|l| ws_location_to_pid.get(l))
+            {
+                *pid
+            } else {
+                let sm_svs = SourceVersionSpecifier::new(sv_marker.to_string())?;
+                let mut pkg_builder =
+                    PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), None);
+                match (&lock_pkg, sm_svs.kind()) {
+                    (
+                        types::LockPackage::Registry { integrity, .. },
+                        SourceVersionSpecifierKind::Npm,
+                    ) => {
+                        pkg_builder.version(Some(sv_marker.to_string()));
+                        let integrity = integrity.parse::<Integrity>()?;
+                        if !integrity.hashes.is_empty() {
+                            pkg_builder.checksums(Checksums::Tarball(integrity));
                         }
-                        types::LockPackage::Tarball { .. } => {
-                            let mut pkg_builder = PackageBuilder::new(
-                                Some(PackageName::new(package_name.to_string())?),
-                                None,
-                            );
-                            pkg_builder.source(PackageSource::TarballURL {
-                                url: svs_str.to_string(),
+                        pkg_builder.source(PackageSource::Npm);
+                    }
+                    (
+                        types::LockPackage::Tarball { .. },
+                        SourceVersionSpecifierKind::TarballURL,
+                    ) => {
+                        pkg_builder.source(PackageSource::TarballURL {
+                            url: sv_marker.to_string(),
+                        });
+                    }
+                    (
+                        types::LockPackage::Git { .. },
+                        SourceVersionSpecifierKind::Git | SourceVersionSpecifierKind::GitHub,
+                    ) => {
+                        if !sm_svs.is_github() {
+                            pkg_builder.source(PackageSource::Git {
+                                url: sv_marker.to_string(),
                             });
-                            pkg_builder
                         }
-                        types::LockPackage::Git { .. } => {
-                            let mut pkg_builder = PackageBuilder::new(
-                                Some(PackageName::new(package_name.to_string())?),
-                                None,
-                            );
-                            if !svs.is_github() {
-                                pkg_builder.source(PackageSource::Git {
-                                    url: svs_str.to_string(),
-                                });
-                            }
-                            pkg_builder
-                        }
-                        types::LockPackage::WorkspaceMember { .. } => unreachable!(),
-                    };
-                    let p = chastefile.add_package(pkg_builder.build()?)?;
-                    if installation_package_name != package_name {
-                        aliased_pids.insert(p);
                     }
-                    p
+                    (_, _) => return Err(Error::VariantMarkerMismatch(lock_key.to_string())),
                 }
+                let p = chastefile.add_package(pkg_builder.build()?)?;
+                if installation_package_name != package_name {
+                    aliased_pids.insert(p);
+                }
+                p
             };
             descript_to_pid.insert(descriptor, pid);
             if let Some((source_key, _)) = source {

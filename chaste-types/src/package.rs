@@ -79,6 +79,10 @@ impl PackageBuilder {
         self.name = new_name;
     }
 
+    pub fn version(&mut self, new_version: Option<String>) {
+        self.version = new_version;
+    }
+
     pub fn checksums(&mut self, new_checksums: Checksums) {
         self.checksums = Some(new_checksums);
     }

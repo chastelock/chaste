@@ -236,6 +236,44 @@ fn text_v1_tarball_url() -> Result<()> {
 }
 
 #[test]
+fn text_v0_workspace_basic() -> Result<()> {
+    let chastefile = test_workspace("text_v0_workspace_basic")?;
+    assert_eq!(chastefile.packages().len(), 4);
+    let [(balls_pid, _balls_pkg)] = *chastefile
+        .packages_with_ids()
+        .into_iter()
+        .filter(|(_, p)| p.name().is_some_and(|n| n == "@chastelock/balls"))
+        .collect::<Vec<(PackageID, &Package)>>()
+    else {
+        panic!();
+    };
+    let [(ligma_pid, _ligma_pkg)] = *chastefile
+        .packages_with_ids()
+        .into_iter()
+        .filter(|(_, p)| p.name().is_some_and(|n| n == "ligma-api"))
+        .collect::<Vec<(PackageID, &Package)>>()
+    else {
+        panic!();
+    };
+    let workspace_member_ids = chastefile.workspace_member_ids();
+    assert_eq!(workspace_member_ids.len(), 2);
+    assert!(workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid));
+    let balls_installations = chastefile.package_installations(balls_pid);
+    assert_eq!(balls_installations.len(), 2);
+    let mut balls_install_paths = balls_installations
+        .iter()
+        .map(|i| i.path().as_ref())
+        .collect::<Vec<&str>>();
+    balls_install_paths.sort_unstable();
+    assert_eq!(
+        balls_install_paths,
+        ["balls", "node_modules/@chastelock/balls"]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn text_v1_workspace_basic() -> Result<()> {
     let chastefile = test_workspace("text_v1_workspace_basic")?;
     assert_eq!(chastefile.packages().len(), 4);

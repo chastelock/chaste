@@ -33,6 +33,8 @@ pub struct WorkspaceMember<'a> {
 }
 
 #[derive(Debug)]
+/// Variant and field names are just a suggestion, except for descriptor.
+/// Check the source/version marker in the descriptor when handling.
 pub enum LockPackage<'a> {
     Registry {
         descriptor: Cow<'a, str>,

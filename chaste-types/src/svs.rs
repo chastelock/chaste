@@ -384,7 +384,7 @@ impl SourceVersionSpecifier {
 }
 
 #[non_exhaustive]
-pub enum SourceVersionSpecifierType {
+pub enum SourceVersionSpecifierKind {
     /// Package from an npm registry. Does not include tags (see [`SourceVersionSpecifierType::NpmTag`])
     Npm,
     /// Named tag from an npm registry, e.g. "latest", "beta".
@@ -396,6 +396,20 @@ pub enum SourceVersionSpecifierType {
     /// GitHub repository. No, not the same as [`SourceVersionSpecifierType::Git`], it's papa's special boy.
     /// <https://docs.npmjs.com/cli/v10/configuring-npm/package-json#git-urls-as-dependencies>
     GitHub,
+}
+
+impl SourceVersionSpecifier {
+    pub fn kind(&self) -> SourceVersionSpecifierKind {
+        match &self.positions {
+            SourceVersionSpecifierPositions::Npm { .. } => SourceVersionSpecifierKind::Npm,
+            SourceVersionSpecifierPositions::NpmTag { .. } => SourceVersionSpecifierKind::NpmTag,
+            SourceVersionSpecifierPositions::TarballURL { .. } => {
+                SourceVersionSpecifierKind::TarballURL
+            }
+            SourceVersionSpecifierPositions::Git { .. } => SourceVersionSpecifierKind::Git,
+            SourceVersionSpecifierPositions::GitHub { .. } => SourceVersionSpecifierKind::GitHub,
+        }
+    }
 }
 
 #[cfg(test)]
