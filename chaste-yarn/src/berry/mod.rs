@@ -163,22 +163,21 @@ fn parse_resolution_key(input: &str) -> Result<(Option<(&str, Option<&str>)>, &s
         .map_err(|_| Error::InvalidResolution(input.to_string()))
 }
 
-fn resolution_from_state_key<'a>(state_key: &'a str) -> Cow<'a, str> {
+fn resolution_from_state_key(state_key: &str) -> Cow<'_, str> {
     if state_key.len() > 137 {
         // "tsec@virtual:ea43cfe65230d5ab1f93db69b01a1f672ecef3abbfb61f3ac71a2f930c090b853c9c93d03a1e3590a6d9dfed177d3a468279e756df1df2b5720d71b64487719c#npm:0.2.8"
-        if let Some((_, (package_name, _virt, _hex, _hash_char, descriptor))) = (
+        if let Ok((_, (package_name, _virt, _hex, _hash_char, descriptor))) = (
             package_name,
             tag("@virtual:"),
             verify(take(128usize), |hex: &str| {
                 hex.as_bytes()
                     .iter()
-                    .all(|b| (b'a'..=b'f').contains(b) || (b'0'..=b'9').contains(b))
+                    .all(|b| (b'a'..=b'f').contains(b) || b.is_ascii_digit())
             }),
             tag("#"),
             rest,
         )
             .parse(state_key)
-            .ok()
         {
             return Cow::Owned(format!("{package_name}@{descriptor}"));
         }

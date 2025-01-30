@@ -150,7 +150,7 @@ impl PackageName {
     required_segment!(name_rest);
 }
 
-impl<'a> PackageNameBorrowed<'a> {
+impl PackageNameBorrowed<'_> {
     option_segment!(scope);
     option_segment!(scope_prefix);
     option_segment!(scope_name);

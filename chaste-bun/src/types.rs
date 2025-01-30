@@ -99,13 +99,13 @@ impl<'de, 'a> Deserialize<'de> for LockPackage<'a> {
     }
 }
 
-impl<'a> LockPackage<'a> {
+impl LockPackage<'_> {
     pub fn descriptor(&self) -> &str {
         match self {
-            LockPackage::Registry { descriptor, .. } => &descriptor,
-            LockPackage::Tarball { descriptor, .. } => &descriptor,
-            LockPackage::Git { descriptor, .. } => &descriptor,
-            LockPackage::WorkspaceMember { descriptor } => &descriptor,
+            LockPackage::Registry { descriptor, .. } => descriptor,
+            LockPackage::Tarball { descriptor, .. } => descriptor,
+            LockPackage::Git { descriptor, .. } => descriptor,
+            LockPackage::WorkspaceMember { descriptor } => descriptor,
         }
     }
     pub fn relations(&self) -> Option<&PackageRelations> {

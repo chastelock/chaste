@@ -140,7 +140,7 @@ where
                     is_aliased = true;
                     desc_pid.get(d.version)
                 })
-                .ok_or_else(|| Error::DependencyPackageNotFound(dep_desc))?;
+                .ok_or(Error::DependencyPackageNotFound(dep_desc))?;
             let mut dep = DependencyBuilder::new(DependencyKind::Dependency, importer_pid, dep_pid);
             if is_aliased {
                 dep.alias_name(PackageName::new(dep_name.to_string())?);
@@ -161,7 +161,7 @@ where
                     is_aliased = true;
                     desc_pid.get(d.version)
                 })
-                .ok_or_else(|| Error::DependencyPackageNotFound(dep_desc))?;
+                .ok_or(Error::DependencyPackageNotFound(dep_desc))?;
             let mut dep =
                 DependencyBuilder::new(DependencyKind::DevDependency, importer_pid, dep_pid);
             if is_aliased {
@@ -190,7 +190,7 @@ where
                 *desc_pid
                     .get(desc.as_str())
                     .or_else(|| desc_pid.get(dep_svs))
-                    .ok_or_else(|| Error::DependencyPackageNotFound(desc))?,
+                    .ok_or(Error::DependencyPackageNotFound(desc))?,
             );
             chastefile.add_dependency(dep.build());
         }

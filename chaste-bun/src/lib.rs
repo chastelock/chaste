@@ -48,10 +48,12 @@ fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
     .parse(input)
 }
 
-fn parse_package_key(input: &str) -> Result<(Option<(&str, Vec<&str>)>, &str)> {
+type SourceKey<'a> = (&'a str, Vec<&'a str>);
+
+fn parse_package_key(input: &str) -> Result<(Option<SourceKey>, &str)> {
     (
         map(many0(terminated(package_name, tag("/"))), |pns| {
-            if pns.len() > 0 {
+            if !pns.is_empty() {
                 Some((
                     &input[..pns.iter().fold(0, |acc, pn| acc + pn.len() + 1) - 1],
                     pns,
@@ -106,7 +108,7 @@ where
         } else {
             chastefile.set_as_workspace_member(pid)?;
         }
-        ws_location_to_pid.insert(&ws_location, pid);
+        ws_location_to_pid.insert(ws_location, pid);
     }
 
     let mut descript_to_pid: HashMap<&str, PackageID> =
@@ -123,7 +125,7 @@ where
                 presolved_unhoistable.insert((source_key, installation_package_name), *pid);
             }
         } else {
-            let (package_name, svs_str) = parse_descriptor(&descriptor)?;
+            let (package_name, svs_str) = parse_descriptor(descriptor)?;
             let pid = match &lock_pkg {
                 types::LockPackage::WorkspaceMember { .. } => {
                     match svs_str
@@ -143,7 +145,7 @@ where
                                 Some(svs_str.to_string()),
                             );
                             let integrity = integrity.parse::<Integrity>()?;
-                            if integrity.hashes.len() > 0 {
+                            if !integrity.hashes.is_empty() {
                                 pkg_builder.checksums(Checksums::Tarball(integrity));
                             }
                             pkg_builder.source(PackageSource::Npm);
@@ -230,8 +232,7 @@ where
                             bun_lock
                                 .packages
                                 .get(dep_name)
-                                .map(|p| descript_to_pid.get(p.descriptor()))
-                                .flatten()
+                                .and_then(|p| descript_to_pid.get(p.descriptor()))
                         }) {
                         Some(dep_pid) => {
                             let mut dep = DependencyBuilder::new(kind, pid, *dep_pid);
@@ -272,8 +273,7 @@ where
                 match bun_lock
                     .packages
                     .get(dep_name)
-                    .map(|p| descript_to_pid.get(p.descriptor()))
-                    .flatten()
+                    .and_then(|p| descript_to_pid.get(p.descriptor()))
                 {
                     Some(dep_pid) => {
                         let mut dep = DependencyBuilder::new(kind, pid, *dep_pid);
@@ -290,7 +290,7 @@ where
         }
     }
 
-    chastefile.build().map_err(|e| Error::ChasteError(e))
+    chastefile.build().map_err(Error::ChasteError)
 }
 
 #[cfg(test)]
