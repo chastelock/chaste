@@ -54,6 +54,12 @@ where
     let lockfile_contents = fs::read_to_string(root_dir.join(LOCKFILE_NAME))?;
     let lockfile: types::Lockfile = serde_norway::from_str(&lockfile_contents)?;
 
+    if lockfile.lockfile_version != "9.0" {
+        return Err(Error::UnknownLockfileVersion(
+            lockfile.lockfile_version.to_string(),
+        ));
+    }
+
     let mut chastefile = ChastefileBuilder::new();
 
     let mut importer_to_pid = HashMap::with_capacity(lockfile.importers.len());

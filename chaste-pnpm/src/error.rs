@@ -8,6 +8,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
+    #[error("Unknown lockfile version: {0:?}")]
+    UnknownLockfileVersion(String),
+
     #[error("Missing root importer")]
     MissingRootImporter,
 
