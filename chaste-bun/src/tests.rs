@@ -195,7 +195,7 @@ fn text_v1_overrides() -> Result<()> {
 }
 
 // TODO: https://github.com/oven-sh/bun/issues/16879
-/*
+#[ignore = "cannot reproduce due to bug in upstream"]
 #[test]
 fn text_v1_peer_unsatisfied() -> Result<()> {
     let chastefile = test_workspace("text_v1_peer_unsatisfied")?;
@@ -205,7 +205,6 @@ fn text_v1_peer_unsatisfied() -> Result<()> {
 
     Ok(())
 }
-*/
 
 #[test]
 fn text_v1_scope_registry() -> Result<()> {
