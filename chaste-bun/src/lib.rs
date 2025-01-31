@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2025 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::Path;
-use std::{collections::HashMap, fs};
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
@@ -19,7 +19,7 @@ use nom::{
 };
 
 pub use crate::error::{Error, Result};
-use crate::types::BunLock;
+use crate::types::{BunLock, LockPackageElement};
 
 mod error;
 #[cfg(test)]
@@ -117,7 +117,10 @@ where
     let mut aliased_pids: HashSet<PackageID> = HashSet::new();
     for (lock_key, lock_pkg) in &bun_lock.packages {
         let (source, installation_package_name) = parse_package_key(lock_key)?;
-        let descriptor = lock_pkg.descriptor();
+        let descriptor = match &lock_pkg[..] {
+            [LockPackageElement::String(d), ..] => d.as_ref(),
+            _ => return Err(Error::InvalidVariant(lock_key.to_string())),
+        };
         // Packages repeat, so we dedup them by the descriptor.
         // But we still want to reverse search them by key.
         if let Some(pid) = descript_to_pid.get(descriptor) {
@@ -135,9 +138,9 @@ where
                 let sm_svs = SourceVersionSpecifier::new(sv_marker.to_string())?;
                 let mut pkg_builder =
                     PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), None);
-                match (&lock_pkg, sm_svs.kind()) {
+                match (&lock_pkg[..], sm_svs.kind()) {
                     (
-                        types::LockPackage::Registry { integrity, .. },
+                        [LockPackageElement::String(_descriptor), LockPackageElement::String(_registry_url), LockPackageElement::Relations(_relations), LockPackageElement::String(integrity)],
                         SourceVersionSpecifierKind::Npm,
                     ) => {
                         pkg_builder.version(Some(sv_marker.to_string()));
@@ -147,18 +150,12 @@ where
                         }
                         pkg_builder.source(PackageSource::Npm);
                     }
-                    (
-                        types::LockPackage::Tarball { .. },
-                        SourceVersionSpecifierKind::TarballURL,
-                    ) => {
+                    (_, SourceVersionSpecifierKind::TarballURL) => {
                         pkg_builder.source(PackageSource::TarballURL {
                             url: sv_marker.to_string(),
                         });
                     }
-                    (
-                        types::LockPackage::Git { .. },
-                        SourceVersionSpecifierKind::Git | SourceVersionSpecifierKind::GitHub,
-                    ) => {
+                    (_, SourceVersionSpecifierKind::Git | SourceVersionSpecifierKind::GitHub) => {
                         if !sm_svs.is_github() {
                             pkg_builder.source(PackageSource::Git {
                                 url: sv_marker.to_string(),
@@ -197,8 +194,24 @@ where
         }
     }
     for (lock_key, lock_pkg) in &bun_lock.packages {
-        let pid = *descript_to_pid.get(lock_pkg.descriptor()).unwrap();
-        if let Some(relations) = lock_pkg.relations() {
+        let descriptor = match &lock_pkg[..] {
+            [LockPackageElement::String(d), ..] => d.as_ref(),
+            // This should have thrown an InvalidVariant earlier
+            _ => unreachable!(),
+        };
+        let relations = match &lock_pkg[..] {
+            [_, LockPackageElement::Relations(r), ..] => Some(r),
+            [_, _, LockPackageElement::Relations(r), ..] => Some(r),
+            _ => None,
+        };
+        debug_assert!(
+            relations.is_some()
+                || !lock_pkg
+                    .iter()
+                    .any(|p| matches!(p, LockPackageElement::Relations(_)))
+        );
+        let pid = *descript_to_pid.get(descriptor).unwrap();
+        if let Some(relations) = relations {
             for (deps, kind_) in [
                 (&relations.dependencies, DependencyKind::Dependency),
                 (&relations.dev_dependencies, DependencyKind::DevDependency),
@@ -220,10 +233,14 @@ where
                     match presolved_unhoistable
                         .get(&(lock_key, dep_name))
                         .or_else(|| {
-                            bun_lock
-                                .packages
-                                .get(dep_name)
-                                .and_then(|p| descript_to_pid.get(p.descriptor()))
+                            bun_lock.packages.get(dep_name).and_then(|p| {
+                                let descriptor = match &p[..] {
+                                    [LockPackageElement::String(d), ..] => d.as_ref(),
+                                    // This should have thrown InvalidVariant earlier
+                                    _ => unreachable!(),
+                                };
+                                descript_to_pid.get(descriptor)
+                            })
                         }) {
                         Some(dep_pid) => {
                             let mut dep = DependencyBuilder::new(kind, pid, *dep_pid);
@@ -261,11 +278,14 @@ where
                     }
                     k => k,
                 };
-                match bun_lock
-                    .packages
-                    .get(dep_name)
-                    .and_then(|p| descript_to_pid.get(p.descriptor()))
-                {
+                match bun_lock.packages.get(dep_name).and_then(|p| {
+                    let descriptor = match &p[..] {
+                        [LockPackageElement::String(d), ..] => d.as_ref(),
+                        // This should have thrown InvalidVariant earlier
+                        _ => unreachable!(),
+                    };
+                    descript_to_pid.get(descriptor)
+                }) {
                     Some(dep_pid) => {
                         let mut dep = DependencyBuilder::new(kind, pid, *dep_pid);
                         dep.svs(SourceVersionSpecifier::new(dep_svs.to_string())?);

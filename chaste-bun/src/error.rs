@@ -18,6 +18,9 @@ pub enum Error {
     #[error("Dependency {0:?} not found")]
     DependencyNotFound(String),
 
+    #[error("Invalid package data variant in key {0:?}")]
+    InvalidVariant(String),
+
     #[error("Data variant mismatched with source/version marker in key {0:?}")]
     VariantMarkerMismatch(String),
 

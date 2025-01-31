@@ -32,28 +32,11 @@ pub struct WorkspaceMember<'a> {
     pub relations: PackageRelations<'a>,
 }
 
-#[derive(Debug)]
-/// Variant and field names are just a suggestion, except for descriptor.
-/// Check the source/version marker in the descriptor when handling.
-pub enum LockPackage<'a> {
-    Registry {
-        descriptor: Cow<'a, str>,
-        registry_url: Cow<'a, str>,
-        relations: PackageRelations<'a>,
-        integrity: Cow<'a, str>,
-    },
-    Tarball {
-        descriptor: Cow<'a, str>,
-        relations: PackageRelations<'a>,
-    },
-    Git {
-        descriptor: Cow<'a, str>,
-        relations: PackageRelations<'a>,
-        hash: Cow<'a, str>,
-    },
-    WorkspaceMember {
-        descriptor: Cow<'a, str>,
-    },
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum LockPackageElement<'a> {
+    Relations(PackageRelations<'a>),
+    String(Cow<'a, str>),
 }
 
 #[derive(Deserialize)]
@@ -70,60 +53,10 @@ enum LockPackageIR<'a> {
     WorkspaceMember((Cow<'a, str>,)),
 }
 
-impl<'de, 'a> Deserialize<'de> for LockPackage<'a> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-        Self: 'a,
-    {
-        LockPackageIR::deserialize(deserializer).map(|ir| match ir {
-            LockPackageIR::Registry(descriptor, registry_url, relations, integrity) => {
-                LockPackage::Registry {
-                    descriptor,
-                    registry_url,
-                    relations,
-                    integrity,
-                }
-            }
-            LockPackageIR::Tarball(descriptor, relations) => LockPackage::Tarball {
-                descriptor,
-                relations,
-            },
-            LockPackageIR::Git(descriptor, relations, hash) => LockPackage::Git {
-                descriptor,
-                relations,
-                hash,
-            },
-            LockPackageIR::WorkspaceMember((descriptor,)) => {
-                LockPackage::WorkspaceMember { descriptor }
-            }
-        })
-    }
-}
-
-impl LockPackage<'_> {
-    pub fn descriptor(&self) -> &str {
-        match self {
-            LockPackage::Registry { descriptor, .. } => descriptor,
-            LockPackage::Tarball { descriptor, .. } => descriptor,
-            LockPackage::Git { descriptor, .. } => descriptor,
-            LockPackage::WorkspaceMember { descriptor } => descriptor,
-        }
-    }
-    pub fn relations(&self) -> Option<&PackageRelations> {
-        match self {
-            LockPackage::Registry { relations, .. } => Some(relations),
-            LockPackage::Tarball { relations, .. } => Some(relations),
-            LockPackage::Git { relations, .. } => Some(relations),
-            LockPackage::WorkspaceMember { .. } => None,
-        }
-    }
-}
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BunLock<'a> {
     pub lockfile_version: u8,
     pub workspaces: HashMap<Cow<'a, str>, WorkspaceMember<'a>>,
-    pub packages: HashMap<Cow<'a, str>, LockPackage<'a>>,
+    pub packages: HashMap<Cow<'a, str>, Vec<LockPackageElement<'a>>>,
 }
