@@ -292,6 +292,19 @@ test_workspaces!(scope_registry, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
+test_workspaces!(special_chars_name, |chastefile: Chastefile, _lv: u8| {
+    let root_pkg = chastefile.root_package();
+    assert_eq!(root_pkg.name().unwrap(), "verboden(root)(name~'!*)");
+    let [a_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+    let a_pkg = chastefile.package(a_dep.on);
+    assert_eq!(a_pkg.name().unwrap(), "@a/verboden(name~'!*)");
+    assert_eq!(a_pkg.source_type(), Some(PackageSourceType::Npm));
+
+    Ok(())
+});
+
 test_workspaces!(tarball_url, |chastefile: Chastefile, _lv: u8| {
     let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
     let empty_pkg = chastefile.package(empty_pid);

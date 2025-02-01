@@ -6,11 +6,11 @@ use std::fs;
 use std::path::Path;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
+    package_name_part, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageName, PackageSource,
     SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
 };
-use nom::bytes::complete::{tag, take_while1};
+use nom::bytes::complete::tag;
 use nom::combinator::{opt, recognize, rest, verify};
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
@@ -24,16 +24,6 @@ mod tests;
 mod types;
 
 pub static LOCKFILE_NAME: &str = "pnpm-lock.yaml";
-
-fn package_name_part(input: &str) -> IResult<&str, &str> {
-    verify(
-        take_while1(|c: char| {
-            c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
-        }),
-        |part: &str| !part.starts_with("."),
-    )
-    .parse(input)
-}
 
 fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
     recognize((
@@ -97,11 +87,16 @@ where
     }
 
     let mut desc_pid = HashMap::with_capacity(lockfile.packages.len());
-    for (pkg_desc, pkg) in lockfile.packages {
-        let (_, (package_name, _, package_svs)) = (package_name, tag("@"), rest)
-            .parse(pkg_desc)
-            .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
-        let version = pkg.version.or(Some(package_svs)).map(|v| v.to_string());
+    for (pkg_desc, pkg) in &lockfile.packages {
+        let (_, (package_name, _, package_svs)) =
+            (package_name, tag("@"), rest)
+                .parse(&pkg_desc)
+                .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
+        let version = pkg
+            .version
+            .as_deref()
+            .or(Some(package_svs))
+            .map(|v| v.to_string());
         let mut package =
             PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), version);
         if let Some(integrity) = pkg.resolution.integrity {
@@ -110,7 +105,7 @@ where
                 package.checksums(Checksums::Tarball(inte));
             }
         }
-        if let Some(tarball_url) = pkg.resolution.tarball {
+        if let Some(tarball_url) = &pkg.resolution.tarball {
             // If there is a checksum, it's a custom registry.
             if pkg.resolution.integrity.is_some() {
                 package.source(PackageSource::Npm);
@@ -128,76 +123,82 @@ where
             package.source(PackageSource::Npm);
         }
         let pkg_pid = chastefile.add_package(package.build()?)?;
-        desc_pid.insert(pkg_desc, pkg_pid);
+        desc_pid.insert((package_name, package_svs), pkg_pid);
     }
 
     for (importer_path, importer) in &lockfile.importers {
         let importer_pid = *importer_to_pid.get(importer_path).unwrap();
-        for (dep_name, d) in &importer.dependencies {
-            if d.version.starts_with("link:") {
-                // TODO:
-                continue;
+        for (dependencies, kind) in [
+            (&importer.dependencies, DependencyKind::Dependency),
+            (&importer.dev_dependencies, DependencyKind::DevDependency),
+        ] {
+            for (dep_name, d) in dependencies {
+                if d.version.starts_with("link:") {
+                    // TODO:
+                    continue;
+                }
+                let mut is_aliased = false;
+                let dep_pid = {
+                    if let Some(dep_pid) = desc_pid.get(&(&dep_name, &d.version)) {
+                        *dep_pid
+                    } else if let Ok((aliased_dep_svs, aliased_dep_name)) =
+                        terminated(package_name, tag("@")).parse(&d.version)
+                    {
+                        if let Some(dep_pid) = desc_pid.get(&(aliased_dep_name, aliased_dep_svs)) {
+                            is_aliased = true;
+                            *dep_pid
+                        } else {
+                            return Err(Error::DependencyPackageNotFound(d.version.to_string()));
+                        }
+                    } else {
+                        return Err(Error::DependencyPackageNotFound(format!(
+                            "{dep_name}@{}",
+                            d.version
+                        )));
+                    }
+                };
+                let mut dep = DependencyBuilder::new(kind, importer_pid, dep_pid);
+                if is_aliased {
+                    dep.alias_name(PackageName::new(dep_name.to_string())?);
+                }
+                dep.svs(SourceVersionSpecifier::new(d.specifier.to_string())?);
+                chastefile.add_dependency(dep.build());
             }
-            let dep_desc = format!("{dep_name}@{}", d.version);
-            let mut is_aliased = false;
-            let dep_pid = *desc_pid
-                .get(dep_desc.as_str())
-                .or_else(|| {
-                    is_aliased = true;
-                    desc_pid.get(d.version)
-                })
-                .ok_or(Error::DependencyPackageNotFound(dep_desc))?;
-            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, importer_pid, dep_pid);
-            if is_aliased {
-                dep.alias_name(PackageName::new(dep_name.to_string())?);
-            }
-            dep.svs(SourceVersionSpecifier::new(d.specifier.to_string())?);
-            chastefile.add_dependency(dep.build());
-        }
-        for (dep_name, d) in &importer.dev_dependencies {
-            if d.version.starts_with("link:") {
-                // TODO:
-                continue;
-            }
-            let dep_desc = format!("{dep_name}@{}", d.version);
-            let mut is_aliased = false;
-            let dep_pid = *desc_pid
-                .get(dep_desc.as_str())
-                .or_else(|| {
-                    is_aliased = true;
-                    desc_pid.get(d.version)
-                })
-                .ok_or(Error::DependencyPackageNotFound(dep_desc))?;
-            let mut dep =
-                DependencyBuilder::new(DependencyKind::DevDependency, importer_pid, dep_pid);
-            if is_aliased {
-                dep.alias_name(PackageName::new(dep_name.to_string())?);
-            }
-            dep.svs(SourceVersionSpecifier::new(d.specifier.to_string())?);
-            chastefile.add_dependency(dep.build());
         }
     }
 
     for (pkg_desc, snap) in lockfile.snapshots {
+        let Some((pkg_svd, pkg_name)) = terminated(package_name, tag("@")).parse(&pkg_desc).ok()
+        else {
+            unreachable!();
+        };
         // TODO: handle peer dependencies properly
         // https://codeberg.org/selfisekai/chaste/issues/46
-        let pkg_desc = pkg_desc.split_once("(").map(|(s, _)| s).unwrap_or(pkg_desc);
+        let pkg_svd = pkg_svd.split_once("(").map(|(s, _)| s).unwrap_or(pkg_svd);
         let pkg_pid = *desc_pid
-            .get(pkg_desc)
+            .get(&(pkg_name, pkg_svd))
             .ok_or_else(|| Error::SnapshotNotFound(pkg_desc.to_string()))?;
         for (dep_name, dep_svs) in snap.dependencies {
             // TODO: handle peer dependencies properly
             // https://codeberg.org/selfisekai/chaste/issues/46
-            let dep_svs = dep_svs.split_once("(").map(|(s, _)| s).unwrap_or(dep_svs);
-            let desc = format!("{dep_name}@{dep_svs}");
-            let dep = DependencyBuilder::new(
-                DependencyKind::Dependency,
-                pkg_pid,
-                *desc_pid
-                    .get(desc.as_str())
-                    .or_else(|| desc_pid.get(dep_svs))
-                    .ok_or(Error::DependencyPackageNotFound(desc))?,
-            );
+            let dep_svs = dep_svs.split_once("(").map(|(s, _)| s).unwrap_or(&dep_svs);
+            let dep = DependencyBuilder::new(DependencyKind::Dependency, pkg_pid, {
+                if let Some(dep_pid) = desc_pid.get(&(&dep_name, dep_svs)) {
+                    *dep_pid
+                } else if let Ok((aliased_dep_svs, aliased_dep_name)) =
+                    terminated(package_name, tag("@")).parse(dep_svs)
+                {
+                    if let Some(dep_pid) = desc_pid.get(&(aliased_dep_name, aliased_dep_svs)) {
+                        *dep_pid
+                    } else {
+                        return Err(Error::DependencyPackageNotFound(dep_svs.to_string()));
+                    }
+                } else {
+                    return Err(Error::DependencyPackageNotFound(format!(
+                        "{dep_name}@{dep_svs}"
+                    )));
+                }
+            });
             chastefile.add_dependency(dep.build());
         }
     }

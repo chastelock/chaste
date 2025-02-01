@@ -6,12 +6,12 @@ use std::fs;
 use std::path::Path;
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
+    package_name_part, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
     PackageSource, SourceVersionSpecifier, SourceVersionSpecifierKind,
 };
 use nom::{
-    bytes::complete::{tag, take_while1},
+    bytes::complete::tag,
     combinator::{eof, map, opt, recognize, rest, verify},
     multi::many0,
     sequence::{preceded, terminated},
@@ -27,16 +27,6 @@ mod tests;
 mod types;
 
 pub static LOCKFILE_NAME: &str = "bun.lock";
-
-fn package_name_part(input: &str) -> IResult<&str, &str> {
-    verify(
-        take_while1(|c: char| {
-            c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
-        }),
-        |part: &str| !part.starts_with("."),
-    )
-    .parse(input)
-}
 
 fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
     recognize((

@@ -3,14 +3,13 @@
 
 use std::{cmp, fmt};
 
-use nom::bytes::complete::{tag, take_while1};
+use nom::bytes::complete::tag;
 use nom::combinator::{eof, opt, verify};
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::misc::partial_eq_field;
-use crate::Error;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub(crate) struct PackageNamePositions {
@@ -18,14 +17,36 @@ pub(crate) struct PackageNamePositions {
     pub(crate) total_length: usize,
 }
 
-fn package_name_part(input: &str) -> IResult<&str, &str> {
-    verify(
-        take_while1(|c: char| {
-            c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
-        }),
-        |part: &str| !part.starts_with("."),
-    )
-    .parse(input)
+/// Helper nom parser, public for reuse in implementations.
+pub fn package_name_part(input: &str) -> IResult<&str, &str> {
+    let input_bytes = input.as_bytes();
+    let mut ind = 0usize;
+    for byte in input_bytes {
+        // The special characters are not permitted by registry.npmjs.org for new packages,
+        // but used to be permitted as the check relied on ECMA-262 encodeURIComponent.
+        if !matches!(byte, b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'.' | b'-' | b'_' | b'(' | b')' | b'~' | b'\'' | b'!' | b'*')
+        {
+            break;
+        }
+        ind += 1;
+    }
+    match ind {
+        0 => Err(nom::Err::Error(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Many1,
+        ))),
+        i => {
+            let output = &input[..i];
+            if output.starts_with("_") || output.starts_with(".") {
+                Err(nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::Verify,
+                )))
+            } else {
+                Ok((&input[i..], output))
+            }
+        }
+    }
 }
 
 pub(crate) fn package_name(
@@ -213,26 +234,38 @@ impl Ord for PackageNameBorrowed<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::Error;
+    use crate::error::{Error, Result};
 
     use super::PackageName;
 
     #[test]
-    fn test_positions_scoped() {
-        let name = PackageName::new("@scope/name".to_string()).unwrap();
+    fn test_positions_scoped() -> Result<()> {
+        let name = PackageName::new("@scope/name".to_string())?;
         assert_eq!(name.scope(), Some("@scope"));
         assert_eq!(name.scope_name(), Some("scope"));
         assert_eq!(name.scope_prefix(), Some("@scope/"));
         assert_eq!(name.name_rest(), "name");
+        Ok(())
     }
 
     #[test]
-    fn test_positions_unscoped() {
-        let name = PackageName::new("name__1".to_string()).unwrap();
+    fn test_positions_unscoped() -> Result<()> {
+        let name = PackageName::new("name__1".to_string())?;
         assert_eq!(name.scope(), None);
         assert_eq!(name.scope_name(), None);
         assert_eq!(name.scope_prefix(), None);
         assert_eq!(name.name_rest(), "name__1");
+        Ok(())
+    }
+
+    #[test]
+    fn test_cursed_chars() -> Result<()> {
+        let name = PackageName::new("@a/verboden(name~'!*)".to_string())?;
+        assert_eq!(name.scope(), Some("@a"));
+        assert_eq!(name.scope_name(), Some("a"));
+        assert_eq!(name.scope_prefix(), Some("@a/"));
+        assert_eq!(name.name_rest(), "verboden(name~'!*)");
+        Ok(())
     }
 
     #[test]

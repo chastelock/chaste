@@ -1,0 +1,23 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@a/verboden(name~''!*)':
+        specifier: 1.0.0
+        version: 1.0.0
+
+packages:
+
+  '@a/verboden(name~''!*)@1.0.0':
+    resolution: {integrity: sha512-fQiNQiX2N6dHIDD7TaoU0w6qsgUXOdivgb02RiLGv+snsztd1E3ZmJLX7ajpu0sDDo9PEU0wZQpOWH5B8zlvBw==}
+    version: 1.0.0
+
+snapshots:
+
+  '@a/verboden(name~''!*)@1.0.0': {}

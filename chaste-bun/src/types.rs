@@ -39,20 +39,6 @@ pub enum LockPackageElement<'a> {
     String(Cow<'a, str>),
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum LockPackageIR<'a> {
-    Registry(
-        Cow<'a, str>,
-        Cow<'a, str>,
-        PackageRelations<'a>,
-        Cow<'a, str>,
-    ),
-    Tarball(Cow<'a, str>, PackageRelations<'a>),
-    Git(Cow<'a, str>, PackageRelations<'a>, Cow<'a, str>),
-    WorkspaceMember((Cow<'a, str>,)),
-}
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BunLock<'a> {

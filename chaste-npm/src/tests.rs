@@ -259,6 +259,22 @@ fn v3_shrinkwrap() -> Result<()> {
 }
 
 #[test]
+fn v3_special_chars_name() -> Result<()> {
+    let chastefile = test_workspace("v3_special_chars_name")?;
+    let root_pkg = chastefile.root_package();
+    assert_eq!(root_pkg.name().unwrap(), "verboden(root)(name~'!*)");
+    let [a_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+    let a_pkg = chastefile.package(a_dep.on);
+    assert_eq!(a_pkg.name().unwrap(), "@a/verboden(name~'!*)");
+    // TODO: recognize custom npm registry.
+    assert_eq!(a_pkg.source_type(), None);
+
+    Ok(())
+}
+
+#[test]
 fn v3_tarball_url() -> Result<()> {
     let chastefile = test_workspace("v3_tarball_url")?;
     let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;

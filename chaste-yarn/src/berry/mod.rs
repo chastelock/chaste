@@ -7,12 +7,13 @@ use std::path::Path;
 use std::{fs, io};
 
 use chaste_types::{
-    ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
-    PackageSource, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
+    package_name_part, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
+    DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID,
+    PackageName, PackageSource, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
+    ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take, take_until, take_while1};
+use nom::bytes::complete::{tag, take, take_until};
 use nom::combinator::{eof, map, map_res, opt, recognize, rest, verify};
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
@@ -22,16 +23,6 @@ use crate::berry::types::PackageJson;
 use crate::error::{Error, Result};
 
 mod types;
-
-fn package_name_part(input: &str) -> IResult<&str, &str> {
-    verify(
-        take_while1(|c: char| {
-            c.is_ascii_alphanumeric() || c.is_ascii_digit() || ['.', '-', '_'].contains(&c)
-        }),
-        |part: &str| !part.starts_with("."),
-    )
-    .parse(input)
-}
 
 fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
     recognize((
