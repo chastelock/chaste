@@ -99,7 +99,8 @@ fn parse_dependencies<'a>(
     path_pid: &HashMap<&'a Cow<'a, str>, PackageID>,
     self_pid: PackageID,
 ) -> Result<Vec<Dependency>> {
-    let mut dependencies = Vec::new();
+    let capacity = tree_package.dependencies.len() + tree_package.dev_dependencies.len();
+    let mut dependencies = Vec::with_capacity(capacity);
     for (deps, kind_) in [
         (&tree_package.dependencies, DependencyKind::Dependency),
         (
@@ -148,6 +149,8 @@ fn parse_dependencies<'a>(
             }
         }
     }
+
+    debug_assert!(dependencies.len() >= capacity);
 
     Ok(dependencies)
 }
