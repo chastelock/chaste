@@ -100,81 +100,52 @@ fn parse_dependencies<'a>(
     self_pid: PackageID,
 ) -> Result<Vec<Dependency>> {
     let mut dependencies = Vec::new();
-    for (n, svs) in tree_package.dependencies.iter() {
-        let mut dep = DependencyBuilder::new(
-            DependencyKind::Dependency,
-            self_pid,
-            find_pid(path, n, path_pid)?,
-        );
-        let svs = SourceVersionSpecifier::new(svs.to_string())?;
-        if svs.aliased_package_name().is_some() {
-            dep.alias_name(PackageName::new(n.to_string())?);
-        }
-        dep.svs(svs);
-        dependencies.push(dep.build());
-    }
-    for (n, svs) in tree_package.dev_dependencies.iter() {
-        let mut dep = DependencyBuilder::new(
+    for (deps, kind_) in [
+        (&tree_package.dependencies, DependencyKind::Dependency),
+        (
+            &tree_package.dev_dependencies,
             DependencyKind::DevDependency,
-            self_pid,
-            find_pid(path, n, path_pid)?,
-        );
-        let svs = SourceVersionSpecifier::new(svs.to_string())?;
-        if svs.aliased_package_name().is_some() {
-            dep.alias_name(PackageName::new(n.to_string())?);
-        }
-        dep.svs(svs);
-        dependencies.push(dep.build());
-    }
-    for (n, svs) in tree_package.peer_dependencies.iter() {
-        let is_optional = matches!(
-            tree_package.peer_dependencies_meta.get(n),
-            Some(PeerDependencyMeta {
-                optional: Some(true),
-            })
-        );
-        match find_pid(path, n, path_pid) {
-            Ok(pid) => {
-                let mut dep = DependencyBuilder::new(
-                    if is_optional {
-                        DependencyKind::OptionalPeerDependency
-                    } else {
-                        DependencyKind::PeerDependency
-                    },
-                    self_pid,
-                    pid,
-                );
-                let svs = SourceVersionSpecifier::new(svs.to_string())?;
-                if svs.aliased_package_name().is_some() {
-                    dep.alias_name(PackageName::new(n.to_string())?);
+        ),
+        (
+            &tree_package.peer_dependencies,
+            DependencyKind::PeerDependency,
+        ),
+        (
+            &tree_package.optional_dependencies,
+            DependencyKind::OptionalDependency,
+        ),
+    ] {
+        for (n, svs) in deps {
+            let kind = match kind_ {
+                DependencyKind::PeerDependency
+                    if matches!(
+                        tree_package.peer_dependencies_meta.get(n),
+                        Some(PeerDependencyMeta {
+                            optional: Some(true),
+                        })
+                    ) =>
+                {
+                    DependencyKind::OptionalPeerDependency
                 }
-                dep.svs(svs);
-                dependencies.push(dep.build());
-            }
-            // Allowed to fail. Yes, even if not marked as optional - it wasn't getting installed
-            // before npm v7, and packages can opt out with --legacy-peer-deps=true
-            // https://github.com/npm/rfcs/blob/main/implemented/0025-install-peer-deps.md
-            Err(Error::DependencyNotFound(_)) => {}
-
-            Err(e) => return Err(e),
-        }
-    }
-    for (n, svs) in tree_package.optional_dependencies.iter() {
-        match find_pid(path, n, path_pid) {
-            Ok(pid) => {
-                let mut dep =
-                    DependencyBuilder::new(DependencyKind::OptionalDependency, self_pid, pid);
-                let svs = SourceVersionSpecifier::new(svs.to_string())?;
-                if svs.aliased_package_name().is_some() {
-                    dep.alias_name(PackageName::new(n.to_string())?);
+                k => k,
+            };
+            match find_pid(path, n, path_pid) {
+                Ok(pid) => {
+                    let mut dep = DependencyBuilder::new(kind, self_pid, pid);
+                    let svs = SourceVersionSpecifier::new(svs.to_string())?;
+                    if svs.aliased_package_name().is_some() {
+                        dep.alias_name(PackageName::new(n.to_string())?);
+                    }
+                    dep.svs(svs);
+                    dependencies.push(dep.build());
                 }
-                dep.svs(svs);
-                dependencies.push(dep.build());
-            }
-            // It's optional, ignore.
-            Err(Error::DependencyNotFound(_)) => {}
+                // Allowed to fail. Yes, even if not marked as optional - it wasn't getting installed
+                // before npm v7, and packages can opt out with --legacy-peer-deps=true
+                // https://github.com/npm/rfcs/blob/main/implemented/0025-install-peer-deps.md
+                Err(Error::DependencyNotFound(_)) if kind.is_peer() || kind.is_optional() => {}
 
-            Err(e) => return Err(e),
+                Err(e) => return Err(e),
+            }
         }
     }
 
