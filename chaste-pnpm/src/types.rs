@@ -17,6 +17,7 @@ pub(crate) struct PackageJson<'a> {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Lockfile<'a> {
     pub(crate) lockfile_version: &'a str,
+    pub(crate) settings: lock::Settings,
     pub(crate) importers: HashMap<&'a str, lock::Importer<'a>>,
     #[serde(default)]
     pub(crate) packages: HashMap<Cow<'a, str>, lock::Package<'a>>,
@@ -37,7 +38,12 @@ pub(crate) mod lock {
         pub(crate) dependencies: HashMap<Cow<'a, str>, ImporterDependency<'a>>,
         #[serde(borrow, default)]
         pub(crate) dev_dependencies: HashMap<Cow<'a, str>, ImporterDependency<'a>>,
-        // TODO: make sure it's all types
+        #[serde(borrow, default)]
+        pub(crate) peer_dependencies: HashMap<Cow<'a, str>, ImporterDependency<'a>>,
+        #[serde(borrow, default)]
+        pub(crate) peer_dependencies_meta: HashMap<Cow<'a, str>, PeerDependencyMeta>,
+        #[serde(borrow, default)]
+        pub(crate) optional_dependencies: HashMap<Cow<'a, str>, ImporterDependency<'a>>,
     }
 
     #[derive(Debug, Deserialize)]
@@ -47,12 +53,22 @@ pub(crate) mod lock {
         pub(crate) version: Cow<'a, str>,
     }
 
+    #[derive(Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    pub(crate) struct PeerDependencyMeta {
+        pub(crate) optional: Option<bool>,
+    }
+
     #[derive(Debug, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Package<'a> {
         #[serde(borrow)]
         pub(crate) resolution: Resolution<'a>,
         pub(crate) version: Option<Cow<'a, str>>,
+        #[serde(borrow, default)]
+        pub(crate) peer_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
+        #[serde(borrow, default)]
+        pub(crate) peer_dependencies_meta: HashMap<Cow<'a, str>, PeerDependencyMeta>,
     }
 
     #[derive(Debug, Deserialize)]
@@ -67,5 +83,17 @@ pub(crate) mod lock {
     pub(crate) struct Snapshot<'a> {
         #[serde(borrow, default)]
         pub(crate) dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
+        #[serde(borrow, default)]
+        pub(crate) dev_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
+        #[serde(borrow, default)]
+        pub(crate) optional_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
+        #[serde(borrow, default)]
+        pub(crate) transitive_peer_dependencies: Vec<Cow<'a, str>>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub(crate) struct Settings {
+        pub(crate) auto_install_peers: Option<bool>,
     }
 }

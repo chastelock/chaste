@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use std::ops::{Range, RangeFrom};
+
+pub use nodejs_semver::Range as VersionRange;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while, take_while1};
 use nom::character::complete::digit1;
@@ -58,7 +61,7 @@ fn npm(input: &str) -> Option<SourceVersionSpecifierPositions> {
         opt(tag("npm:")),
         opt(terminated(package_name, tag("@"))),
         map_res(rest, |input: &str| {
-            nodejs_semver::Range::parse(if input.is_empty() { "*" } else { input })
+            VersionRange::parse(if input.is_empty() { "*" } else { input })
         }),
     )
         .parse(input)
@@ -170,7 +173,7 @@ impl SourceVersionSpecifierPositions {
                     // in yarn(classic), "ssh://git@github.com:npm/node-semver.git" is interpreted as an npm tag
                     !matches!(quirks, Some(QuirksMode::Yarn(1)))
                         || s.ssh_path_sep()
-                            .map(|(st, en)| &svs[st..en])
+                            .map(|r| &svs[r])
                             .is_none_or(|sep| sep == "/")
                 })
             })
@@ -195,21 +198,34 @@ impl SourceVersionSpecifier {
 }
 
 impl SourceVersionSpecifierPositions {
-    fn aliased_package_name(&self) -> Option<(usize, usize)> {
+    fn aliased_package_name(&self) -> Option<Range<usize>> {
         match self {
             SourceVersionSpecifierPositions::Npm {
                 type_prefix_end,
                 alias_package_name: Some(alias),
-            } => Some((*type_prefix_end, alias.total_length + type_prefix_end)),
+            } => Some(*type_prefix_end..alias.total_length + type_prefix_end),
             _ => None,
         }
     }
-    fn ssh_path_sep(&self) -> Option<(usize, usize)> {
+    fn npm_range(&self) -> Option<RangeFrom<usize>> {
+        match self {
+            SourceVersionSpecifierPositions::Npm {
+                type_prefix_end,
+                alias_package_name: Some(alias),
+            } => Some(alias.total_length + type_prefix_end + 1..),
+            SourceVersionSpecifierPositions::Npm {
+                type_prefix_end,
+                alias_package_name: None,
+            } => Some(*type_prefix_end..),
+            _ => None,
+        }
+    }
+    fn ssh_path_sep(&self) -> Option<Range<usize>> {
         match self {
             SourceVersionSpecifierPositions::Git {
                 pre_path_sep_offset: Some(offset),
                 ..
-            } => Some((*offset, offset + 1)),
+            } => Some(*offset..offset + 1),
             _ => None,
         }
     }
@@ -350,15 +366,51 @@ impl SourceVersionSpecifier {
             SourceVersionSpecifierPositions::Npm {
                 alias_package_name: Some(positions),
                 ..
-            } => {
-                let (start, end) = self.positions.aliased_package_name().unwrap();
-                Some(PackageNameBorrowed {
-                    inner: &self.inner[start..end],
-                    positions,
-                })
-            }
+            } => Some(PackageNameBorrowed {
+                inner: &self.inner[self.positions.aliased_package_name().unwrap()],
+                positions,
+            }),
             _ => None,
         }
+    }
+
+    /// Version range specified by a dependency, as a string.
+    ///
+    /// For a [VersionRange] object (to compare versions against), check out [SourceVersionSpecifier::npm_range].
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs1 = SourceVersionSpecifier::new(
+    ///     "4.2.x".to_string()).unwrap();
+    /// assert_eq!(svs1.npm_range_str().unwrap(), "4.2.x");
+    ///
+    /// let svs2 = SourceVersionSpecifier::new(
+    ///     "npm:@chastelock/testcase@^2.1.37".to_string()).unwrap();
+    /// assert_eq!(svs2.npm_range_str().unwrap(), "^2.1.37");
+    /// ```
+    pub fn npm_range_str(&self) -> Option<&str> {
+        self.positions.npm_range().map(|r| &self.inner[r])
+    }
+
+    /// Version range specified by a dependency, as [VersionRange] object.
+    ///
+    /// For a string slice, check out [SourceVersionSpecifier::npm_range_str].
+    ///
+    /// # Example
+    /// ```
+    /// # use chaste_types::SourceVersionSpecifier;
+    /// let svs1 = SourceVersionSpecifier::new(
+    ///     "4.2.x".to_string()).unwrap();
+    /// assert_eq!(svs1.npm_range_str().unwrap(), "4.2.x");
+    ///
+    /// let svs2 = SourceVersionSpecifier::new(
+    ///     "npm:@chastelock/testcase@^2.1.37".to_string()).unwrap();
+    /// assert_eq!(svs2.npm_range_str().unwrap(), "^2.1.37");
+    /// ```
+    pub fn npm_range(&self) -> Option<VersionRange> {
+        self.npm_range_str()
+            .map(|r| VersionRange::parse(r).unwrap())
     }
 
     /// If the dependency source is Git over SSH, this returns the separator used
@@ -377,15 +429,13 @@ impl SourceVersionSpecifier {
     /// assert_eq!(svs2.ssh_path_sep().unwrap(), "/");
     /// ```
     pub fn ssh_path_sep(&self) -> Option<&str> {
-        self.positions
-            .ssh_path_sep()
-            .map(|(start, end)| &self.inner[start..end])
+        self.positions.ssh_path_sep().map(|r| &self.inner[r])
     }
 }
 
 #[non_exhaustive]
 pub enum SourceVersionSpecifierKind {
-    /// Package from an npm registry. Does not include tags (see [`SourceVersionSpecifierType::NpmTag`])
+    /// Package from an npm registry. Does not include tags (see [`SourceVersionSpecifierKind::NpmTag`])
     Npm,
     /// Named tag from an npm registry, e.g. "latest", "beta".
     NpmTag,
@@ -393,7 +443,7 @@ pub enum SourceVersionSpecifierKind {
     TarballURL,
     /// Git repository. <https://docs.npmjs.com/cli/v10/configuring-npm/package-json#git-urls-as-dependencies>
     Git,
-    /// GitHub repository. No, not the same as [`SourceVersionSpecifierType::Git`], it's papa's special boy.
+    /// GitHub repository. No, not the same as [`SourceVersionSpecifierKind::Git`], it's papa's special boy.
     /// <https://docs.npmjs.com/cli/v10/configuring-npm/package-json#git-urls-as-dependencies>
     GitHub,
 }

@@ -88,14 +88,14 @@ where
 
     let mut desc_pid = HashMap::with_capacity(lockfile.packages.len());
     for (pkg_desc, pkg) in &lockfile.packages {
-        let (_, (package_name, _, package_svs)) =
+        let (_, (package_name, _, package_svd)) =
             (package_name, tag("@"), rest)
                 .parse(&pkg_desc)
                 .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
         let version = pkg
             .version
             .as_deref()
-            .or(Some(package_svs))
+            .or(Some(package_svd))
             .map(|v| v.to_string());
         let mut package =
             PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), version);
@@ -114,16 +114,19 @@ where
                     url: tarball_url.to_string(),
                 });
             }
-        } else if let Some(git_url) = package_svs.strip_prefix("git+") {
+        } else if let Some(git_url) = package_svd.strip_prefix("git+") {
             package.source(PackageSource::Git {
                 url: git_url.to_string(),
             });
-        } else if SourceVersionSpecifier::new(package_svs.to_string()).is_ok_and(|svs| svs.is_npm())
+        } else if SourceVersionSpecifier::new(package_svd.to_string()).is_ok_and(|svs| svs.is_npm())
         {
             package.source(PackageSource::Npm);
         }
         let pkg_pid = chastefile.add_package(package.build()?)?;
-        desc_pid.insert((package_name, package_svs), pkg_pid);
+        desc_pid.insert(
+            (package_name, package_svd),
+            (pkg_pid, &pkg.peer_dependencies, &pkg.peer_dependencies_meta),
+        );
     }
 
     for (importer_path, importer) in &lockfile.importers {
@@ -131,6 +134,11 @@ where
         for (dependencies, kind) in [
             (&importer.dependencies, DependencyKind::Dependency),
             (&importer.dev_dependencies, DependencyKind::DevDependency),
+            (&importer.peer_dependencies, DependencyKind::PeerDependency),
+            (
+                &importer.optional_dependencies,
+                DependencyKind::OptionalDependency,
+            ),
         ] {
             for (dep_name, d) in dependencies {
                 if d.version.starts_with("link:") {
@@ -139,12 +147,14 @@ where
                 }
                 let mut is_aliased = false;
                 let dep_pid = {
-                    if let Some(dep_pid) = desc_pid.get(&(&dep_name, &d.version)) {
+                    if let Some((dep_pid, _, _)) = desc_pid.get(&(&dep_name, &d.version)) {
                         *dep_pid
-                    } else if let Ok((aliased_dep_svs, aliased_dep_name)) =
+                    } else if let Ok((aliased_dep_svd, aliased_dep_name)) =
                         terminated(package_name, tag("@")).parse(&d.version)
                     {
-                        if let Some(dep_pid) = desc_pid.get(&(aliased_dep_name, aliased_dep_svs)) {
+                        if let Some((dep_pid, _, _)) =
+                            desc_pid.get(&(aliased_dep_name, aliased_dep_svd))
+                        {
                             is_aliased = true;
                             *dep_pid
                         } else {
@@ -175,31 +185,40 @@ where
         // TODO: handle peer dependencies properly
         // https://codeberg.org/selfisekai/chaste/issues/46
         let pkg_svd = pkg_svd.split_once("(").map(|(s, _)| s).unwrap_or(pkg_svd);
-        let pkg_pid = *desc_pid
+        let (pkg_pid, _pkg_peers, _pkg_peers_meta) = *desc_pid
             .get(&(pkg_name, pkg_svd))
             .ok_or_else(|| Error::SnapshotNotFound(pkg_desc.to_string()))?;
-        for (dep_name, dep_svs) in snap.dependencies {
-            // TODO: handle peer dependencies properly
-            // https://codeberg.org/selfisekai/chaste/issues/46
-            let dep_svs = dep_svs.split_once("(").map(|(s, _)| s).unwrap_or(&dep_svs);
-            let dep = DependencyBuilder::new(DependencyKind::Dependency, pkg_pid, {
-                if let Some(dep_pid) = desc_pid.get(&(&dep_name, dep_svs)) {
-                    *dep_pid
-                } else if let Ok((aliased_dep_svs, aliased_dep_name)) =
-                    terminated(package_name, tag("@")).parse(dep_svs)
-                {
-                    if let Some(dep_pid) = desc_pid.get(&(aliased_dep_name, aliased_dep_svs)) {
+        for (dependencies, kind) in [
+            (&snap.dependencies, DependencyKind::Dependency),
+            (&snap.dev_dependencies, DependencyKind::DevDependency),
+            (
+                &snap.optional_dependencies,
+                DependencyKind::OptionalDependency,
+            ),
+        ] {
+            for (dep_name, dep_svd) in dependencies {
+                let dep_svd = dep_svd.split_once("(").map(|(s, _)| s).unwrap_or(&dep_svd);
+                let dep = DependencyBuilder::new(kind, pkg_pid, {
+                    if let Some((dep_pid, _, _)) = desc_pid.get(&(&dep_name, dep_svd)) {
                         *dep_pid
+                    } else if let Ok((aliased_dep_svd, aliased_dep_name)) =
+                        terminated(package_name, tag("@")).parse(dep_svd)
+                    {
+                        if let Some((dep_pid, _, _)) =
+                            desc_pid.get(&(aliased_dep_name, aliased_dep_svd))
+                        {
+                            *dep_pid
+                        } else {
+                            return Err(Error::DependencyPackageNotFound(dep_svd.to_string()));
+                        }
                     } else {
-                        return Err(Error::DependencyPackageNotFound(dep_svs.to_string()));
+                        return Err(Error::DependencyPackageNotFound(format!(
+                            "{dep_name}@{dep_svd}"
+                        )));
                     }
-                } else {
-                    return Err(Error::DependencyPackageNotFound(format!(
-                        "{dep_name}@{dep_svs}"
-                    )));
-                }
-            });
-            chastefile.add_dependency(dep.build());
+                });
+                chastefile.add_dependency(dep.build());
+            }
         }
     }
 

@@ -40,6 +40,12 @@ impl DependencyKind {
             DependencyKind::OptionalDependency | DependencyKind::OptionalPeerDependency
         )
     }
+    pub fn is_peer(self) -> bool {
+        matches!(
+            self,
+            DependencyKind::PeerDependency | DependencyKind::OptionalPeerDependency
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
