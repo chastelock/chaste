@@ -19,5 +19,13 @@ pub(crate) struct PackageJson<'a> {
     #[serde(default)]
     pub(crate) peer_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
     #[serde(default)]
+    pub(crate) peer_dependencies_meta: HashMap<Cow<'a, str>, PeerDependencyMeta>,
+    #[serde(default)]
     pub(crate) optional_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PeerDependencyMeta {
+    pub(crate) optional: Option<bool>,
 }

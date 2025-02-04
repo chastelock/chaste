@@ -252,74 +252,55 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
     }
 
     // Now mark dependencies of the root and workspace members packages. All by each type.
-    for package_json in [&root_package_json]
-        .into_iter()
-        .chain(member_package_jsons.iter().map(|(_, pj)| pj))
-    {
-        for dep_descriptor in &package_json.dependencies {
-            let dep_pid = find_dep_pid(
-                &dep_descriptor,
-                &yarn_lock,
-                &index_to_pid,
-                &member_package_jsons,
-                &mpj_idx_to_pid,
-            )?;
-            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, root_pid, dep_pid);
-            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
-            if svs.aliased_package_name().is_some() {
-                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+    for (member_pid, package_json) in [(root_pid, &root_package_json)].into_iter().chain(
+        member_package_jsons
+            .iter()
+            .enumerate()
+            .map(|(midx, (_, pj))| (*mpj_idx_to_pid.get(&midx).unwrap(), pj)),
+    ) {
+        for (deps, kind_) in [
+            (&package_json.dependencies, DependencyKind::Dependency),
+            (
+                &package_json.dev_dependencies,
+                DependencyKind::DevDependency,
+            ),
+            (
+                &package_json.peer_dependencies,
+                DependencyKind::PeerDependency,
+            ),
+            (
+                &package_json.optional_dependencies,
+                DependencyKind::OptionalDependency,
+            ),
+        ] {
+            for dep_descriptor in deps {
+                let kind = match kind_ {
+                    DependencyKind::PeerDependency
+                        if package_json
+                            .peer_dependencies_meta
+                            .get(dep_descriptor.0)
+                            .is_some_and(|m| m.optional == Some(true)) =>
+                    {
+                        DependencyKind::OptionalPeerDependency
+                    }
+                    k => k,
+                };
+                let dep_pid = find_dep_pid(
+                    &dep_descriptor,
+                    &yarn_lock,
+                    &index_to_pid,
+                    &member_package_jsons,
+                    &mpj_idx_to_pid,
+                )?;
+                let mut dep = DependencyBuilder::new(kind, member_pid, dep_pid);
+                let svs =
+                    SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
+                if svs.aliased_package_name().is_some() {
+                    dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+                }
+                dep.svs(svs);
+                chastefile_builder.add_dependency(dep.build());
             }
-            dep.svs(svs);
-            chastefile_builder.add_dependency(dep.build());
-        }
-        for dep_descriptor in &package_json.dev_dependencies {
-            let dep_pid = find_dep_pid(
-                &dep_descriptor,
-                &yarn_lock,
-                &index_to_pid,
-                &member_package_jsons,
-                &mpj_idx_to_pid,
-            )?;
-            let mut dep = DependencyBuilder::new(DependencyKind::DevDependency, root_pid, dep_pid);
-            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
-            if svs.aliased_package_name().is_some() {
-                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
-            }
-            dep.svs(svs);
-            chastefile_builder.add_dependency(dep.build());
-        }
-        for dep_descriptor in &package_json.peer_dependencies {
-            let dep_pid = find_dep_pid(
-                &dep_descriptor,
-                &yarn_lock,
-                &index_to_pid,
-                &member_package_jsons,
-                &mpj_idx_to_pid,
-            )?;
-            let mut dep = DependencyBuilder::new(DependencyKind::PeerDependency, root_pid, dep_pid);
-            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
-            if svs.aliased_package_name().is_some() {
-                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
-            }
-            dep.svs(svs);
-            chastefile_builder.add_dependency(dep.build());
-        }
-        for dep_descriptor in &package_json.optional_dependencies {
-            let dep_pid = find_dep_pid(
-                &dep_descriptor,
-                &yarn_lock,
-                &index_to_pid,
-                &member_package_jsons,
-                &mpj_idx_to_pid,
-            )?;
-            let mut dep =
-                DependencyBuilder::new(DependencyKind::OptionalDependency, root_pid, dep_pid);
-            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
-            if svs.aliased_package_name().is_some() {
-                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
-            }
-            dep.svs(svs);
-            chastefile_builder.add_dependency(dep.build());
         }
     }
 
