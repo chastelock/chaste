@@ -1,0 +1,7 @@
+{
+    "name": "ligma-api",
+    "version": "1.0.0",
+    "dependencies": {
+        "long": "^5.0.0"
+    }
+}

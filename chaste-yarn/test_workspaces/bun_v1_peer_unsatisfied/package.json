@@ -1,0 +1,7 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.9.2",
+    "devDependencies": {
+        "tsec": "0.2.8"
+    }
+}

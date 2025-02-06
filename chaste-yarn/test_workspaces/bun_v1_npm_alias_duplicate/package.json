@@ -1,0 +1,8 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.1.0",
+    "dependencies": {
+        "event-stream": "4.0.1",
+        "map": "npm:map-stream@0.0.7"
+    }
+}

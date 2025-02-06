@@ -1,0 +1,7 @@
+{
+  "name": "@chastelock/test__v1_git_ssh",
+  "version": "0.0.0",
+  "dependencies": {
+    "node-semver": "ssh://git@github.com/npm/node-semver.git#v7.5.0"
+  }
+}

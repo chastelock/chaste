@@ -1,0 +1,14 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "verboden(root)(name~'!*)",
+      "dependencies": {
+        "@a/verboden(name~'!*)": "1.0.0",
+      },
+    },
+  },
+  "packages": {
+    "@a/verboden(name~'!*)": ["@a/verboden(name~'!*)@1.0.0", "https://s.lnl.gay/@a/verboden(name~'!*)/-/verboden(name~'!*)-1.0.0.tgz", {}, "sha512-fQiNQiX2N6dHIDD7TaoU0w6qsgUXOdivgb02RiLGv+snsztd1E3ZmJLX7ajpu0sDDo9PEU0wZQpOWH5B8zlvBw=="],
+  }
+}

@@ -108,7 +108,7 @@ dependencies = [
  "chaste-pnpm",
  "chaste-types",
  "chaste-yarn",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -119,7 +119,7 @@ dependencies = [
  "json5",
  "nom",
  "serde",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -139,7 +139,7 @@ dependencies = [
  "chaste-types",
  "serde",
  "serde_json",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -151,7 +151,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_norway",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -161,7 +161,7 @@ dependencies = [
  "nodejs-semver",
  "nom",
  "ssri",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -173,7 +173,7 @@ dependencies = [
  "nom",
  "serde",
  "serde_json",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
  "yarn-lock-parser",
  "yarn-state",
 ]
@@ -356,18 +356,18 @@ dependencies = [
 
 [[package]]
 name = "nom"
-version = "8.0.0-beta.1"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "842c447b3ca1221b1c26a101f24c092320f8014f40729356fbcba967afb0c1f2"
+checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
 dependencies = [
  "memchr",
 ]
 
 [[package]]
 name = "nom-language"
-version = "0.1.0-alpha.1"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8471a99070a4aaef88a4cef0d3c2568a1513010bc9d85d70b015121d463cabec"
+checksum = "2de2bc5b451bfedaef92c90b8939a8fff5770bdcc1fafd6239d086aab8fa6b29"
 dependencies = [
  "nom",
 ]
@@ -385,7 +385,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b7cafe60d6cf8e62e1b9b2ea516a089c008945bb5a275416789e7db0bc199dc"
 dependencies = [
  "memchr",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
  "ucd-trie",
 ]
 
@@ -591,11 +591,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.4"
+version = "2.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f49a1853cf82743e3b7950f77e0f4d622ca36cf4317cba00c767838bac8d490"
+checksum = "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc"
 dependencies = [
- "thiserror-impl 2.0.4",
+ "thiserror-impl 2.0.11",
 ]
 
 [[package]]
@@ -611,9 +611,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.4"
+version = "2.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8381894bb3efe0c4acac3ded651301ceee58a15d47c2e34885ed1908ad667061"
+checksum = "26afc1baea8a989337eeb52b6e72a039780ce45c3edfcc9c5b9d112feeb173c2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -682,12 +682,13 @@ checksum = "6a5cbf750400958819fb6178eaa83bee5cd9c29a26a40cc241df8c70fdd46984"
 
 [[package]]
 name = "yarn-lock-parser"
-version = "0.10.0"
-source = "git+https://github.com/selfisekai/yarn-lock-parser.git?branch=nom8#996ebc1ccb02db491b33026fcdf6a7c8a8d86540"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46a94a329f3c1ca33731094a08af14c21180556c86292842c57c150a7bd87b59"
 dependencies = [
  "nom",
  "nom-language",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
 ]
 
 [[package]]
@@ -695,5 +696,5 @@ name = "yarn-state"
 version = "0.1.1"
 dependencies = [
  "nom",
- "thiserror 2.0.4",
+ "thiserror 2.0.11",
 ]

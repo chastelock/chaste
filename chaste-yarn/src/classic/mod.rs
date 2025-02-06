@@ -71,6 +71,9 @@ fn parse_source_url(
         Some(PackageSource::Git {
             url: url.to_string(),
         })
+    } else if url.starts_with("github:") {
+        // https://github.com/oven-sh/bun/issues/17090
+        None
 
     // Check descriptors whether they are:
     // a) a tarball URL,
@@ -110,7 +113,11 @@ fn parse_source<'a>(
         return Ok(None);
     };
     Ok(Some(match source {
-        PackageSource::Npm | PackageSource::TarballURL { .. } => (source, hash),
+        PackageSource::Npm | PackageSource::TarballURL { .. }
+            if hash.map(|h| h.len()) == Some(40) =>
+        {
+            (source, hash)
+        }
         _ => (source, None),
     }))
 }
@@ -136,7 +143,15 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     } else {
         None
     };
-    let mut pkg = PackageBuilder::new(Some(name), Some(entry.version.to_string()));
+    let mut pkg = PackageBuilder::new(
+        Some(name),
+        // XXX: https://github.com/oven-sh/bun/issues/17090, https://github.com/oven-sh/bun/issues/17091
+        if entry.version != entry.resolved {
+            Some(entry.version.to_string())
+        } else {
+            None
+        },
+    );
     if let Some(source) = source {
         pkg.source(source);
     }
@@ -240,6 +255,11 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
     // Now, add everything else.
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
+        // Bun outputs workspace members into the yarn.lock, unlike yarn itself.
+        // Ignore them (in line with yarn) to avoid duplicate packages.
+        if entry.resolved.starts_with("workspace:") {
+            continue;
+        }
         let pkg = parse_package(entry)?;
         // When a package is depended on both as a regular npm dependency and via an npm alias,
         // the lockfile duplicates that package. This is specific to v1. Ignore failures and reuse PackageID.
@@ -306,6 +326,10 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
     // Finally, dependencies of dependencies.
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
+        // Bun-specific: the skip has to be repeated to avoid a panic on the unwrap below.
+        if entry.resolved.starts_with("workspace:") {
+            continue;
+        }
         let from_pid = index_to_pid.get(&index).unwrap();
         for dep_descriptor in &entry.dependencies {
             let dep_pid = find_dep_pid(
