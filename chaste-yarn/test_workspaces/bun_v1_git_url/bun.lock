@@ -1,0 +1,18 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@chastelock/testcase",
+      "devDependencies": {
+        "minimatch": "https://github.com/isaacs/minimatch.git#v10.0.1",
+      },
+    },
+  },
+  "packages": {
+    "balanced-match": ["balanced-match@1.0.2", "", {}, "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="],
+
+    "brace-expansion": ["brace-expansion@2.0.1", "", { "dependencies": { "balanced-match": "^1.0.0" } }, "sha512-XnAIvQ8eM+kC6aULx6wuQiwVsnzsi9d3WxzV3FpWTGA19F621kwdbsAcFKXgKUHZWsy+mY6iL1sHTxWEFCytDA=="],
+
+    "minimatch": ["minimatch@github:isaacs/minimatch#bb02677", { "dependencies": { "brace-expansion": "^2.0.1" } }, "isaacs-minimatch-bb02677"],
+  }
+}
