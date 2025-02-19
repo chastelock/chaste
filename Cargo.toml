@@ -38,16 +38,13 @@ assert_cmd = "2.0"
 concat-idents = "1.1"
 json5 = "0.4.1"
 nodejs-semver = "4.1.0"
-nom = "8.0.0-beta.1"
+nom = "8.0.0"
 serde = "1.0.185"
 serde_json = "1.0"
 serde_norway = "0.9"
 ssri = { version = "9.2", default-features = false }
 thiserror = "2.0"
-yarn-lock-parser = "0.10.0"
-
-[patch.crates-io]
-yarn-lock-parser = { git = "https://github.com/selfisekai/yarn-lock-parser.git", branch = "nom8" }
+yarn-lock-parser = "0.11.0"
 
 [profile.release]
 lto = true
