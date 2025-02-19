@@ -3,15 +3,16 @@ SPDX-FileCopyrightText: 2025 The Chaste Authors
 SPDX-License-Identifier: CC0-1.0
 -->
 
-Chaste parses pnpm lockfiles.
+Chaste parses Bun lockfiles.
 
 Development status: alpha.
 
-This crate contains the implementation for pnpm only.
+This crate contains the implementation for Bun only: The text-based `bun.lock` format.
+No support for `bun.lockb` or `yarn.lock` (for that one, see the [`chaste-yarn` crate](https://crates.io/crates/chaste-yarn)).
 You're probably interested in the [`chaste` crate](https://crates.io/crates/chaste),
 which re-exposes this crate.
 
-Documentation: https://docs.rs/chaste-pnpm
+Documentation: https://docs.rs/chaste-bun
 
 * Main crate: [`chaste` crate](https://crates.io/crates/chaste)
 * CLI: [`chaste-cli` crate](https://crates.io/crates/chaste-cli)

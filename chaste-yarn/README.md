@@ -16,5 +16,7 @@ Documentation: https://docs.rs/chaste-yarn
 * Main crate: [`chaste` crate](https://crates.io/crates/chaste)
 * CLI: [`chaste-cli` crate](https://crates.io/crates/chaste-cli)
 * Types package: [`chaste-types` crate](https://crates.io/crates/chaste-types)
+* Bun implementation: [`chaste-bun` crate](https://crates.io/crates/chaste-bun)
 * npm implementation: [`chaste-npm` crate](https://crates.io/crates/chaste-npm)
 * pnpm implementation: [`chaste-pnpm` crate](https://crates.io/crates/chaste-pnpm)
+* yarn implementation: [`chaste-yarn` crate](https://crates.io/crates/chaste-yarn)
