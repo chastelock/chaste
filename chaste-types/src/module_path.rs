@@ -132,6 +132,25 @@ pub enum ModulePathSegment<'a> {
     NodeModules(&'a str),
     PackageName(PackageNameBorrowed<'a>),
 }
+impl<'a> AsRef<str> for ModulePathSegment<'a> {
+    fn as_ref(&self) -> &str {
+        match self {
+            ModulePathSegment::Arbitrary(i) => i,
+            ModulePathSegment::NodeModules(i) => i,
+            ModulePathSegment::PackageName(package_name_borrowed) => package_name_borrowed.as_ref(),
+        }
+    }
+}
+impl<'a> PartialOrd for ModulePathSegment<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl<'a> Ord for ModulePathSegment<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_ref().cmp(other.as_ref())
+    }
+}
 
 pub struct ModulePathIter<'a> {
     inner: &'a ModulePath,
