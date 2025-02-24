@@ -43,7 +43,6 @@ pub enum Error {
     SSRIError(#[from] chaste_types::SSRIError),
 
     #[error("JSON parsing error: {0:?}")]
-    #[cfg(feature = "classic")]
     SerdeJsonError(#[from] serde_json::Error),
 }
 
