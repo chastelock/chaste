@@ -126,7 +126,7 @@ impl AsRef<str> for ModulePath {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ModulePathSegment<'a> {
     Arbitrary(&'a str),
     NodeModules(&'a str),

@@ -106,7 +106,7 @@ pub struct PackageName {
     positions: PackageNamePositions,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct PackageNameBorrowed<'a> {
     pub(crate) inner: &'a str,
     pub(crate) positions: &'a PackageNamePositions,
