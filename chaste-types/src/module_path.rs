@@ -94,6 +94,23 @@ impl ModulePath {
             segments.last().map(|s| s.end_idx()).unwrap_or(0),
             value.len()
         );
+        debug_assert!({
+            let mut segs = segments.iter().peekable();
+            while let Some(ModulePathSegmentInternal::Arbitrary(..)) = segs.peek() {
+                debug_assert!(matches!(
+                    segs.next(),
+                    Some(ModulePathSegmentInternal::Arbitrary(..))
+                ));
+            }
+            while let Some(seg) = segs.next() {
+                debug_assert!(matches!(seg, ModulePathSegmentInternal::NodeModules(..)));
+                debug_assert!(matches!(
+                    segs.next(),
+                    Some(ModulePathSegmentInternal::PackageName(..))
+                ));
+            }
+            segs.next().is_none()
+        });
 
         Ok(Self {
             inner: value,
