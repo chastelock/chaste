@@ -232,6 +232,45 @@ test_workspaces!(npm_tag, |chastefile: Chastefile, _lv: u8| {
     Ok(())
 });
 
+test_workspaces!(peer_deps, |chastefile: Chastefile, lv: u8| {
+    let mut root_deps: Vec<_> = chastefile
+        .root_package_dependencies()
+        .into_iter()
+        .map(|d| (d, chastefile.package(d.on)))
+        .collect();
+    root_deps.sort_unstable_by_key(|(_, pkg)| pkg.name());
+    let [(_, _), (_, _), (rrouter_dep, rrouter_pkg)] = *root_deps else {
+        panic!();
+    };
+    assert_eq!(rrouter_pkg.name().unwrap(), "react-router");
+    let rrouter_deps = chastefile.package_dependencies(rrouter_dep.on).into_iter();
+    // v1 lockfile does not list peer dependencies at all.
+    assert_eq!(rrouter_deps.len(), if lv == 1 { 4 } else { 6 });
+    if lv > 1 {
+        let (rdom_dep, _rdom_pkg) = dbg!(chastefile.package_dependencies(rrouter_dep.on))
+            .into_iter()
+            .find_map(|d| {
+                Some((d, chastefile.package(d.on)))
+                    .filter(|(_, p)| p.name().is_some_and(|n| n == "react-dom"))
+            })
+            .unwrap();
+        assert_eq!(rdom_dep.svs().unwrap(), ">=18");
+        let mut rdom_deps = chastefile.package_dependencies(rdom_dep.on).into_iter();
+        assert_eq!(rdom_deps.len(), 2);
+        let react_dep = rdom_deps.find(|d| d.kind.is_peer()).unwrap();
+        assert_eq!(react_dep.svs().unwrap(), "^19.0.0");
+        let react_pkg = chastefile.package(react_dep.on);
+        assert_eq!(react_pkg.name().unwrap(), "react");
+        // This requires node_modules/.yarn-state.yml
+        let [react_inst] = *chastefile.package_installations(react_dep.on) else {
+            panic!();
+        };
+        assert_eq!(react_inst.path().as_ref(), "node_modules/react");
+    }
+
+    Ok(())
+});
+
 test_workspaces!(peer_unsatisfied, |chastefile: Chastefile, _lv: u8| {
     assert!(!chastefile.packages().into_iter().any(|p| p
         .name()

@@ -181,7 +181,8 @@ fn find_dep_pid<'a, S>(
     yarn_lock: &'a yarn::Lockfile<'a>,
     resolutions: &HashMap<(Option<(&str, Option<&str>)>, &str), &str>,
     index_to_pid: &HashMap<usize, PackageID>,
-) -> Result<PackageID>
+    is_peer: bool,
+) -> Result<Option<PackageID>>
 where
     S: AsRef<str>,
 {
@@ -208,7 +209,28 @@ where
                 descriptor_name, descriptor_svs
             )));
         }
-        Ok(*index_to_pid.get(&idx).unwrap())
+        Ok(Some(*index_to_pid.get(&idx).unwrap()))
+    } else if is_peer {
+        // Peer dependencies are cursed. If multiple modules *peer* depend on the same module name,
+        // Yarn will resolve them to one module, even if it considers them conflicting.
+        // I mean, it can't nest them. Retry, only matching the name and not the SVS.
+        let mut candidate_entries = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
+            e.descriptors
+                .iter()
+                .any(|(d_n, _d_s)| *d_n == descriptor_name)
+        });
+        if let Some((idx, _)) = candidate_entries.next() {
+            if candidate_entries.next().is_some() {
+                return Err(Error::AmbiguousResolution(format!(
+                    "{0}@{1}",
+                    descriptor_name, descriptor_svs
+                )));
+            }
+            Ok(Some(*index_to_pid.get(&idx).unwrap()))
+        } else {
+            // They can also be optional.
+            Ok(None)
+        }
     } else {
         Err(Error::DependencyNotFound(format!(
             "{0}@{1}",
@@ -284,15 +306,29 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
-        for dep_descriptor in &entry.dependencies {
-            let dep_pid = find_dep_pid(dep_descriptor, &yarn_lock, &resolutions, &index_to_pid)?;
-            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
-            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
-            if svs.aliased_package_name().is_some() {
-                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+        for (dependencies, kind) in [
+            (&entry.dependencies, DependencyKind::Dependency),
+            (&entry.peer_dependencies, DependencyKind::PeerDependency),
+        ] {
+            for dep_descriptor in dependencies {
+                let Some(dep_pid) = find_dep_pid(
+                    dep_descriptor,
+                    &yarn_lock,
+                    &resolutions,
+                    &index_to_pid,
+                    kind.is_peer(),
+                )?
+                else {
+                    continue;
+                };
+                let mut dep = DependencyBuilder::new(kind, *from_pid, dep_pid);
+                let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+                if svs.aliased_package_name().is_some() {
+                    dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+                }
+                dep.svs(svs);
+                chastefile_builder.add_dependency(dep.build());
             }
-            dep.svs(svs);
-            chastefile_builder.add_dependency(dep.build());
         }
     }
     Ok(chastefile_builder.build()?)
