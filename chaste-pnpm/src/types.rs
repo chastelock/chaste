@@ -84,8 +84,6 @@ pub(crate) mod lock {
         #[serde(borrow, default)]
         pub(crate) dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
         #[serde(borrow, default)]
-        pub(crate) dev_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
-        #[serde(borrow, default)]
         pub(crate) optional_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
         #[serde(borrow, default)]
         pub(crate) transitive_peer_dependencies: Vec<Cow<'a, str>>,

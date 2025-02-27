@@ -14,14 +14,14 @@ pub enum Error {
     #[error("Missing root importer")]
     MissingRootImporter,
 
-    #[error("Snapshot not found for the package {0:?}")]
-    SnapshotNotFound(String),
-
     #[error("Package {0:?} not found, marked as a dependency")]
     DependencyPackageNotFound(String),
 
     #[error("Could not parse package descriptor: {0:?}")]
     InvalidPackageDescriptor(String),
+
+    #[error("Could not parse snapshot descriptor: {0:?}")]
+    InvalidSnapshotDescriptor(String),
 
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),

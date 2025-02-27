@@ -1,18 +1,19 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use std::collections::HashMap;
+use std::borrow::Cow;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fs;
 use std::path::Path;
 
 use chaste_types::{
     package_name_part, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageName, PackageSource,
-    SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
+    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
+    PackageSource, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
 };
 use nom::bytes::complete::tag;
 use nom::combinator::{opt, recognize, rest, verify};
-use nom::sequence::{preceded, terminated};
+use nom::sequence::{delimited, preceded, terminated};
 use nom::{IResult, Parser};
 
 pub use crate::error::Error;
@@ -33,6 +34,39 @@ fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
         }),
     ))
     .parse(input)
+}
+
+fn snapshot_key_rest<'a>(
+    snap_pid: &BTreeMap<
+        &'a str,
+        &'a (
+            PackageID,
+            &HashMap<Cow<'a, str>, Cow<'a, str>>,
+            &HashMap<Cow<'a, str>, types::lock::PeerDependencyMeta>,
+        ),
+    >,
+    rest: &'a str,
+) -> Option<Vec<&'a str>> {
+    let Ok((_, snap_pkg_name)) = delimited(tag("("), package_name, tag("@")).parse(rest) else {
+        return None;
+    };
+    for (snap_key, _) in snap_pid.range(snap_pkg_name..) {
+        if !snap_key.starts_with(snap_pkg_name) {
+            break;
+        }
+        if let Ok((more_snap_rest, _)) =
+            (tag("("), tag::<&str, &str, ()>(*snap_key), tag(")")).parse(rest)
+        {
+            let mut peers = vec![*snap_key];
+            if more_snap_rest.is_empty() {
+                return Some(peers);
+            } else if let Some(mut more_peers) = snapshot_key_rest(snap_pid, more_snap_rest) {
+                peers.append(&mut more_peers);
+                return Some(peers);
+            }
+        }
+    }
+    None
 }
 
 pub fn parse<P>(root_dir: P) -> Result<Chastefile>
@@ -86,7 +120,7 @@ where
         chastefile.add_package_installation(installation);
     }
 
-    let mut desc_pid = HashMap::with_capacity(lockfile.packages.len());
+    let mut desc_pid = BTreeMap::new();
     for (pkg_desc, pkg) in &lockfile.packages {
         let (_, (package_name, _, package_svd)) =
             (package_name, tag("@"), rest)
@@ -129,6 +163,46 @@ where
         );
     }
 
+    let mut snap_pid = BTreeMap::new();
+    let mut snap_queue = VecDeque::from_iter(lockfile.snapshots.keys());
+    let mut lap_i = 0usize;
+    'queue: while let Some(pkg_desc) = snap_queue.pop_front() {
+        let Some((snap_rest, pkg_name)) = terminated(package_name, tag("@")).parse(&pkg_desc).ok()
+        else {
+            return Err(Error::InvalidPackageDescriptor(pkg_desc.to_string()));
+        };
+        // Not a peer dep: "@chastelock/package@1.0.0" snapshot for the ("@chastelock/package", "1.0.0") package.
+        if let Some(pid) = desc_pid.get(&(pkg_name, snap_rest)) {
+            snap_pid.insert(pkg_desc.as_ref(), pid);
+            lap_i = 0;
+            continue 'queue;
+        }
+        // Looking through descriptors to find a matching package.
+        for ((d_pkg_name, d_pkg_svd), pid) in desc_pid.range((pkg_name, "")..) {
+            // List is sorted alphabetically.
+            if *d_pkg_name != pkg_name {
+                break;
+            }
+            // A key like "react-router@7.2.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)", is now matched
+            // to the ("react-router", "7.2.0") package.
+            let Some(peers_suffix) = snap_rest.strip_prefix(d_pkg_svd) else {
+                continue;
+            };
+            // Now we handle the "(react-dom@19.0.0(react@19.0.0))(react@19.0.0)" part.
+            // These are matches not with packages, but with other snapshots.
+            let Some(_peers) = snapshot_key_rest(&snap_pid, peers_suffix) else {
+                continue;
+            };
+            snap_pid.insert(&pkg_desc, pid);
+            lap_i = 0;
+            continue 'queue;
+        }
+        if lap_i > snap_queue.len() {
+            return Err(Error::InvalidSnapshotDescriptor(pkg_desc.to_string()));
+        }
+        lap_i += 1;
+        snap_queue.push_back(pkg_desc);
+    }
     for (importer_path, importer) in &lockfile.importers {
         let importer_pid = *importer_to_pid.get(importer_path).unwrap();
         for (dependencies, kind) in [
@@ -147,19 +221,25 @@ where
                 }
                 let mut is_aliased = false;
                 let dep_pid = {
-                    if let Some((dep_pid, _, _)) = desc_pid.get(&(&dep_name, &d.version)) {
-                        *dep_pid
-                    } else if let Ok((aliased_dep_svd, aliased_dep_name)) =
-                        terminated(package_name, tag("@")).parse(&d.version)
-                    {
-                        if let Some((dep_pid, _, _)) =
-                            desc_pid.get(&(aliased_dep_name, aliased_dep_svd))
-                        {
-                            is_aliased = true;
-                            *dep_pid
-                        } else {
-                            return Err(Error::DependencyPackageNotFound(d.version.to_string()));
+                    let mut dep_pid = None;
+                    for (snap_key, (snap_pid, _, _)) in snap_pid.range(dep_name.as_ref()..) {
+                        let Some(snap_rest) = snap_key.strip_prefix(dep_name.as_ref()) else {
+                            break;
+                        };
+                        let Some(snap_rest) = snap_rest.strip_prefix("@") else {
+                            continue;
+                        };
+                        if snap_rest == d.version {
+                            dep_pid = Some(*snap_pid);
+                            break;
                         }
+                    }
+                    if let Some(dep_pid) = dep_pid {
+                        dep_pid
+                    } else if let Some((dep_pid, _, _)) = snap_pid.get(d.version.as_ref()) {
+                        // If the dependency is aliased
+                        is_aliased = true;
+                        *dep_pid
                     } else {
                         return Err(Error::DependencyPackageNotFound(format!(
                             "{dep_name}@{}",
@@ -176,47 +256,55 @@ where
             }
         }
     }
-
-    for (pkg_desc, snap) in lockfile.snapshots {
-        let Some((pkg_svd, pkg_name)) = terminated(package_name, tag("@")).parse(&pkg_desc).ok()
-        else {
-            unreachable!();
-        };
-        // TODO: handle peer dependencies properly
-        // https://codeberg.org/selfisekai/chaste/issues/46
-        let pkg_svd = pkg_svd.split_once("(").map(|(s, _)| s).unwrap_or(pkg_svd);
-        let (pkg_pid, _pkg_peers, _pkg_peers_meta) = *desc_pid
-            .get(&(pkg_name, pkg_svd))
-            .ok_or_else(|| Error::SnapshotNotFound(pkg_desc.to_string()))?;
-        for (dependencies, kind) in [
+    for (pkg_desc, snap) in &lockfile.snapshots {
+        let (pkg_pid, pkg_peers, _pkg_peers_meta) = *snap_pid.get(pkg_desc.as_ref()).unwrap();
+        for (dependencies, kind_) in [
             (&snap.dependencies, DependencyKind::Dependency),
-            (&snap.dev_dependencies, DependencyKind::DevDependency),
             (
                 &snap.optional_dependencies,
                 DependencyKind::OptionalDependency,
             ),
         ] {
             for (dep_name, dep_svd) in dependencies {
-                let dep_svd = dep_svd.split_once("(").map(|(s, _)| s).unwrap_or(&dep_svd);
-                let dep = DependencyBuilder::new(kind, pkg_pid, {
-                    if let Some((dep_pid, _, _)) = desc_pid.get(&(&dep_name, dep_svd)) {
-                        *dep_pid
-                    } else if let Ok((aliased_dep_svd, aliased_dep_name)) =
-                        terminated(package_name, tag("@")).parse(dep_svd)
-                    {
-                        if let Some((dep_pid, _, _)) =
-                            desc_pid.get(&(aliased_dep_name, aliased_dep_svd))
-                        {
-                            *dep_pid
-                        } else {
-                            return Err(Error::DependencyPackageNotFound(dep_svd.to_string()));
+                let (kind, svs) = if let Some(svs) = pkg_peers.get(dep_name) {
+                    match kind_ {
+                        DependencyKind::Dependency => (DependencyKind::PeerDependency, Some(svs)),
+                        DependencyKind::OptionalDependency => {
+                            (DependencyKind::OptionalPeerDependency, Some(svs))
                         }
+                        _ => unreachable!(),
+                    }
+                } else {
+                    (kind_, None)
+                };
+                let mut dep = DependencyBuilder::new(kind, *pkg_pid, {
+                    let mut dep_pid = None;
+                    for (snap_key, (snap_pid, _, _)) in snap_pid.range(dep_name.as_ref()..) {
+                        let Some(snap_rest) = snap_key.strip_prefix(dep_name.as_ref()) else {
+                            break;
+                        };
+                        let Some(snap_rest) = snap_rest.strip_prefix("@") else {
+                            continue;
+                        };
+                        if snap_rest == dep_svd {
+                            dep_pid = Some(*snap_pid);
+                            break;
+                        }
+                    }
+                    if let Some(dep_pid) = dep_pid {
+                        dep_pid
+                    } else if let Some((dep_pid, _, _)) = snap_pid.get(dep_svd.as_ref()) {
+                        // If the dependency is aliased
+                        *dep_pid
                     } else {
                         return Err(Error::DependencyPackageNotFound(format!(
                             "{dep_name}@{dep_svd}"
                         )));
                     }
                 });
+                if let Some(svs) = svs {
+                    dep.svs(SourceVersionSpecifier::new(svs.to_string())?);
+                }
                 chastefile.add_dependency(dep.build());
             }
         }

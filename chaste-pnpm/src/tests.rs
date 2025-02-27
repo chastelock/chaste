@@ -172,6 +172,44 @@ fn v9_overrides() -> Result<()> {
 }
 
 #[test]
+fn v9_peer_deps() -> Result<()> {
+    let chastefile = test_workspace("v9_peer_deps")?;
+    let [rrouter_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+    assert_eq!(
+        chastefile.package(rrouter_dep.on).name().unwrap(),
+        "react-router"
+    );
+    let rrouter_deps = chastefile.package_dependencies(rrouter_dep.on).into_iter();
+    assert_eq!(rrouter_deps.len(), 6);
+    let (rdom_dep, _rdom_pkg) = chastefile
+        .package_dependencies(rrouter_dep.on)
+        .into_iter()
+        .find_map(|d| {
+            Some((d, chastefile.package(d.on)))
+                .filter(|(_, p)| p.name().is_some_and(|n| n == "react-dom"))
+        })
+        .unwrap();
+    assert_eq!(rdom_dep.svs().unwrap(), ">=18");
+    let mut rdom_deps = chastefile.package_dependencies(rdom_dep.on).into_iter();
+    assert_eq!(rdom_deps.len(), 2);
+    // A dependency of react-dom here (though it's also in tree a dependency of react-router)
+    let react_dep = rdom_deps.find(|d| d.kind.is_peer()).unwrap();
+    assert_eq!(react_dep.svs().unwrap(), "^19.0.0");
+    let react_pkg = chastefile.package(react_dep.on);
+    assert_eq!(react_pkg.name().unwrap(), "react");
+    /*
+    let [react_inst] = *chastefile.package_installations(react_dep.on) else {
+        panic!();
+    };
+    assert_eq!(react_inst.path().as_ref(), "node_modules/react");
+    */
+
+    Ok(())
+}
+
+#[test]
 fn v9_peer_unsatisfied() -> Result<()> {
     let chastefile = test_workspace("v9_peer_unsatisfied")?;
     assert!(!chastefile.packages().into_iter().any(|p| p
