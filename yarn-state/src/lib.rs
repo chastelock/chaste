@@ -31,10 +31,7 @@ pub fn parse(input: &str) -> Result<YarnState<'_>> {
 
 fn statefile(input: &str) -> Result<YarnState> {
     match (header, many1(package)).parse(input) {
-        Ok((input, _)) if !input.is_empty() => {
-            dbg!(input);
-            Err(Error::InvalidSyntax())
-        }
+        Ok((input, _)) if !input.is_empty() => Err(Error::InvalidSyntax()),
         Err(_) => Err(Error::InvalidSyntax()),
 
         Ok((_, (version, packages))) => Ok(YarnState { version, packages }),
