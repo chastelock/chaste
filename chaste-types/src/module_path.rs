@@ -52,6 +52,9 @@ impl ModulePath {
                     return Err(Error::InvalidModulePath(value.to_string()));
                 }
                 "node_modules" => {
+                    if inside_node_modules {
+                        return Err(Error::InvalidModulePath(value.to_string()));
+                    }
                     inside_node_modules = true;
                     segments.push(ModulePathSegmentInternal::NodeModules(end_idx));
                 }
@@ -306,6 +309,7 @@ mod tests {
         invalid("node_modules");
         invalid("node_modules/@chastelock/testcase/something/deeper");
         invalid("node_modules/@chastelock");
+        invalid("node_modules/node_modules/n");
         Ok(())
     }
 }
