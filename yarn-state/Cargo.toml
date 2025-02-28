@@ -4,7 +4,7 @@
 [package]
 name = "yarn-state"
 edition = "2021"
-version = "0.1.1"
+version = "0.1.2"
 description = "Parser for .yarn-state.yml files"
 authors.workspace = true
 license.workspace = true

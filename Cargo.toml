@@ -30,7 +30,7 @@ chaste-types = { version = "=0.5.0", default-features = false, path = "chaste-ty
 chaste-pnpm = { version = "=0.5.0", default-features = false, path = "chaste-pnpm" }
 chaste-yarn = { version = "=0.5.0", default-features = false, path = "chaste-yarn" }
 
-yarn-state = { version = "0.1.1", default-features = false, path = "yarn-state" }
+yarn-state = { version = "0.1.2", default-features = false, path = "yarn-state" }
 
 anyhow = "1.0"
 argh = "0.1"
