@@ -152,7 +152,7 @@ pub enum ModulePathSegment<'a> {
     NodeModules(&'a str),
     PackageName(PackageNameBorrowed<'a>),
 }
-impl<'a> AsRef<str> for ModulePathSegment<'a> {
+impl AsRef<str> for ModulePathSegment<'_> {
     fn as_ref(&self) -> &str {
         match self {
             ModulePathSegment::Arbitrary(i) => i,

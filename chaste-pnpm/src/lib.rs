@@ -122,10 +122,9 @@ where
 
     let mut desc_pid = BTreeMap::new();
     for (pkg_desc, pkg) in &lockfile.packages {
-        let (_, (package_name, _, package_svd)) =
-            (package_name, tag("@"), rest)
-                .parse(&pkg_desc)
-                .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
+        let (_, (package_name, _, package_svd)) = (package_name, tag("@"), rest)
+            .parse(pkg_desc)
+            .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
         let version = pkg
             .version
             .as_deref()
@@ -167,7 +166,7 @@ where
     let mut snap_queue = VecDeque::from_iter(lockfile.snapshots.keys());
     let mut lap_i = 0usize;
     'queue: while let Some(pkg_desc) = snap_queue.pop_front() {
-        let Some((snap_rest, pkg_name)) = terminated(package_name, tag("@")).parse(&pkg_desc).ok()
+        let Some((snap_rest, pkg_name)) = terminated(package_name, tag("@")).parse(pkg_desc).ok()
         else {
             return Err(Error::InvalidPackageDescriptor(pkg_desc.to_string()));
         };
@@ -193,7 +192,7 @@ where
             let Some(_peers) = snapshot_key_rest(&snap_pid, peers_suffix) else {
                 continue;
             };
-            snap_pid.insert(&pkg_desc, pid);
+            snap_pid.insert(pkg_desc, pid);
             lap_i = 0;
             continue 'queue;
         }

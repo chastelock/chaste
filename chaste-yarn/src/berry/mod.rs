@@ -114,7 +114,9 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
         Some(PackageName::new(name.to_string())?),
         Some(entry.version.to_string()),
     );
-    pkg.checksums(parse_checksum(entry.integrity)?);
+    if !entry.integrity.is_empty() {
+        pkg.checksums(parse_checksum(entry.integrity)?);
+    }
     if let Some((_, Some(source))) = source {
         pkg.source(source);
     }
@@ -138,7 +140,10 @@ fn until_just_package_name_is_left(input: &str) -> IResult<&str, &str> {
     )))
 }
 
-fn parse_resolution_key(input: &str) -> Result<(Option<(&str, Option<&str>)>, &str)> {
+type ResolutionParent<'a> = (&'a str, Option<&'a str>);
+type Resolution<'a> = (Option<ResolutionParent<'a>>, &'a str);
+
+fn parse_resolution_key(input: &str) -> Result<Resolution> {
     (
         opt(terminated(
             (
@@ -179,7 +184,7 @@ fn resolution_from_state_key(state_key: &str) -> Cow<'_, str> {
 fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
-    resolutions: &HashMap<(Option<(&str, Option<&str>)>, &str), &str>,
+    resolutions: &HashMap<Resolution, &str>,
     index_to_pid: &HashMap<usize, PackageID>,
     is_peer: bool,
 ) -> Result<Option<PackageID>>

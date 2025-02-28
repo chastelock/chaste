@@ -29,13 +29,13 @@ pub struct WorkspaceMember<'a> {
     pub name: Option<Cow<'a, str>>,
     pub version: Option<Cow<'a, str>>,
     #[serde(flatten)]
-    pub relations: PackageRelations<'a>,
+    pub relations: Box<PackageRelations<'a>>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum LockPackageElement<'a> {
-    Relations(PackageRelations<'a>),
+    Relations(Box<PackageRelations<'a>>),
     String(Cow<'a, str>),
 }
 
