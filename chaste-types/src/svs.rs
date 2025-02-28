@@ -409,8 +409,13 @@ impl SourceVersionSpecifier {
     /// assert_eq!(svs2.npm_range_str().unwrap(), "^2.1.37");
     /// ```
     pub fn npm_range(&self) -> Option<VersionRange> {
-        self.npm_range_str()
-            .map(|r| VersionRange::parse(r).unwrap())
+        self.npm_range_str().map(|r| {
+            if r.is_empty() {
+                VersionRange::any()
+            } else {
+                VersionRange::parse(r).unwrap()
+            }
+        })
     }
 
     /// If the dependency source is Git over SSH, this returns the separator used
@@ -488,6 +493,10 @@ mod tests {
         let svs = SourceVersionSpecifier::new("".to_string())?;
         assert!(svs.is_npm());
         assert_eq!(svs.aliased_package_name(), None);
+        assert!(svs
+            .npm_range()
+            .unwrap()
+            .satisfies(&nodejs_semver::Version::parse("1.0.0")?));
         Ok(())
     }
 
