@@ -28,3 +28,10 @@ path = "fuzz_targets/types/name.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "types-svs"
+path = "fuzz_targets/types/svs.rs"
+test = false
+doc = false
+bench = false
