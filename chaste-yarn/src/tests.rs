@@ -247,7 +247,8 @@ test_workspaces!(peer_deps, |chastefile: Chastefile, lv: u8| {
     // v1 lockfile does not list peer dependencies at all.
     assert_eq!(rrouter_deps.len(), if lv == 1 { 4 } else { 6 });
     if lv > 1 {
-        let (rdom_dep, _rdom_pkg) = dbg!(chastefile.package_dependencies(rrouter_dep.on))
+        let (rdom_dep, _rdom_pkg) = chastefile
+            .package_dependencies(rrouter_dep.on)
             .into_iter()
             .find_map(|d| {
                 Some((d, chastefile.package(d.on)))
