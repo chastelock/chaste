@@ -11,6 +11,7 @@ members = [
     "chaste-pnpm",
     "chaste-types",
     "chaste-yarn",
+    "fuzz",
     "yarn-state",
 ]
 

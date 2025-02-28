@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2025 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "chaste-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+chaste-types.workspace = true
+
+[[bin]]
+name = "types-module_path"
+path = "fuzz_targets/types/module_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "types-name"
+path = "fuzz_targets/types/name.rs"
+test = false
+doc = false
+bench = false
