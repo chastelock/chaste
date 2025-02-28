@@ -194,6 +194,26 @@ fn text_v1_overrides() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn text_v1_peer_deps() -> Result<()> {
+    let chastefile = test_workspace("text_v1_peer_deps")?;
+    let [rdom_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+    assert_eq!(chastefile.package(rdom_dep.on).name().unwrap(), "react-dom");
+    let mut rdom_deps = chastefile.package_dependencies(rdom_dep.on).into_iter();
+    assert_eq!(rdom_deps.len(), 2);
+    let react_dep = rdom_deps.find(|d| d.kind.is_peer()).unwrap();
+    let react_pkg = chastefile.package(react_dep.on);
+    assert_eq!(react_pkg.name().unwrap(), "react");
+    let [react_inst] = *chastefile.package_installations(react_dep.on) else {
+        panic!();
+    };
+    assert_eq!(react_inst.path().as_ref(), "node_modules/react");
+
+    Ok(())
+}
+
 // TODO: https://github.com/oven-sh/bun/issues/16879
 #[ignore = "cannot reproduce due to bug in upstream"]
 #[test]
