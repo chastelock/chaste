@@ -95,7 +95,7 @@ impl PackageBuilder {
         Ok(Package {
             name: self.name,
             version: self.version.map(PackageVersion::parse).transpose()?,
-            checksums: self.checksums,
+            checksums: self.checksums.filter(|c| !c.integrity().hashes.is_empty()),
             source: self.source,
         })
     }
