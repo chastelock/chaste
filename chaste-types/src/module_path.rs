@@ -37,12 +37,16 @@ impl ModulePath {
         let mut segments = Vec::new();
         let mut end_idx = 0usize;
         let mut inside_node_modules = false;
+        let mut expecting_package_name_now = false;
         let mut inside_scoped = false;
         for (i, segment) in value.split("/").enumerate() {
             end_idx += segment.len();
             if i != 0 {
                 end_idx += 1;
             }
+            debug_assert!(
+                (expecting_package_name_now && inside_node_modules) || !expecting_package_name_now
+            );
             match segment {
                 "" => {
                     // Empty value is a special case for root path
@@ -52,20 +56,21 @@ impl ModulePath {
                     return Err(Error::InvalidModulePath(value.to_string()));
                 }
                 "node_modules" => {
-                    if inside_node_modules {
+                    if expecting_package_name_now {
                         return Err(Error::InvalidModulePath(value.to_string()));
                     }
                     inside_node_modules = true;
+                    expecting_package_name_now = true;
                     segments.push(ModulePathSegmentInternal::NodeModules(end_idx));
                 }
-                seg if inside_node_modules && !inside_scoped && seg.starts_with("@") => {
+                _ if !inside_node_modules => {
+                    segments.push(ModulePathSegmentInternal::Arbitrary(end_idx));
+                }
+                seg if expecting_package_name_now && !inside_scoped && seg.starts_with("@") => {
                     inside_scoped = true;
                 }
-                _ if inside_node_modules => {
+                _ if expecting_package_name_now => {
                     let last_seg = segments.last().unwrap();
-                    if matches!(last_seg, ModulePathSegmentInternal::PackageName(..)) {
-                        return Err(Error::InvalidModulePath(value.to_string()));
-                    }
                     let start_idx = last_seg.end_idx() + 1;
                     let pn_str = &value[start_idx..end_idx];
                     let (remaining, pn_positions) = package_name(pn_str)
@@ -79,10 +84,9 @@ impl ModulePath {
                     ));
 
                     inside_scoped = false;
+                    expecting_package_name_now = false;
                 }
-                _ => {
-                    segments.push(ModulePathSegmentInternal::Arbitrary(end_idx));
-                }
+                _ => return Err(Error::InvalidModulePath(value.to_string())),
             }
         }
         if inside_scoped
@@ -293,6 +297,32 @@ mod tests {
         assert_eq!(
             segments.next(),
             Some(ModulePathSegment::PackageName(TESTCASE_PN.as_borrowed()))
+        );
+        assert_eq!(segments.next(), None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn nested_modules() -> Result<()> {
+        let path =
+            ModulePath::new("node_modules/@chastelock/testcase/node_modules/semver".to_string())?;
+        let mut segments = path.iter();
+        assert_eq!(
+            segments.next(),
+            Some(ModulePathSegment::NodeModules("node_modules"))
+        );
+        assert_eq!(
+            segments.next(),
+            Some(ModulePathSegment::PackageName(TESTCASE_PN.as_borrowed()))
+        );
+        assert_eq!(
+            segments.next(),
+            Some(ModulePathSegment::NodeModules("node_modules"))
+        );
+        assert_eq!(
+            segments.next(),
+            Some(ModulePathSegment::PackageName(SEMVER_PN.as_borrowed()))
         );
         assert_eq!(segments.next(), None);
 
