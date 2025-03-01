@@ -14,7 +14,12 @@ use chaste_types::{
 
 pub use crate::error::{Error, Result};
 
-use crate::types::{DependencyTreePackage, PackageLock, PeerDependencyMeta};
+use crate::types::{DependencyTreePackage, PeerDependencyMeta};
+
+#[cfg(feature = "fuzzing")]
+pub use crate::types::PackageLock;
+#[cfg(not(feature = "fuzzing"))]
+use crate::types::PackageLock;
 
 mod error;
 #[cfg(test)]
@@ -231,14 +236,22 @@ impl<'a> PackageParser<'a> {
     }
 }
 
-fn parse_lock(package_lock: &PackageLock) -> Result<Chastefile> {
-    if ![2, 3].contains(&package_lock.lockfile_version) {
-        return Err(Error::UnknownLockVersion(package_lock.lockfile_version));
+mod parse_lock_ {
+    use super::{Chastefile, Error, PackageLock, PackageParser, Result};
+    pub fn parse_lock(package_lock: &PackageLock) -> Result<Chastefile> {
+        if ![2, 3].contains(&package_lock.lockfile_version) {
+            return Err(Error::UnknownLockVersion(package_lock.lockfile_version));
+        }
+        let parser = PackageParser::new(package_lock);
+        let chastefile = parser.resolve()?;
+        Ok(chastefile)
     }
-    let parser = PackageParser::new(package_lock);
-    let chastefile = parser.resolve()?;
-    Ok(chastefile)
 }
+
+#[cfg(feature = "fuzzing")]
+pub use parse_lock_::parse_lock;
+#[cfg(not(feature = "fuzzing"))]
+use parse_lock_::parse_lock;
 
 pub fn parse<P>(root_dir: P) -> Result<Chastefile>
 where

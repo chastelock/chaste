@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DependencyTreePackage<'a> {
     pub(crate) name: Option<Cow<'a, str>>,
@@ -27,14 +28,16 @@ pub(crate) struct DependencyTreePackage<'a> {
 }
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PeerDependencyMeta {
     pub(crate) optional: Option<bool>,
 }
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct PackageLock<'a> {
+pub struct PackageLock<'a> {
     pub(crate) name: Cow<'a, str>,
     pub(crate) lockfile_version: u8,
     #[serde(default)]

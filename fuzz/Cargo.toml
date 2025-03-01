@@ -13,7 +13,15 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 
+chaste-npm = { workspace = true, features = ["fuzzing"] }
 chaste-types.workspace = true
+
+[[bin]]
+name = "npm-parse"
+path = "fuzz_targets/npm/parse.rs"
+test = false
+doc = false
+bench = false
 
 [[bin]]
 name = "types-module_path"
