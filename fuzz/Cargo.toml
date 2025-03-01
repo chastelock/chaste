@@ -13,8 +13,16 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 
+chaste-bun = { workspace = true, features = ["fuzzing"] }
 chaste-npm = { workspace = true, features = ["fuzzing"] }
 chaste-types.workspace = true
+
+[[bin]]
+name = "bun-parse"
+path = "fuzz_targets/bun/parse.rs"
+test = false
+doc = false
+bench = false
 
 [[bin]]
 name = "npm-parse"

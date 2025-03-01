@@ -13,11 +13,19 @@ categories.workspace = true
 repository.workspace = true
 exclude.workspace = true
 
+[features]
+fuzzing = ["dep:arbitrary"]
+
 [dependencies]
 chaste-types.workspace = true
 json5.workspace = true
 nom.workspace = true
 thiserror.workspace = true
+
+[dependencies.arbitrary]
+workspace = true
+optional = true
+features = ["derive"]
 
 [dependencies.serde]
 workspace = true

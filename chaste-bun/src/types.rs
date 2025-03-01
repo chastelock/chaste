@@ -9,6 +9,7 @@ use std::{
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[serde(rename_all = "camelCase")]
 pub struct PackageRelations<'a> {
     #[serde(default)]
@@ -24,6 +25,7 @@ pub struct PackageRelations<'a> {
 }
 
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceMember<'a> {
     pub name: Option<Cow<'a, str>>,
@@ -33,6 +35,7 @@ pub struct WorkspaceMember<'a> {
 }
 
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[serde(untagged)]
 pub enum LockPackageElement<'a> {
     Relations(Box<PackageRelations<'a>>),
@@ -40,6 +43,7 @@ pub enum LockPackageElement<'a> {
 }
 
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[serde(rename_all = "camelCase")]
 pub struct BunLock<'a> {
     pub lockfile_version: u8,

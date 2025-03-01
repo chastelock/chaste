@@ -135,6 +135,7 @@ dependencies = [
 name = "chaste-bun"
 version = "0.5.0"
 dependencies = [
+ "arbitrary",
  "chaste-types",
  "json5",
  "nom",
@@ -156,6 +157,7 @@ dependencies = [
 name = "chaste-fuzz"
 version = "0.0.0"
 dependencies = [
+ "chaste-bun",
  "chaste-npm",
  "chaste-types",
  "libfuzzer-sys",

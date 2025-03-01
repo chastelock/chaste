@@ -19,7 +19,13 @@ use nom::{
 };
 
 pub use crate::error::{Error, Result};
-use crate::types::{BunLock, LockPackageElement};
+use crate::types::LockPackageElement;
+
+#[cfg(feature = "fuzzing")]
+pub use crate::types::BunLock;
+
+#[cfg(not(feature = "fuzzing"))]
+use crate::types::BunLock;
 
 mod error;
 #[cfg(test)]
@@ -72,7 +78,15 @@ where
 {
     let bun_lock_contents = fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?;
     let bun_lock: BunLock = json5::from_str(&bun_lock_contents)?;
+    parse_contents(bun_lock)
+}
 
+#[cfg(feature = "fuzzing")]
+pub fn parse_lock(bun_lock: BunLock) -> Result<Chastefile> {
+    parse_contents(bun_lock)
+}
+
+fn parse_contents(bun_lock: BunLock) -> Result<Chastefile> {
     if !matches!(bun_lock.lockfile_version, (0..=1)) {
         return Err(Error::UnknownLockfileVersion(bun_lock.lockfile_version));
     }
