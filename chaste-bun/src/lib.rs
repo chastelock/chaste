@@ -203,17 +203,19 @@ fn parse_contents(bun_lock: BunLock) -> Result<Chastefile> {
             // This should have thrown an InvalidVariant earlier
             _ => unreachable!(),
         };
-        let relations = match &lock_pkg[..] {
-            [_, LockPackageElement::Relations(r), ..] => Some(r),
-            [_, _, LockPackageElement::Relations(r), ..] => Some(r),
-            _ => None,
-        };
-        debug_assert!(
-            relations.is_some()
-                || !lock_pkg
+        let mut relations = None;
+        for idx in 0..lock_pkg.len() {
+            if let LockPackageElement::Relations(rels) = &lock_pkg[idx] {
+                relations = Some(rels);
+                if lock_pkg[idx + 1..]
                     .iter()
-                    .any(|p| matches!(p, LockPackageElement::Relations(_)))
-        );
+                    .any(|e| matches!(e, LockPackageElement::Relations(_)))
+                {
+                    return Err(Error::InvalidVariant(lock_key.to_string()));
+                }
+                break;
+            }
+        }
         let pid = *descript_to_pid.get(descriptor).unwrap();
         if let Some(relations) = relations {
             for (deps, kind_) in [
