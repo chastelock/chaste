@@ -210,10 +210,13 @@ impl<'a> PackageParser<'a> {
             .iter()
             .filter(|(_, tp)| tp.link == Some(true))
         {
-            let Some(member_path) = &tree_package.resolved else {
+            let Some(&pid) = tree_package
+                .resolved
+                .as_ref()
+                .and_then(|lt| self.path_pid.get(lt))
+            else {
                 return Err(Error::WorkspaceMemberNotFound(package_path.to_string()));
             };
-            let pid = *self.path_pid.get(member_path).unwrap();
             self.path_pid.insert(package_path, pid);
             let module_path = ModulePath::new(package_path.to_string())?;
             let installation = InstallationBuilder::new(pid, module_path).build()?;

@@ -126,6 +126,15 @@ fn v3_hoist_partial() -> Result<()> {
 }
 
 #[test]
+fn v3_link_nowhere() -> Result<()> {
+    assert!(matches!(
+        test_workspace("v3_link_nowhere").unwrap_err(),
+        Error::WorkspaceMemberNotFound(target) if target.is_empty()
+    ));
+    Ok(())
+}
+
+#[test]
 fn v3_npm_aliased() -> Result<()> {
     let chastefile = test_workspace("v3_npm_aliased")?;
     let [pakig_dep] = *chastefile.root_package_dependencies() else {
