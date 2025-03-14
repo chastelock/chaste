@@ -44,9 +44,7 @@ impl ModulePath {
             if i != 0 {
                 end_idx += 1;
             }
-            debug_assert!(
-                (expecting_package_name_now && inside_node_modules) || !expecting_package_name_now
-            );
+            debug_assert!(!(expecting_package_name_now && !inside_node_modules));
             match segment {
                 "" => {
                     // Empty value is a special case for root path
@@ -165,12 +163,12 @@ impl AsRef<str> for ModulePathSegment<'_> {
         }
     }
 }
-impl<'a> PartialOrd for ModulePathSegment<'a> {
+impl PartialOrd for ModulePathSegment<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
-impl<'a> Ord for ModulePathSegment<'a> {
+impl Ord for ModulePathSegment<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.as_ref().cmp(other.as_ref())
     }
