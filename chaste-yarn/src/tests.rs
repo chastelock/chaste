@@ -4,7 +4,9 @@
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use chaste_types::{Chastefile, Checksums, Dependency, Package, PackageID, PackageSourceType};
+use chaste_types::{
+    Chastefile, Checksums, Dependency, DependencyKind, Package, PackageID, PackageSourceType,
+};
 use concat_idents::concat_idents;
 
 use super::{parse, Result};
@@ -255,6 +257,7 @@ test_workspaces!(peer_deps, |chastefile: Chastefile, lv: u8| {
                     .filter(|(_, p)| p.name().is_some_and(|n| n == "react-dom"))
             })
             .unwrap();
+        assert_eq!(rdom_dep.kind, DependencyKind::OptionalPeerDependency);
         assert_eq!(rdom_dep.svs().unwrap(), ">=18");
         let mut rdom_deps = chastefile.package_dependencies(rdom_dep.on).into_iter();
         assert_eq!(rdom_deps.len(), 2);

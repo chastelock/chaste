@@ -311,11 +311,25 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
-        for (dependencies, kind) in [
+        for (dependencies, kind_) in [
             (&entry.dependencies, DependencyKind::Dependency),
             (&entry.peer_dependencies, DependencyKind::PeerDependency),
         ] {
             for dep_descriptor in dependencies {
+                let peer_meta = if kind_ == DependencyKind::PeerDependency {
+                    entry
+                        .peer_dependencies_meta
+                        .iter()
+                        .find(|(k, _)| *k == dep_descriptor.0)
+                        .map(|(_, v)| v)
+                } else {
+                    None
+                };
+                let kind = if peer_meta.is_some_and(|m| m.optional == Some(true)) {
+                    DependencyKind::OptionalPeerDependency
+                } else {
+                    kind_
+                };
                 let Some(dep_pid) = find_dep_pid(
                     dep_descriptor,
                     &yarn_lock,
