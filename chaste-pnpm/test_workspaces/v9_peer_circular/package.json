@@ -1,0 +1,7 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "1.0.0",
+    "dependencies": {
+        "@chastelock/circular-peers-a": "^1.0.0"
+    }
+}

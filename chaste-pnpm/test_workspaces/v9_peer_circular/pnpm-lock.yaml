@@ -1,0 +1,51 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@chastelock/circular-peers-a':
+        specifier: ^1.0.0
+        version: 1.0.0(@chastelock/circular-peers-b@1.0.0)(@chastelock/recursion-a@0.1.0)
+
+packages:
+
+  '@chastelock/circular-peers-a@1.0.0':
+    resolution: {integrity: sha512-Y5oS1eQ95V5w4U4HYM7x9wB03ACy1hbbcw3gAQt5zCxLQ5Qd/+Xce1Hs+2wbt5suBv6kd69xJDrdeRCJPPen8Q==}
+    peerDependencies:
+      '@chastelock/circular-peers-b': 1.0.0
+      '@chastelock/recursion-a': 0.1.0
+
+  '@chastelock/circular-peers-b@1.0.0':
+    resolution: {integrity: sha512-YlshHd+KPnnrw23JwsmkbBswqwa2I6OfF5+Z91r9lY09AngYykrTCHaS0vcuNQrQzWUXmqfvcIsAlqw9mUqHoQ==}
+    peerDependencies:
+      '@chastelock/circular-peers-a': 1.0.0
+
+  '@chastelock/recursion-a@0.1.0':
+    resolution: {integrity: sha512-mCv/F9+1t8ZsglREQBPqeWnwtC1355o6j4wfIEuOHuWkLLNptZDsihp6scNY38xBN1LR8P/gZiWpiOifxDXeKw==}
+
+  '@chastelock/recursion-b@0.1.0':
+    resolution: {integrity: sha512-juafxhBPP8a5IV7tSjkK7ekQy53QhIBrNDtm6I8Ssym5HYbOHnnGoqyWOcM1EMW1339trBeUnEMB//BZIiMc6w==}
+
+snapshots:
+
+  '@chastelock/circular-peers-a@1.0.0(@chastelock/circular-peers-b@1.0.0)(@chastelock/recursion-a@0.1.0)':
+    dependencies:
+      '@chastelock/circular-peers-b': 1.0.0(@chastelock/circular-peers-a@1.0.0)
+      '@chastelock/recursion-a': 0.1.0
+
+  '@chastelock/circular-peers-b@1.0.0(@chastelock/circular-peers-a@1.0.0)':
+    dependencies:
+      '@chastelock/circular-peers-a': 1.0.0(@chastelock/circular-peers-b@1.0.0)(@chastelock/recursion-a@0.1.0)
+
+  '@chastelock/recursion-a@0.1.0':
+    dependencies:
+      '@chastelock/recursion-b': 0.1.0
+
+  '@chastelock/recursion-b@0.1.0':
+    dependencies:
+      '@chastelock/recursion-a': 0.1.0

@@ -45,6 +45,14 @@ fn snapshot_key_rest<'a>(
             &HashMap<Cow<'a, str>, types::lock::PeerDependencyMeta>,
         ),
     >,
+    desc_pid: &BTreeMap<
+        (&'a str, &'a str),
+        (
+            PackageID,
+            &HashMap<Cow<'a, str>, Cow<'a, str>>,
+            &HashMap<Cow<'a, str>, types::lock::PeerDependencyMeta>,
+        ),
+    >,
     rest: &'a str,
 ) -> Option<Vec<&'a str>> {
     let Ok((_, snap_pkg_name)) = delimited(tag("("), package_name, tag("@")).parse(rest) else {
@@ -60,12 +68,47 @@ fn snapshot_key_rest<'a>(
             let mut peers = vec![*snap_key];
             if more_snap_rest.is_empty() {
                 return Some(peers);
-            } else if let Some(mut more_peers) = snapshot_key_rest(snap_pid, more_snap_rest) {
+            } else if let Some(mut more_peers) =
+                snapshot_key_rest(snap_pid, desc_pid, more_snap_rest)
+            {
                 peers.append(&mut more_peers);
                 return Some(peers);
             }
         }
     }
+
+    // Failed to find a snapshot by snapshot key. But the dependency may be circular.
+    // In that case:
+    // 1) `snap_rest` contains a package key instead of a snapshot key,
+    //    because that would be an infinite loop. (The rest is always gone,
+    //    even if there are non-circular peer dependencies.)
+    // 2) The snapshot may not exist in `snap_pid` due to chicken and egg problem.
+    //
+    // Therefore, check `desc_pid` for a package descriptor.
+    for (desc_key, _) in desc_pid.range((snap_pkg_name, "")..) {
+        let (desc_pn, desc_svd) = desc_key;
+        if *desc_pn != snap_pkg_name {
+            break;
+        }
+        if let Ok((more_snap_rest, (_, desc_str, _))) = (
+            tag("("),
+            recognize((tag::<&str, &str, ()>(*desc_pn), tag("@"), tag(*desc_svd))),
+            tag(")"),
+        )
+            .parse(rest)
+        {
+            let mut peers = vec![desc_str];
+            if more_snap_rest.is_empty() {
+                return Some(peers);
+            } else if let Some(mut more_peers) =
+                snapshot_key_rest(snap_pid, desc_pid, more_snap_rest)
+            {
+                peers.append(&mut more_peers);
+                return Some(peers);
+            }
+        }
+    }
+
     None
 }
 
@@ -189,7 +232,7 @@ where
             };
             // Now we handle the "(react-dom@19.0.0(react@19.0.0))(react@19.0.0)" part.
             // These are matches not with packages, but with other snapshots.
-            let Some(_peers) = snapshot_key_rest(&snap_pid, peers_suffix) else {
+            let Some(_peers) = snapshot_key_rest(&snap_pid, &desc_pid, peers_suffix) else {
                 continue;
             };
             snap_pid.insert(pkg_desc, pid);

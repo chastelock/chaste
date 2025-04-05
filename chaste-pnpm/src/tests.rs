@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use chaste_types::{Chastefile, Package, PackageID, PackageSourceType};
+use chaste_types::{Chastefile, DependencyKind, Package, PackageID, PackageSourceType};
 
 use crate::error::Result;
 use crate::parse;
@@ -167,6 +167,38 @@ fn v9_overrides() -> Result<()> {
     };
     assert_eq!(scwm_pkg.version().unwrap().to_string(), "1.0.1");
     assert_eq!(scwm_pkg.source_type(), Some(PackageSourceType::TarballURL));
+
+    Ok(())
+}
+
+#[test]
+fn v9_peer_circular() -> Result<()> {
+    let chastefile = test_workspace("v9_peer_circular")?;
+
+    let [circ_a_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+
+    let circ_a_pid = circ_a_dep.on;
+    let circ_a_pkg = chastefile.package(circ_a_pid);
+    assert_eq!(circ_a_pkg.name().unwrap(), "@chastelock/circular-peers-a");
+
+    let mut circ_a_deps: Vec<_> = chastefile
+        .package_dependencies(circ_a_pid)
+        .into_iter()
+        .map(|d| (d, chastefile.package(d.on)))
+        .collect();
+    circ_a_deps.sort_unstable_by_key(|(_, p)| p.name());
+
+    let [(circ_b_dep, circ_b_pkg), (rec_a_dep, rec_a_pkg)] = *circ_a_deps else {
+        panic!();
+    };
+
+    assert_eq!(circ_b_dep.kind, DependencyKind::PeerDependency);
+    assert_eq!(circ_b_pkg.name().unwrap(), "@chastelock/circular-peers-b");
+
+    assert_eq!(rec_a_dep.kind, DependencyKind::PeerDependency);
+    assert_eq!(rec_a_pkg.name().unwrap(), "@chastelock/recursion-a");
 
     Ok(())
 }
