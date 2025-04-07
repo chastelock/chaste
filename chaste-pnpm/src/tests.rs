@@ -172,6 +172,25 @@ fn v9_overrides() -> Result<()> {
 }
 
 #[test]
+fn v9_patch() -> Result<()> {
+    let chastefile = test_workspace("v9_patch")?;
+
+    let [rec_a_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+    let [rec_b_dep] = *chastefile.package_dependencies(rec_a_dep.on) else {
+        panic!();
+    };
+    let rec_b_pkg = chastefile.package(rec_b_dep.on);
+    assert_eq!(rec_b_pkg.name().unwrap(), "@chastelock/recursion-b");
+
+    // TODO: Check that the source is patched when there is an API for that.
+    // https://codeberg.org/selfisekai/chaste/issues/56
+
+    Ok(())
+}
+
+#[test]
 fn v9_peer_circular() -> Result<()> {
     let chastefile = test_workspace("v9_peer_circular")?;
 

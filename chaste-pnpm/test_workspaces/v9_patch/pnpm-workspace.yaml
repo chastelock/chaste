@@ -1,0 +1,2 @@
+patchedDependencies:
+  '@chastelock/recursion-b': patches/@chastelock__recursion-b.patch

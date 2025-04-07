@@ -11,7 +11,7 @@ use chaste_types::{
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
     PackageSource, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
 };
-use nom::bytes::complete::tag;
+use nom::bytes::complete::{tag, take};
 use nom::combinator::{opt, recognize, rest, verify};
 use nom::sequence::{delimited, preceded, terminated};
 use nom::{IResult, Parser};
@@ -227,9 +227,31 @@ where
             }
             // A key like "react-router@7.2.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)", is now matched
             // to the ("react-router", "7.2.0") package.
-            let Some(peers_suffix) = snap_rest.strip_prefix(d_pkg_svd) else {
+            let Some(mut peers_suffix) = snap_rest.strip_prefix(d_pkg_svd) else {
                 continue;
             };
+            // If a package is patched with a diff over the original source,
+            // handle the patch SHA-256 hex in the key.
+            if let Ok((suff, _)) = delimited(
+                tag::<&str, &str, ()>("(patch_hash="),
+                verify(take(64usize), |h: &str| {
+                    h.as_bytes()
+                        .iter()
+                        .all(|b| matches!(b, b'a'..=b'f' | b'0'..=b'9'))
+                }),
+                tag(")"),
+            )
+            .parse(peers_suffix)
+            {
+                // TODO: indicate it's patched, instead of ignoring it.
+
+                if suff.is_empty() {
+                    snap_pid.insert(pkg_desc, pid);
+                    lap_i = 0;
+                    continue 'queue;
+                }
+                peers_suffix = suff;
+            }
             // Now we handle the "(react-dom@19.0.0(react@19.0.0))(react@19.0.0)" part.
             // These are matches not with packages, but with other snapshots.
             let Some(_peers) = snapshot_key_rest(&snap_pid, &desc_pid, peers_suffix) else {
