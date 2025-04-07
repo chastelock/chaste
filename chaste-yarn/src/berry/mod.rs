@@ -198,13 +198,16 @@ where
         .map(|(_, svs)| svs)
         .collect::<Vec<&&str>>();
     let mut candidate_entries = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
-        e.descriptors.iter().any(|(d_n, d_s)| {
+        e.descriptors.iter().any(|(d_n, d_s_raw)| {
+            // The SVS can have additional parameters added.
+            // "name@patch:name@0.1.0#./file.patch::locator=%40chastelock%2Ftestcase%40workspace%3A."
+            let d_s = d_s_raw.rsplit_once("::").map(|(l, _)| l).unwrap_or(d_s_raw);
             *d_n == descriptor_name
-                && (*d_s == descriptor_svs
+                && (d_s == descriptor_svs
                     || d_s.strip_prefix("npm:") == Some(descriptor_svs)
                     || candidate_resolutions
                         .iter()
-                        .any(|r_s| d_s == *r_s || d_s.strip_prefix("npm:") == Some(r_s)))
+                        .any(|r_s| d_s == **r_s || d_s.strip_prefix("npm:") == Some(r_s)))
         })
     });
     if let Some((idx, _)) = candidate_entries.next() {

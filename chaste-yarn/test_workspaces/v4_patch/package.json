@@ -1,0 +1,11 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "1.0.0",
+    "dependencies": {
+        "@chastelock/recursion-a": "^0.1.0"
+    },
+    "resolutions": {
+        "@chastelock/recursion-b": "patch:@chastelock/recursion-b@0.1.0#./patches/recursion-b.patch"
+    },
+    "packageManager": "yarn@2.4.3"
+}

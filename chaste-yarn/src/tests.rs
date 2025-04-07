@@ -35,6 +35,12 @@ macro_rules! test_workspaces {
         test_workspace!([4, 6, 8], $name, $solver);
     };
 }
+macro_rules! test_workspaces_berry {
+    ($name:ident, $solver:expr) => {
+        #[cfg(feature = "berry")]
+        test_workspace!([4, 6, 8], $name, $solver);
+    };
+}
 
 test_workspaces!(basic, |chastefile: Chastefile, _lv: u8| {
     let rec_deps = chastefile.recursive_package_dependencies(chastefile.root_package_id());
@@ -231,6 +237,23 @@ test_workspaces!(npm_tag, |chastefile: Chastefile, _lv: u8| {
     let nop = chastefile.package(nop_dep.on);
     assert_eq!(nop.name().unwrap(), "nop");
     assert!(nop_dep.svs().unwrap().is_npm_tag());
+    Ok(())
+});
+
+test_workspaces_berry!(patch, |chastefile: Chastefile, _lv: u8| {
+    let [rec_a_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+    let [rec_b_dep] = *chastefile.package_dependencies(rec_a_dep.on) else {
+        panic!();
+    };
+    let rec_b_pkg = chastefile.package(rec_b_dep.on);
+    assert_eq!(rec_b_pkg.name().unwrap(), "@chastelock/recursion-b");
+    assert_eq!(rec_b_pkg.source(), None);
+
+    // TODO: Check that the source is patched when there is an API for that.
+    // https://codeberg.org/selfisekai/chaste/issues/27
+
     Ok(())
 });
 
