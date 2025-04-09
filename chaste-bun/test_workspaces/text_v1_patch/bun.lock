@@ -1,0 +1,19 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@chastelock/testcase",
+      "dependencies": {
+        "@chastelock/recursion-a": "^0.1.0",
+      },
+    },
+  },
+  "patchedDependencies": {
+    "@chastelock/recursion-b@0.1.0": "patches/@chastelock%2Frecursion-b@0.1.0.patch",
+  },
+  "packages": {
+    "@chastelock/recursion-a": ["@chastelock/recursion-a@0.1.0", "", { "dependencies": { "@chastelock/recursion-b": "^0.1.0" } }, "sha512-mCv/F9+1t8ZsglREQBPqeWnwtC1355o6j4wfIEuOHuWkLLNptZDsihp6scNY38xBN1LR8P/gZiWpiOifxDXeKw=="],
+
+    "@chastelock/recursion-b": ["@chastelock/recursion-b@0.1.0", "", { "dependencies": { "@chastelock/recursion-a": "^0.1.0" } }, "sha512-juafxhBPP8a5IV7tSjkK7ekQy53QhIBrNDtm6I8Ssym5HYbOHnnGoqyWOcM1EMW1339trBeUnEMB//BZIiMc6w=="],
+  }
+}

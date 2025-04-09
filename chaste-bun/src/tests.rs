@@ -195,6 +195,24 @@ fn text_v1_overrides() -> Result<()> {
 }
 
 #[test]
+fn text_v1_patch() -> Result<()> {
+    let chastefile = test_workspace("text_v1_patch")?;
+
+    let [rec_a_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+    let [rec_b_dep] = *chastefile.package_dependencies(rec_a_dep.on) else {
+        panic!();
+    };
+    let rec_b_pkg = chastefile.package(rec_b_dep.on);
+    assert_eq!(rec_b_pkg.name().unwrap(), "@chastelock/recursion-b");
+
+    // TODO: Check that the source is patched when there is an API for that.
+
+    Ok(())
+}
+
+#[test]
 fn text_v1_peer_deps() -> Result<()> {
     let chastefile = test_workspace("text_v1_peer_deps")?;
     let [rdom_dep] = *chastefile.root_package_dependencies() else {
