@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use chaste_types::{
-    Chastefile, Checksums, Dependency, DependencyKind, Package, PackageID, PackageSourceType,
+    Chastefile, Checksums, Dependency, DependencyKind, Package, PackageDerivation, PackageID,
+    PackageSourceType,
 };
 use concat_idents::concat_idents;
 
@@ -251,8 +252,19 @@ test_workspaces_berry!(patch, |chastefile: Chastefile, _lv: u8| {
     assert_eq!(rec_b_pkg.name().unwrap(), "@chastelock/recursion-b");
     assert_eq!(rec_b_pkg.source(), None);
 
-    // TODO: Check that the source is patched when there is an API for that.
-    // https://codeberg.org/selfisekai/chaste/issues/27
+    assert!(rec_b_pkg.is_derived());
+    let deriv_meta = rec_b_pkg.derivation_meta().unwrap();
+    assert!(matches!(
+        deriv_meta.derivation(),
+        PackageDerivation::Patch(_)
+    ));
+    let patch = deriv_meta.patch().unwrap();
+    assert_eq!(patch.path(), "patches/recursion-b.patch");
+    assert_eq!(patch.integrity(), None);
+
+    let rec_b_og_pkg = chastefile.package(deriv_meta.derived_from());
+    assert!(!rec_b_og_pkg.is_derived());
+    assert_eq!(rec_b_og_pkg.derivation(), None);
 
     Ok(())
 });

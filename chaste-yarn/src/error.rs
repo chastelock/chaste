@@ -23,6 +23,12 @@ pub enum Error {
     #[error("Couldn't recognize the resolution to follow to replace {0:?}")]
     AmbiguousResolution(String),
 
+    #[error("Invalid resolved: {0:?}")]
+    InvalidResolved(String),
+
+    #[error("Ambiguous resolved: {0:?}")]
+    AmbiguousResolved(String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 

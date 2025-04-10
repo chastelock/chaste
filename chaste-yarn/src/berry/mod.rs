@@ -8,9 +8,9 @@ use std::{fs, io};
 
 use chaste_types::{
     package_name_part, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
-    DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID,
-    PackageName, PackageSource, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
-    ROOT_MODULE_PATH,
+    DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
+    PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
+    PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take, take_until};
@@ -260,8 +260,18 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
     let mut index_to_pid: HashMap<usize, PackageID> =
         HashMap::with_capacity(yarn_lock.entries.len());
 
+    let mut deferred_pkgs = Vec::new();
+
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let pkg = parse_package(entry)?;
+
+        // For patch: packages, we need to mark the derivation, for which
+        // we need the PackageID they're derived from.
+        if (package_name, tag("@patch:")).parse(entry.resolved).is_ok() {
+            deferred_pkgs.push((index, entry, pkg));
+            continue;
+        }
+
         let pid = chastefile_builder.add_package(pkg.build()?)?;
         index_to_pid.insert(index, pid);
         if let Some(workspace_path) = entry
@@ -281,6 +291,58 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 );
             }
         }
+    }
+    for (index, entry, mut pkg) in deferred_pkgs {
+        let Ok((
+            _,
+            (_, _, patched_pkg_name, _, patched_pkg_svd_penc, _, patch_path, _, _patch_meta),
+        )) = (
+            package_name,
+            tag("@patch:"),
+            package_name,
+            tag("@"),
+            take_until("#"),
+            tag("#"),
+            take_until("::"),
+            tag("::"),
+            rest,
+        )
+            .parse(entry.resolved)
+        else {
+            return Err(Error::InvalidResolved(entry.resolved.to_string()));
+        };
+        // "npm%3A0.1.0" -> "npm:0.1.0"
+        let patched_pkg_svd =
+            percent_encoding::percent_decode_str(patched_pkg_svd_penc).decode_utf8()?;
+        let mut source_candidates = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
+            (
+                tag::<&str, &str, ()>(patched_pkg_name),
+                tag("@"),
+                tag(patched_pkg_svd.as_ref()),
+                eof,
+            )
+                .parse(e.resolved)
+                .is_ok()
+        });
+        let Some((source_idx, _)) = source_candidates.next() else {
+            return Err(Error::InvalidResolved(entry.resolved.to_string()));
+        };
+        if source_candidates.next().is_some() {
+            return Err(Error::AmbiguousResolved(entry.resolved.to_string()));
+        }
+        let source_pid = *index_to_pid.get(&source_idx).unwrap();
+        let patch = PackagePatchBuilder::new(
+            patch_path
+                .strip_prefix("./")
+                .unwrap_or(patch_path)
+                .to_string(),
+        );
+        pkg.derived(
+            PackageDerivationMetaBuilder::new(PackageDerivation::Patch(patch.build()?), source_pid)
+                .build()?,
+        );
+        let pid = chastefile_builder.add_package(pkg.build()?)?;
+        index_to_pid.insert(index, pid);
     }
 
     let maybe_state_contents =
