@@ -7,12 +7,14 @@ use std::fs;
 use std::path::Path;
 
 use chaste_types::{
-    package_name_part, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
-    PackageSource, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
+    package_name_part, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
+    DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
+    PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
+    SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
 };
+use nom::branch::alt;
 use nom::bytes::complete::{tag, take};
-use nom::combinator::{opt, recognize, rest, verify};
+use nom::combinator::{eof, opt, recognize, rest, verify};
 use nom::sequence::{delimited, preceded, terminated};
 use nom::{IResult, Parser};
 
@@ -37,14 +39,7 @@ fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
 }
 
 fn snapshot_key_rest<'a>(
-    snap_pid: &BTreeMap<
-        &'a str,
-        &'a (
-            PackageID,
-            &HashMap<Cow<'a, str>, Cow<'a, str>>,
-            &HashMap<Cow<'a, str>, types::lock::PeerDependencyMeta>,
-        ),
-    >,
+    snap_pid: &BTreeMap<&'a str, PackageID>,
     desc_pid: &BTreeMap<
         (&'a str, &'a str),
         (
@@ -205,7 +200,22 @@ where
         );
     }
 
+    let mut patch_store = HashMap::with_capacity(lockfile.patched_dependencies.len());
+    for (k, v) in &lockfile.patched_dependencies {
+        let Ok((_, (pn, _))) = (package_name, alt((eof, (tag("@"))))).parse(k) else {
+            return Err(Error::InvalidPatchedPackageSpecifier(k.to_string()));
+        };
+        if v.hash.len() != 64 {
+            return Err(Error::InvalidPatchHash(v.hash.to_string()));
+        }
+        let integrity = Integrity::from_hex(v.hash, ssri::Algorithm::Sha256)?;
+        let mut patch = PackagePatchBuilder::new(v.path.to_string());
+        patch.integrity(integrity);
+        patch_store.insert((pn, v.hash), patch.build()?);
+    }
+
     let mut snap_pid = BTreeMap::new();
+    let mut pid_peers = HashMap::new();
     let mut snap_queue = VecDeque::from_iter(lockfile.snapshots.keys());
     let mut lap_i = 0usize;
     'queue: while let Some(pkg_desc) = snap_queue.pop_front() {
@@ -214,13 +224,16 @@ where
             return Err(Error::InvalidPackageDescriptor(pkg_desc.to_string()));
         };
         // Not a peer dep: "@chastelock/package@1.0.0" snapshot for the ("@chastelock/package", "1.0.0") package.
-        if let Some(pid) = desc_pid.get(&(pkg_name, snap_rest)) {
+        if let Some(&(pid, peer_deps, peers_meta)) = desc_pid.get(&(pkg_name, snap_rest)) {
             snap_pid.insert(pkg_desc.as_ref(), pid);
+            pid_peers.insert(pid, (peer_deps, peers_meta));
             lap_i = 0;
             continue 'queue;
         }
         // Looking through descriptors to find a matching package.
-        for ((d_pkg_name, d_pkg_svd), pid) in desc_pid.range((pkg_name, "")..) {
+        for ((d_pkg_name, d_pkg_svd), (mut pid, peer_deps, peers_meta)) in
+            desc_pid.range((pkg_name, "")..)
+        {
             // List is sorted alphabetically.
             if *d_pkg_name != pkg_name {
                 break;
@@ -232,18 +245,25 @@ where
             };
             // If a package is patched with a diff over the original source,
             // handle the patch SHA-256 hex in the key.
-            if let Ok((suff, _)) = delimited(
+            if let Ok((suff, patch_hash)) = delimited(
                 tag::<&str, &str, ()>("(patch_hash="),
-                verify(take(64usize), |h: &str| {
-                    h.as_bytes()
-                        .iter()
-                        .all(|b| matches!(b, b'a'..=b'f' | b'0'..=b'9'))
-                }),
+                take(64usize),
                 tag(")"),
             )
             .parse(peers_suffix)
             {
-                // TODO: indicate it's patched, instead of ignoring it.
+                let Some(patch) = patch_store.get(&(pkg_name, patch_hash)) else {
+                    return Err(Error::InvalidPatchHash(patch_hash.to_string()));
+                };
+                let patch_deriv_meta =
+                    PackageDerivationMetaBuilder::new(PackageDerivation::Patch(patch.clone()), pid)
+                        .build()?;
+                let mut patched_pkg = PackageBuilder::new(
+                    Some(PackageName::new(pkg_name.to_string()).unwrap()),
+                    Some(d_pkg_svd.to_string()),
+                );
+                patched_pkg.derived(patch_deriv_meta);
+                pid = chastefile.add_package(patched_pkg.build()?)?;
 
                 if suff.is_empty() {
                     snap_pid.insert(pkg_desc, pid);
@@ -258,6 +278,7 @@ where
                 continue;
             };
             snap_pid.insert(pkg_desc, pid);
+            pid_peers.insert(pid, (peer_deps, peers_meta));
             lap_i = 0;
             continue 'queue;
         }
@@ -286,7 +307,7 @@ where
                 let mut is_aliased = false;
                 let dep_pid = {
                     let mut dep_pid = None;
-                    for (snap_key, (snap_pid, _, _)) in snap_pid.range(dep_name.as_ref()..) {
+                    for (snap_key, snap_pid) in snap_pid.range(dep_name.as_ref()..) {
                         let Some(snap_rest) = snap_key.strip_prefix(dep_name.as_ref()) else {
                             break;
                         };
@@ -300,7 +321,7 @@ where
                     }
                     if let Some(dep_pid) = dep_pid {
                         dep_pid
-                    } else if let Some((dep_pid, _, _)) = snap_pid.get(d.version.as_ref()) {
+                    } else if let Some(dep_pid) = snap_pid.get(d.version.as_ref()) {
                         // If the dependency is aliased
                         is_aliased = true;
                         *dep_pid
@@ -321,7 +342,11 @@ where
         }
     }
     for (pkg_desc, snap) in &lockfile.snapshots {
-        let (pkg_pid, pkg_peers, _pkg_peers_meta) = *snap_pid.get(pkg_desc.as_ref()).unwrap();
+        let pkg_pid = *snap_pid.get(pkg_desc.as_ref()).unwrap();
+        let (pkg_peers, _) = match pid_peers.get(&pkg_pid) {
+            Some((pd, pm)) => (Some(pd), Some(pm)),
+            None => (None, None),
+        };
         for (dependencies, kind_) in [
             (&snap.dependencies, DependencyKind::Dependency),
             (
@@ -330,7 +355,9 @@ where
             ),
         ] {
             for (dep_name, dep_svd) in dependencies {
-                let (kind, svs) = if let Some(svs) = pkg_peers.get(dep_name) {
+                let (kind, svs) = if let Some(svs) =
+                    pkg_peers.as_ref().and_then(|p| p.get(dep_name))
+                {
                     match kind_ {
                         DependencyKind::Dependency => (DependencyKind::PeerDependency, Some(svs)),
                         DependencyKind::OptionalDependency => {
@@ -341,9 +368,9 @@ where
                 } else {
                     (kind_, None)
                 };
-                let mut dep = DependencyBuilder::new(kind, *pkg_pid, {
+                let mut dep = DependencyBuilder::new(kind, pkg_pid, {
                     let mut dep_pid = None;
-                    for (snap_key, (snap_pid, _, _)) in snap_pid.range(dep_name.as_ref()..) {
+                    for (snap_key, &snap_pid) in snap_pid.range(dep_name.as_ref()..) {
                         let Some(snap_rest) = snap_key.strip_prefix(dep_name.as_ref()) else {
                             break;
                         };
@@ -351,13 +378,13 @@ where
                             continue;
                         };
                         if snap_rest == dep_svd {
-                            dep_pid = Some(*snap_pid);
+                            dep_pid = Some(snap_pid);
                             break;
                         }
                     }
                     if let Some(dep_pid) = dep_pid {
                         dep_pid
-                    } else if let Some((dep_pid, _, _)) = snap_pid.get(dep_svd.as_ref()) {
+                    } else if let Some(dep_pid) = snap_pid.get(dep_svd.as_ref()) {
                         // If the dependency is aliased
                         *dep_pid
                     } else {

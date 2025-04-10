@@ -18,6 +18,8 @@ pub(crate) struct PackageJson<'a> {
 pub(crate) struct Lockfile<'a> {
     pub(crate) lockfile_version: &'a str,
     pub(crate) settings: lock::Settings,
+    #[serde(default)]
+    pub(crate) patched_dependencies: HashMap<Cow<'a, str>, lock::Patch<'a>>,
     pub(crate) importers: HashMap<&'a str, lock::Importer<'a>>,
     #[serde(default)]
     pub(crate) packages: HashMap<Cow<'a, str>, lock::Package<'a>>,
@@ -57,6 +59,13 @@ pub(crate) mod lock {
     #[serde(rename_all = "camelCase")]
     pub(crate) struct PeerDependencyMeta {
         pub(crate) optional: Option<bool>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub(crate) struct Patch<'a> {
+        pub(crate) hash: &'a str,
+        pub(crate) path: Cow<'a, str>,
     }
 
     #[derive(Debug, Deserialize)]

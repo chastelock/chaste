@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@chastelock/recursion-b':
+  '@chastelock/recursion-b@^0.1.0':
     hash: 869de6303e352fab5d88cc42cca000970874f1c6c943fbd7931bc2b317f5051a
     path: patches/@chastelock__recursion-b.patch
 

@@ -23,6 +23,12 @@ pub enum Error {
     #[error("Could not parse snapshot descriptor: {0:?}")]
     InvalidSnapshotDescriptor(String),
 
+    #[error("Could not parse the specifier of a patched package: {0:?}")]
+    InvalidPatchedPackageSpecifier(String),
+
+    #[error("Invalid patch hash: {0:?}")]
+    InvalidPatchHash(String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 
