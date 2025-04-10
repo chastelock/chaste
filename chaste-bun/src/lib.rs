@@ -7,8 +7,9 @@ use std::path::Path;
 
 use chaste_types::{
     package_name_part, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
-    PackageSource, SourceVersionSpecifier, SourceVersionSpecifierKind,
+    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
+    PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
+    SourceVersionSpecifier, SourceVersionSpecifierKind,
 };
 use nom::{
     bytes::complete::tag,
@@ -140,13 +141,22 @@ fn parse_contents(bun_lock: BunLock) -> Result<Chastefile> {
                 *pid
             } else {
                 let sm_svs = SourceVersionSpecifier::new(sv_marker.to_string())?;
-                let mut pkg_builder =
-                    PackageBuilder::new(Some(PackageName::new(package_name.to_string())?), None);
+                let patch_path = bun_lock.patched_dependencies.get(descriptor);
+                let pkg_name = PackageName::new(package_name.to_string())?;
+                let mut patched_pkg_builder = if patch_path.is_some() {
+                    Some(PackageBuilder::new(Some(pkg_name.clone()), None))
+                } else {
+                    None
+                };
+                let mut pkg_builder = PackageBuilder::new(Some(pkg_name), None);
                 match (&lock_pkg[..], sm_svs.kind()) {
                     (
                         [LockPackageElement::String(_descriptor), LockPackageElement::String(_registry_url), LockPackageElement::Relations(_relations), LockPackageElement::String(integrity)],
                         SourceVersionSpecifierKind::Npm,
                     ) => {
+                        if let Some(patched) = &mut patched_pkg_builder {
+                            patched.version(Some(sv_marker.to_string()));
+                        }
                         pkg_builder.version(Some(sv_marker.to_string()));
                         let integrity = integrity.parse::<Integrity>()?;
                         if !integrity.hashes.is_empty() {
@@ -168,7 +178,18 @@ fn parse_contents(bun_lock: BunLock) -> Result<Chastefile> {
                     }
                     (_, _) => return Err(Error::VariantMarkerMismatch(lock_key.to_string())),
                 }
-                let p = chastefile.add_package(pkg_builder.build()?)?;
+                let p = if let Some(mut patched) = patched_pkg_builder {
+                    let og_p = chastefile.add_package(pkg_builder.build()?)?;
+                    let patch =
+                        PackagePatchBuilder::new(patch_path.unwrap().to_string()).build()?;
+                    patched.derived(
+                        PackageDerivationMetaBuilder::new(PackageDerivation::Patch(patch), og_p)
+                            .build()?,
+                    );
+                    chastefile.add_package(patched.build()?)?
+                } else {
+                    chastefile.add_package(pkg_builder.build()?)?
+                };
                 if installation_package_name != package_name {
                     aliased_pids.insert(p);
                 }

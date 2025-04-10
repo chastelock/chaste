@@ -48,5 +48,7 @@ pub enum LockPackageElement<'a> {
 pub struct BunLock<'a> {
     pub lockfile_version: u8,
     pub workspaces: HashMap<Cow<'a, str>, WorkspaceMember<'a>>,
+    #[serde(default)]
+    pub patched_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
     pub packages: HashMap<Cow<'a, str>, Vec<LockPackageElement<'a>>>,
 }
