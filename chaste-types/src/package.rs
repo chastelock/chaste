@@ -6,6 +6,7 @@ use std::cmp;
 pub use nodejs_semver::Version as PackageVersion;
 
 use crate::checksums::Checksums;
+use crate::derivation::{PackageDerivation, PackageDerivationMeta};
 use crate::error::Result;
 use crate::name::PackageName;
 use crate::source::{PackageSource, PackageSourceType};
@@ -16,6 +17,7 @@ pub struct Package {
     version: Option<PackageVersion>,
     checksums: Option<Checksums>,
     source: Option<PackageSource>,
+    derived: Option<PackageDerivationMeta>,
 }
 
 impl Package {
@@ -38,6 +40,22 @@ impl Package {
     pub fn source_type(&self) -> Option<PackageSourceType> {
         self.source.as_ref().map(|s| s.source_type())
     }
+
+    pub fn derivation(&self) -> Option<&PackageDerivation> {
+        self.derived.as_ref().map(|d| d.derivation())
+    }
+
+    pub fn derivation_meta(&self) -> Option<&PackageDerivationMeta> {
+        self.derived.as_ref()
+    }
+
+    pub fn derived_from(&self) -> Option<PackageID> {
+        self.derived.as_ref().map(|d| d.derived_from())
+    }
+
+    pub fn is_derived(&self) -> bool {
+        self.derived.is_some()
+    }
 }
 
 impl PartialOrd for Package {
@@ -59,6 +77,7 @@ pub struct PackageBuilder {
     version: Option<String>,
     checksums: Option<Checksums>,
     source: Option<PackageSource>,
+    derived: Option<PackageDerivationMeta>,
 }
 
 impl PackageBuilder {
@@ -68,6 +87,7 @@ impl PackageBuilder {
             version,
             checksums: None,
             source: None,
+            derived: None,
         }
     }
 
@@ -91,12 +111,17 @@ impl PackageBuilder {
         self.source = Some(new_source);
     }
 
+    pub fn derived(&mut self, new_derived: PackageDerivationMeta) {
+        self.derived = Some(new_derived);
+    }
+
     pub fn build(self) -> Result<Package> {
         Ok(Package {
             name: self.name,
             version: self.version.map(PackageVersion::parse).transpose()?,
             checksums: self.checksums.filter(|c| !c.integrity().hashes.is_empty()),
             source: self.source,
+            derived: self.derived,
         })
     }
 }
