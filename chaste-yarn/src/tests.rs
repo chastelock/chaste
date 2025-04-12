@@ -335,8 +335,15 @@ test_workspaces!(resolutions, |chastefile: Chastefile, lv: u8| {
         panic!();
     };
     assert_eq!(scwm_pkg.version().unwrap().to_string(), "1.0.1");
-    // TODO: Recognize as tarball
-    assert_eq!(scwm_pkg.source_type(), None);
+    assert_eq!(
+        scwm_pkg.source_type(),
+        if lv == 1 {
+            // TODO: Recognize as tarball
+            None
+        } else {
+            Some(PackageSourceType::TarballURL)
+        }
+    );
     let scwm_svss = chastefile
         .package_dependents(scwm_pid)
         .into_iter()

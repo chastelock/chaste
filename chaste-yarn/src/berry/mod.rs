@@ -78,7 +78,15 @@ fn tarball_url(input: &str) -> IResult<&str, PackageSource> {
                 )),
                 rest,
             )),
-            |u: &str| !u.contains("?") && !u.contains("#") && u.ends_with(".tgz"),
+            |u: &str| {
+                !u.contains("?")
+                    && !u.contains("#")
+                    && (u.ends_with(".tgz")
+                        || u.ends_with(".tar.gz")
+                        // This landed in yarn 4:
+                        || u.rsplit_once("/")
+                            .is_some_and(|(_, r)| r.len() > 0 && !r.contains(".")))
+            },
         ),
         |url| PackageSource::TarballURL {
             url: url.to_string(),
