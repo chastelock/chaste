@@ -37,9 +37,16 @@ struct PackageParser<'a> {
 
 fn recognize_source(resolved: &str) -> Option<PackageSource> {
     match resolved {
-        // XXX: The registry can be overriden via config. https://docs.npmjs.com/cli/v10/using-npm/config#registry
-        // Also per scope (see v3_scope_registry test.)
-        // npm seems to always output npmjs instead of mirrors, even if overriden.
+        // `registry.npmjs.org` is a special value that by default means the default registry[1],
+        // even though the actually used registry can be overriden in the user config[2].
+        // npm can also be configured to output the actual registry host[3].
+        //
+        // If the package name has a @scope, and the scope is configured to another registry,
+        // it always is the actual registry. (See the v3_scope_registry test for an example.)
+        //
+        // [1]: https://docs.npmjs.com/cli/v11/configuring-npm/package-lock-json#packages
+        // [2]: https://docs.npmjs.com/cli/v11/using-npm/config#registry
+        // [3]: https://docs.npmjs.com/cli/v11/using-npm/config#replace-registry-host
         r if r.starts_with("https://registry.npmjs.org/") => Some(PackageSource::Npm),
 
         r if r.starts_with("git+") => Some(PackageSource::Git { url: r.to_string() }),
