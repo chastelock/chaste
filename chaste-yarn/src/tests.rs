@@ -91,15 +91,7 @@ test_workspaces!(git_url, |chastefile: Chastefile, lv: u8| {
     let minimatch = chastefile.package(minimatch_dep.on);
     assert_eq!(minimatch.name().unwrap(), "minimatch");
     assert_eq!(minimatch.version().unwrap().to_string(), "10.0.1");
-    // TODO: https://codeberg.org/selfisekai/chaste/issues/25
-    assert_eq!(
-        minimatch.source_type(),
-        if lv == 1 {
-            Some(PackageSourceType::Git)
-        } else {
-            None
-        }
-    );
+    assert_eq!(minimatch.source_type(), Some(PackageSourceType::Git));
     if lv == 1 {
         assert!(minimatch.checksums().is_none());
     } else {
@@ -128,13 +120,12 @@ test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
     let package = root_dep_packages[0];
     assert_eq!(package.name().unwrap(), "minimatch");
     assert_eq!(package.version().unwrap().to_string(), "10.0.1");
-    // TODO: https://codeberg.org/selfisekai/chaste/issues/25
     assert_eq!(
         package.source_type(),
         if lv == 1 {
             Some(PackageSourceType::TarballURL)
         } else {
-            None
+            Some(PackageSourceType::Git)
         }
     );
     if lv == 1 {
@@ -153,7 +144,7 @@ test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
         if lv == 1 {
             Some(PackageSourceType::TarballURL)
         } else {
-            None
+            Some(PackageSourceType::Git)
         }
     );
     if lv == 1 {

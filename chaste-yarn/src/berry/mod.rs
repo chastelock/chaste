@@ -42,15 +42,23 @@ fn npm(input: &str) -> IResult<&str, PackageSource> {
     .parse(input)
 }
 
-fn ssh(input: &str) -> IResult<&str, PackageSource> {
+fn is_commit_hash(input: &str) -> bool {
+    input.len() == 40
+        && input
+            .as_bytes()
+            .iter()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn git_commit(input: &str) -> IResult<&str, PackageSource> {
     map(
         (
             recognize((
-                tag::<&str, &str, nom::error::Error<&str>>("ssh://"),
+                alt((tag("ssh://"), tag("http://"), tag("https://"))),
                 take_until::<&str, &str, nom::error::Error<&str>>("#commit="),
             )),
             tag("#commit="),
-            rest,
+            verify(rest, is_commit_hash),
         ),
         |(url, _, _)| PackageSource::Git {
             url: url.to_string(),
@@ -82,7 +90,7 @@ fn tarball_url(input: &str) -> IResult<&str, PackageSource> {
 fn parse_source<'a>(entry: &'a yarn::Entry) -> Option<(&'a str, Option<PackageSource>)> {
     match (
         terminated(package_name, tag("@")),
-        opt(alt((npm, ssh, tarball_url))),
+        opt(alt((npm, git_commit, tarball_url))),
     )
         .parse(entry.resolved)
     {
