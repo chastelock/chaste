@@ -7,7 +7,7 @@ use std::path::Path;
 use std::{fs, io};
 
 use chaste_types::{
-    package_name_part, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
+    package_name_str, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
     DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
     PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
     PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
@@ -23,16 +23,6 @@ use crate::berry::types::PackageJson;
 use crate::error::{Error, Result};
 
 mod types;
-
-fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
-    recognize((
-        opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
-        verify(package_name_part, |part: &str| {
-            part != "node_modules" && part != "favicon.ico"
-        }),
-    ))
-    .parse(input)
-}
 
 fn npm(input: &str) -> IResult<&str, PackageSource> {
     map(
@@ -97,7 +87,7 @@ fn tarball_url(input: &str) -> IResult<&str, PackageSource> {
 
 fn parse_source<'a>(entry: &'a yarn::Entry) -> Option<(&'a str, Option<PackageSource>)> {
     match (
-        terminated(package_name, tag("@")),
+        terminated(package_name_str, tag("@")),
         opt(alt((npm, git_commit, tarball_url))),
     )
         .parse(entry.resolved)
@@ -163,12 +153,12 @@ fn parse_resolution_key(input: &str) -> Result<Resolution> {
     (
         opt(terminated(
             (
-                package_name,
+                package_name_str,
                 opt(preceded(tag("@"), until_just_package_name_is_left)),
             ),
             tag("/"),
         )),
-        terminated(package_name, eof),
+        terminated(package_name_str, eof),
     )
         .parse(input)
         .map(|(_, r)| r)
@@ -179,7 +169,7 @@ fn resolution_from_state_key(state_key: &str) -> Cow<'_, str> {
     if state_key.len() > 137 {
         // "tsec@virtual:ea43cfe65230d5ab1f93db69b01a1f672ecef3abbfb61f3ac71a2f930c090b853c9c93d03a1e3590a6d9dfed177d3a468279e756df1df2b5720d71b64487719c#npm:0.2.8"
         if let Ok((_, (package_name, _virt, _hex, _hash_char, descriptor))) = (
-            package_name,
+            package_name_str,
             tag("@virtual:"),
             verify(take(128usize), |hex: &str| {
                 hex.as_bytes()
@@ -283,7 +273,10 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
         // For patch: packages, we need to mark the derivation, for which
         // we need the PackageID they're derived from.
-        if (package_name, tag("@patch:")).parse(entry.resolved).is_ok() {
+        if (package_name_str, tag("@patch:"))
+            .parse(entry.resolved)
+            .is_ok()
+        {
             deferred_pkgs.push((index, entry, pkg));
             continue;
         }
@@ -313,9 +306,9 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
             _,
             (_, _, patched_pkg_name, _, patched_pkg_svd_penc, _, patch_path, _, _patch_meta),
         )) = (
-            package_name,
+            package_name_str,
             tag("@patch:"),
-            package_name,
+            package_name_str,
             tag("@"),
             take_until("#"),
             tag("#"),
