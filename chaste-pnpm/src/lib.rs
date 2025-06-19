@@ -7,16 +7,16 @@ use std::fs;
 use std::path::Path;
 
 use chaste_types::{
-    package_name_part, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
+    package_name_str, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
     DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
     PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
     SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take};
-use nom::combinator::{eof, opt, recognize, rest, verify};
-use nom::sequence::{delimited, preceded, terminated};
-use nom::{IResult, Parser};
+use nom::combinator::{eof, recognize, rest};
+use nom::sequence::{delimited, terminated};
+use nom::Parser;
 
 pub use crate::error::Error;
 use crate::error::Result;
@@ -27,16 +27,6 @@ mod tests;
 mod types;
 
 pub static LOCKFILE_NAME: &str = "pnpm-lock.yaml";
-
-fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
-    recognize((
-        opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
-        verify(package_name_part, |part: &str| {
-            part != "node_modules" && part != "favicon.ico"
-        }),
-    ))
-    .parse(input)
-}
 
 fn snapshot_key_rest<'a>(
     snap_pid: &BTreeMap<&'a str, PackageID>,
@@ -50,7 +40,7 @@ fn snapshot_key_rest<'a>(
     >,
     rest: &'a str,
 ) -> Option<Vec<&'a str>> {
-    let Ok((_, snap_pkg_name)) = delimited(tag("("), package_name, tag("@")).parse(rest) else {
+    let Ok((_, snap_pkg_name)) = delimited(tag("("), package_name_str, tag("@")).parse(rest) else {
         return None;
     };
     for (snap_key, _) in snap_pid.range(snap_pkg_name..) {
@@ -160,7 +150,7 @@ where
 
     let mut desc_pid = BTreeMap::new();
     for (pkg_desc, pkg) in &lockfile.packages {
-        let (_, (package_name, _, package_svd)) = (package_name, tag("@"), rest)
+        let (_, (package_name, _, package_svd)) = (package_name_str, tag("@"), rest)
             .parse(pkg_desc)
             .map_err(|_| Error::InvalidPackageDescriptor(pkg_desc.to_string()))?;
         let version = pkg
@@ -202,7 +192,7 @@ where
 
     let mut patch_store = HashMap::with_capacity(lockfile.patched_dependencies.len());
     for (k, v) in &lockfile.patched_dependencies {
-        let Ok((_, (pn, _))) = (package_name, alt((eof, (tag("@"))))).parse(k) else {
+        let Ok((_, (pn, _))) = (package_name_str, alt((eof, (tag("@"))))).parse(k) else {
             return Err(Error::InvalidPatchedPackageSpecifier(k.to_string()));
         };
         if v.hash.len() != 64 {
@@ -219,7 +209,8 @@ where
     let mut snap_queue = VecDeque::from_iter(lockfile.snapshots.keys());
     let mut lap_i = 0usize;
     'queue: while let Some(pkg_desc) = snap_queue.pop_front() {
-        let Some((snap_rest, pkg_name)) = terminated(package_name, tag("@")).parse(pkg_desc).ok()
+        let Some((snap_rest, pkg_name)) =
+            terminated(package_name_str, tag("@")).parse(pkg_desc).ok()
         else {
             return Err(Error::InvalidPackageDescriptor(pkg_desc.to_string()));
         };
