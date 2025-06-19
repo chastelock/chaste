@@ -6,17 +6,17 @@ use std::fs;
 use std::path::Path;
 
 use chaste_types::{
-    package_name_part, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
+    package_name_str, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
     PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
     SourceVersionSpecifier, SourceVersionSpecifierKind,
 };
 use nom::{
     bytes::complete::tag,
-    combinator::{eof, map, opt, recognize, rest, verify},
+    combinator::{eof, map, rest},
     multi::many0,
-    sequence::{preceded, terminated},
-    IResult, Parser,
+    sequence::terminated,
+    Parser,
 };
 
 pub use crate::error::{Error, Result};
@@ -35,21 +35,11 @@ mod types;
 
 pub static LOCKFILE_NAME: &str = "bun.lock";
 
-fn package_name(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
-    recognize((
-        opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
-        verify(package_name_part, |part: &str| {
-            part != "node_modules" && part != "favicon.ico"
-        }),
-    ))
-    .parse(input)
-}
-
 type SourceKey<'a> = (&'a str, Vec<&'a str>);
 
 fn parse_package_key(input: &str) -> Result<(Option<SourceKey>, &str)> {
     (
-        map(many0(terminated(package_name, tag("/"))), |pns| {
+        map(many0(terminated(package_name_str, tag("/"))), |pns| {
             if !pns.is_empty() {
                 Some((
                     &input[..pns.iter().fold(0, |acc, pn| acc + pn.len() + 1) - 1],
@@ -59,7 +49,7 @@ fn parse_package_key(input: &str) -> Result<(Option<SourceKey>, &str)> {
                 None
             }
         }),
-        terminated(package_name, eof),
+        terminated(package_name_str, eof),
     )
         .parse(input)
         .map(|(_, r)| r)
@@ -67,7 +57,7 @@ fn parse_package_key(input: &str) -> Result<(Option<SourceKey>, &str)> {
 }
 
 fn parse_descriptor(input: &str) -> Result<(&str, &str)> {
-    (terminated(package_name, tag("@")), rest)
+    (terminated(package_name_str, tag("@")), rest)
         .parse(input)
         .map(|(_, r)| r)
         .map_err(|_| Error::InvalidKey(input.to_string()))
