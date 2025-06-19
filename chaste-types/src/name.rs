@@ -4,7 +4,7 @@
 use std::{cmp, fmt};
 
 use nom::bytes::complete::tag;
-use nom::combinator::{eof, opt, verify};
+use nom::combinator::{eof, opt, recognize, verify};
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
 
@@ -49,15 +49,22 @@ pub fn package_name_part(input: &str) -> IResult<&str, &str> {
     }
 }
 
-pub(crate) fn package_name(
+fn package_name_str_internal(
     input: &str,
-) -> IResult<&str, PackageNamePositions, nom::error::Error<&str>> {
+) -> IResult<&str, (Option<&str>, &str), nom::error::Error<&str>> {
     (
         opt(preceded(tag("@"), terminated(package_name_part, tag("/")))),
         verify(package_name_part, |part: &str| {
             part != "node_modules" && part != "favicon.ico"
         }),
     )
+        .parse(input)
+}
+
+pub(crate) fn package_name(
+    input: &str,
+) -> IResult<&str, PackageNamePositions, nom::error::Error<&str>> {
+    package_name_str_internal
         .parse(input)
         .map(|(inp, (scope, rest))| {
             let scope_end = scope.map(|s| s.len() + 1);
@@ -69,6 +76,11 @@ pub(crate) fn package_name(
                 },
             )
         })
+}
+
+/// [nom] parser that recognizes a package name, but does not parse it.
+pub fn package_name_str(input: &str) -> IResult<&str, &str, nom::error::Error<&str>> {
+    recognize(package_name_str_internal).parse(input)
 }
 
 impl PackageNamePositions {
