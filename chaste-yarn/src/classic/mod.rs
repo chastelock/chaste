@@ -207,11 +207,11 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
         let member_packages = workspaces
             .iter()
             .map(|workspace| -> Result<(&str, PackageJson)> {
-                let member_package_json_contents = fs::read_to_string(
-                    root_dir
-                        .join(workspace.as_ref())
-                        .join(PACKAGE_JSON_FILENAME),
-                )?;
+                let p = root_dir
+                    .join(workspace.as_ref())
+                    .join(PACKAGE_JSON_FILENAME);
+                let member_package_json_contents =
+                    fs::read_to_string(&p).map_err(|e| Error::IoInWorkspace(e, p))?;
                 Ok((
                     workspace.as_ref(),
                     serde_json::from_str(&member_package_json_contents)?,

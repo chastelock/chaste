@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use std::{io, str};
+use std::{io, path, str};
 
 use thiserror::Error;
 
@@ -34,6 +34,9 @@ pub enum Error {
 
     #[error("I/O error: {0:?}")]
     IoError(#[from] io::Error),
+
+    #[error("I/O error trying to read {1:?}: {0:?}")]
+    IoInWorkspace(io::Error, path::PathBuf),
 
     #[error("UTF-8 parsing error: {0:?}")]
     Utf8Error(#[from] str::Utf8Error),
