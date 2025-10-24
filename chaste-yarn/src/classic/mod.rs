@@ -322,24 +322,37 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
     // Finally, dependencies of dependencies.
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
-        for dep_descriptor in &entry.dependencies {
-            let dep_pid = find_dep_pid(
-                dep_descriptor,
-                &yarn_lock,
-                &index_to_pid,
-                &member_package_jsons,
-                &mpj_idx_to_pid,
-            )?;
-            // devDependencies of non-root packages are not written to the lockfile.
-            // It might be peer and/or optional. But in that case, it got added here
-            // by root and/or another dependency.
-            let mut dep = DependencyBuilder::new(DependencyKind::Dependency, *from_pid, dep_pid);
-            let svs = SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
-            if svs.aliased_package_name().is_some() {
-                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+        // These should be in berry only.
+        debug_assert!(
+            entry.peer_dependencies.is_empty() && entry.peer_dependencies_meta.is_empty()
+        );
+        for (dep_list, dep_kind) in [
+            (&entry.dependencies, DependencyKind::Dependency),
+            (
+                &entry.optional_dependencies,
+                DependencyKind::OptionalDependency,
+            ),
+        ] {
+            for dep_descriptor in dep_list {
+                let dep_pid = find_dep_pid(
+                    dep_descriptor,
+                    &yarn_lock,
+                    &index_to_pid,
+                    &member_package_jsons,
+                    &mpj_idx_to_pid,
+                )?;
+                // devDependencies of non-root packages are not written to the lockfile.
+                // It might be peer and/or optional. But in that case, it got added here
+                // by root and/or another dependency.
+                let mut dep = DependencyBuilder::new(dep_kind, *from_pid, dep_pid);
+                let svs =
+                    SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
+                if svs.aliased_package_name().is_some() {
+                    dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+                }
+                dep.svs(svs);
+                chastefile_builder.add_dependency(dep.build());
             }
-            dep.svs(svs);
-            chastefile_builder.add_dependency(dep.build());
         }
     }
     Ok(chastefile_builder.build()?)

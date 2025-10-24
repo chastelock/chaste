@@ -1,0 +1,7 @@
+{
+  "name": "@chastelock/testcase",
+  "version": "0.0.1",
+  "dependencies": {
+    "jsonfile": "4.0.0"
+  }
+}

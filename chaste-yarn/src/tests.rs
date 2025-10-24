@@ -232,6 +232,20 @@ test_workspaces!(npm_tag, |chastefile: Chastefile, _lv: u8| {
     Ok(())
 });
 
+test_workspaces!(optional_deps, |chastefile: Chastefile, _lv: u8| {
+    let [jf_dep] = *chastefile.root_package_dependencies() else {
+        panic!();
+    };
+    let jf_pid = jf_dep.on;
+
+    let [gfs_dep] = *chastefile.package_dependencies(jf_pid) else {
+        panic!()
+    };
+    assert_eq!(gfs_dep.kind, DependencyKind::OptionalDependency);
+
+    Ok(())
+});
+
 test_workspaces_berry!(patch, |chastefile: Chastefile, _lv: u8| {
     let [rec_a_dep] = *chastefile.root_package_dependencies() else {
         panic!();

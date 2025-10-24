@@ -385,24 +385,42 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
-        for (dependencies, kind_) in [
-            (&entry.dependencies, DependencyKind::Dependency),
-            (&entry.peer_dependencies, DependencyKind::PeerDependency),
+
+        // In berry, dependencies are stored in 2 sections under an Entry:
+        // either "peerDependencies:", "dependencies:".
+        // If they are optional, this will be indicated in "peerDependenciesMeta:",
+        // same as in a package.json, or, "dependenciesMeta:", presumably an analogy to that.
+
+        // In classic, they were stored in an "optionalDependencies:" section,
+        // but, as per above, this shouldn't be a thing here.
+        debug_assert!(entry.optional_dependencies.is_empty());
+
+        for (dependencies, deps_metas, kind_) in [
+            (
+                &entry.dependencies,
+                &entry.dependencies_meta,
+                DependencyKind::Dependency,
+            ),
+            (
+                &entry.peer_dependencies,
+                &entry.peer_dependencies_meta,
+                DependencyKind::PeerDependency,
+            ),
         ] {
             for dep_descriptor in dependencies {
-                let peer_meta = if kind_ == DependencyKind::PeerDependency {
-                    entry
-                        .peer_dependencies_meta
-                        .iter()
-                        .find(|(k, _)| *k == dep_descriptor.0)
-                        .map(|(_, v)| v)
-                } else {
-                    None
-                };
-                let kind = if peer_meta.is_some_and(|m| m.optional == Some(true)) {
-                    DependencyKind::OptionalPeerDependency
-                } else {
-                    kind_
+                let deps_meta = deps_metas
+                    .iter()
+                    .find(|(k, _)| *k == dep_descriptor.0)
+                    .map(|(_, v)| v);
+                let kind = match (deps_meta.map(|m| m.optional), kind_) {
+                    (Some(Some(true)), DependencyKind::PeerDependency) => {
+                        DependencyKind::OptionalPeerDependency
+                    }
+                    (Some(Some(true)), DependencyKind::Dependency) => {
+                        DependencyKind::OptionalDependency
+                    }
+                    (Some(Some(true)), _) => unreachable!(),
+                    (_, k) => k,
                 };
                 let Some(dep_pid) = find_dep_pid(
                     dep_descriptor,

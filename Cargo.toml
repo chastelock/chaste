@@ -49,7 +49,7 @@ serde_norway = "0.9"
 ssri = { version = "9.2", default-features = false }
 thiserror = "2.0"
 walkdir = "2.5.0"
-yarn-lock-parser = "0.11.0"
+yarn-lock-parser = "0.12.0"
 
 [profile.release]
 lto = true
