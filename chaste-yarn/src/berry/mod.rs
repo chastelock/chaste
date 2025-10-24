@@ -75,7 +75,7 @@ fn tarball_url(input: &str) -> IResult<&str, PackageSource> {
                         || u.ends_with(".tar.gz")
                         // This landed in yarn 4:
                         || u.rsplit_once("/")
-                            .is_some_and(|(_, r)| r.len() > 0 && !r.contains(".")))
+                            .is_some_and(|(_, r)| r.is_empty() && !r.contains(".")))
             },
         ),
         |url| PackageSource::TarballURL {
@@ -219,8 +219,7 @@ where
     if let Some((idx, _)) = candidate_entries.next() {
         if candidate_entries.next().is_some() {
             return Err(Error::AmbiguousResolution(format!(
-                "{0}@{1}",
-                descriptor_name, descriptor_svs
+                "{descriptor_name}@{descriptor_svs}",
             )));
         }
         Ok(Some(*index_to_pid.get(&idx).unwrap()))
@@ -236,8 +235,7 @@ where
         if let Some((idx, _)) = candidate_entries.next() {
             if candidate_entries.next().is_some() {
                 return Err(Error::AmbiguousResolution(format!(
-                    "{0}@{1}",
-                    descriptor_name, descriptor_svs
+                    "{descriptor_name}@{descriptor_svs}",
                 )));
             }
             Ok(Some(*index_to_pid.get(&idx).unwrap()))
@@ -247,8 +245,7 @@ where
         }
     } else {
         Err(Error::DependencyNotFound(format!(
-            "{0}@{1}",
-            descriptor_name, descriptor_svs
+            "{descriptor_name}@{descriptor_svs}",
         )))
     }
 }

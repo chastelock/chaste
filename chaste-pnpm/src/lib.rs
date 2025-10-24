@@ -28,6 +28,7 @@ mod types;
 
 pub static LOCKFILE_NAME: &str = "pnpm-lock.yaml";
 
+#[allow(clippy::type_complexity)]
 fn snapshot_key_rest<'a>(
     snap_pid: &BTreeMap<&'a str, PackageID>,
     desc_pid: &BTreeMap<

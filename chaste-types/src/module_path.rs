@@ -44,7 +44,7 @@ impl ModulePath {
             if i != 0 {
                 end_idx += 1;
             }
-            debug_assert!(!(expecting_package_name_now && !inside_node_modules));
+            debug_assert!(!expecting_package_name_now || inside_node_modules);
             match segment {
                 "" => {
                     // Empty value is a special case for root path

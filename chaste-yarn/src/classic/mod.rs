@@ -226,7 +226,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 continue;
             }
 
-            let member_package_json_contents = fs::read_to_string(&absolute_path)
+            let member_package_json_contents = fs::read_to_string(absolute_path)
                 .map_err(|e| Error::IoInWorkspace(e, absolute_path.to_path_buf()))?;
             member_package_jsons.push((
                 // must be owned because its lifetime goes out of scope
