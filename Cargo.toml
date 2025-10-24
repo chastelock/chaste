@@ -38,6 +38,7 @@ arbitrary = "1"
 argh = "0.1"
 assert_cmd = "2.0"
 concat-idents = "1.1"
+globreeks = "0.1.1"
 json5 = "0.4.1"
 nodejs-semver = "4.1.0"
 nom = "8.0.0"
@@ -47,6 +48,7 @@ serde_json = "1.0"
 serde_norway = "0.9"
 ssri = { version = "9.2", default-features = false }
 thiserror = "2.0"
+walkdir = "2.5.0"
 yarn-lock-parser = "0.11.0"
 
 [profile.release]

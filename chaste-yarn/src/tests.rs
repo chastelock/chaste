@@ -434,3 +434,46 @@ test_workspaces!(workspace_basic, |chastefile: Chastefile, lv: u8| {
 
     Ok(())
 });
+
+test_workspaces!(workspace_globs, |chastefile: Chastefile, lv: u8| {
+    assert_eq!(chastefile.packages().len(), 4);
+    let [(balls_pid, _balls_pkg)] = *chastefile
+        .packages_with_ids()
+        .into_iter()
+        .filter(|(_, p)| p.name().is_some_and(|n| n == "@chastelock/balls"))
+        .collect::<Vec<(PackageID, &Package)>>()
+    else {
+        panic!();
+    };
+    let [(ligma_pid, _ligma_pkg)] = *chastefile
+        .packages_with_ids()
+        .into_iter()
+        .filter(|(_, p)| p.name().is_some_and(|n| n == "ligma-api"))
+        .collect::<Vec<(PackageID, &Package)>>()
+    else {
+        panic!();
+    };
+    let workspace_member_ids = chastefile.workspace_member_ids();
+    assert_eq!(workspace_member_ids.len(), 2);
+    assert!(workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid));
+    let balls_installations = chastefile.package_installations(balls_pid);
+    let mut balls_install_paths = balls_installations
+        .iter()
+        .map(|i| i.path().as_ref())
+        .collect::<Vec<&str>>();
+    balls_install_paths.sort_unstable();
+    // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
+    // In classic, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
+    if lv == 1 {
+        assert_eq!(balls_installations.len(), 1);
+        assert_eq!(balls_install_paths, ["pkgs/balls"]);
+    } else {
+        assert_eq!(balls_installations.len(), 2);
+        assert_eq!(
+            balls_install_paths,
+            ["node_modules/@chastelock/balls", "pkgs/balls"]
+        );
+    }
+
+    Ok(())
+});

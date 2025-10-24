@@ -44,6 +44,14 @@ pub enum Error {
     #[error("Yarn parser error: {0:?}")]
     YarnParserError(#[from] yarn_lock_parser::YarnLockError),
 
+    #[error("Glob error: {0:?}")]
+    #[cfg(feature = "classic")]
+    GlobreeksError(#[from] globreeks::Error),
+
+    #[error("Walkdir error: {0:?}")]
+    #[cfg(feature = "classic")]
+    WalkdirError(#[from] walkdir::Error),
+
     #[error("Yarn state parser error: {0:?}")]
     #[cfg(feature = "berry")]
     YarnStateError(#[from] yarn_state::error::Error),

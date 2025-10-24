@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::path::Path;
 use std::{fs, str};
@@ -11,10 +12,12 @@ use chaste_types::{
     PackageNameBorrowed, PackageSource, PackageVersion, QuirksMode, SourceVersionSpecifier,
     PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
 };
+use globreeks::Globreeks;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_while1};
 use nom::combinator::{eof, opt, verify};
 use nom::Parser;
+use walkdir::WalkDir;
 use yarn_lock_parser as yarn;
 
 use crate::classic::types::PackageJson;
@@ -150,7 +153,7 @@ fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
     index_to_pid: &HashMap<usize, PackageID>,
-    member_package_jsons: &'a [(&str, PackageJson)],
+    member_package_jsons: &'a [(Cow<'a, str>, PackageJson)],
     mpj_idx_to_pid: &HashMap<usize, PackageID>,
 ) -> Result<PackageID>
 where
@@ -195,7 +198,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
     let root_package_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_FILENAME))?;
     let root_package_json: PackageJson = serde_json::from_str(&root_package_contents)?;
 
-    let mut member_package_jsons: Vec<(&str, PackageJson)> = Vec::new();
+    let mut member_package_jsons: Vec<(Cow<'_, str>, PackageJson)> = Vec::new();
     let mut mpj_idx_to_pid: HashMap<usize, PackageID> = HashMap::new();
 
     let mut chastefile_builder = ChastefileBuilder::new();
@@ -204,21 +207,33 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
 
     // Oh, workspaces are not checked in either.
     if let Some(workspaces) = &root_package_json.workspaces {
-        let member_packages = workspaces
-            .iter()
-            .map(|workspace| -> Result<(&str, PackageJson)> {
-                let p = root_dir
-                    .join(workspace.as_ref())
-                    .join(PACKAGE_JSON_FILENAME);
-                let member_package_json_contents =
-                    fs::read_to_string(&p).map_err(|e| Error::IoInWorkspace(e, p))?;
-                Ok((
-                    workspace.as_ref(),
-                    serde_json::from_str(&member_package_json_contents)?,
-                ))
-            })
-            .collect::<Result<Vec<(&str, PackageJson)>>>()?;
-        member_package_jsons.extend(member_packages);
+        let dir_globset = Globreeks::new(workspaces.iter())?;
+
+        for de_result in WalkDir::new(root_dir).into_iter() {
+            let de = de_result?;
+            if !de.file_type().is_file() || de.file_name() != PACKAGE_JSON_FILENAME {
+                continue;
+            }
+            let absolute_path = de.path();
+            let relative_workspace_path = absolute_path
+                .parent()
+                .unwrap()
+                .strip_prefix(root_dir)
+                .unwrap()
+                .to_str()
+                .expect("Path is Unicode-representable");
+            if !dir_globset.evaluate(relative_workspace_path) {
+                continue;
+            }
+
+            let member_package_json_contents = fs::read_to_string(&absolute_path)
+                .map_err(|e| Error::IoInWorkspace(e, absolute_path.to_path_buf()))?;
+            member_package_jsons.push((
+                // must be owned because its lifetime goes out of scope
+                Cow::Owned(relative_workspace_path.to_owned()),
+                serde_json::from_str(&member_package_json_contents)?,
+            ));
+        }
     }
     // The funny part of this is that the root package is not checked in.
     // So we have to parse package.json and add it manually.

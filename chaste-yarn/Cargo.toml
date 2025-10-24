@@ -16,7 +16,7 @@ exclude.workspace = true
 [features]
 default = ["classic", "berry"]
 
-classic = []
+classic = ["dep:globreeks", "dep:walkdir"]
 berry = ["dep:yarn-state", "dep:percent-encoding"]
 
 [dependencies]
@@ -26,6 +26,10 @@ serde_json.workspace = true
 thiserror.workspace = true
 yarn-lock-parser.workspace = true
 
+[dependencies.globreeks]
+workspace = true
+optional = true
+
 [dependencies.percent-encoding]
 workspace = true
 optional = true
@@ -33,6 +37,10 @@ optional = true
 [dependencies.serde]
 workspace = true
 features = ["derive"]
+
+[dependencies.walkdir]
+workspace = true
+optional = true
 
 [dependencies.yarn-state]
 workspace = true
