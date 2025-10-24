@@ -121,7 +121,7 @@ impl Dependency {
     /// assert_eq!(chastefile.package(dependency.on).name().unwrap(), "@chastelock/lodash-fork");
     /// assert_eq!(dependency.alias_name().unwrap(), "lodash");
     /// ```
-    pub fn alias_name(&self) -> Option<PackageNameBorrowed> {
+    pub fn alias_name<'a>(&'a self) -> Option<PackageNameBorrowed<'a>> {
         self.alias_name.as_ref().map(|a| a.as_borrowed())
     }
 }

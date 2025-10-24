@@ -149,7 +149,7 @@ fn until_just_package_name_is_left(input: &str) -> IResult<&str, &str> {
 type ResolutionParent<'a> = (&'a str, Option<&'a str>);
 type Resolution<'a> = (Option<ResolutionParent<'a>>, &'a str);
 
-fn parse_resolution_key(input: &str) -> Result<Resolution> {
+fn parse_resolution_key<'a>(input: &'a str) -> Result<Resolution<'a>> {
     (
         opt(terminated(
             (

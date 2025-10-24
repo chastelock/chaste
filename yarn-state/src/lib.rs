@@ -25,11 +25,11 @@ pub struct Package<'a> {
     pub locations: Vec<&'a str>,
 }
 
-pub fn parse(input: &str) -> Result<YarnState<'_>> {
+pub fn parse<'a>(input: &'a str) -> Result<YarnState<'a>> {
     statefile(input)
 }
 
-fn statefile(input: &str) -> Result<YarnState> {
+fn statefile<'a>(input: &'a str) -> Result<YarnState<'a>> {
     match (header, many1(package)).parse(input) {
         Ok((input, _)) if !input.is_empty() => Err(Error::InvalidSyntax()),
         Err(_) => Err(Error::InvalidSyntax()),
@@ -57,7 +57,7 @@ fn header(input: &str) -> IResult<&str, u32> {
     .parse(input)
 }
 
-fn package(input: &str) -> IResult<&str, Package> {
+fn package<'a>(input: &'a str) -> IResult<&'a str, Package<'a>> {
     (
         preceded(
             (newline, tag("\"")),
@@ -89,11 +89,11 @@ enum PackageField<'a> {
     Unknown,
 }
 
-fn package_field(input: &str) -> IResult<&str, PackageField> {
+fn package_field<'a>(input: &'a str) -> IResult<&'a str, PackageField<'a>> {
     alt((package_field_locations, package_field_unknown)).parse(input)
 }
 
-fn package_field_locations(input: &str) -> IResult<&str, PackageField> {
+fn package_field_locations<'a>(input: &'a str) -> IResult<&'a str, PackageField<'a>> {
     preceded(
         (space1, tag("locations:"), newline),
         many1(preceded(
@@ -105,7 +105,7 @@ fn package_field_locations(input: &str) -> IResult<&str, PackageField> {
     .map(|(input, locations)| (input, PackageField::Locations(locations)))
 }
 
-fn package_field_unknown(input: &str) -> IResult<&str, PackageField> {
+fn package_field_unknown<'a>(input: &'a str) -> IResult<&'a str, PackageField<'a>> {
     let (input, indent) = space1(input)?;
     let (input, _) = (take_until("\n"), tag("\n")).parse(input)?;
     let (input, _) = many0((tag(indent), space1, take_until("\n"), tag("\n"))).parse(input)?;

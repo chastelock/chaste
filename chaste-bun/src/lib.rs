@@ -37,7 +37,7 @@ pub static LOCKFILE_NAME: &str = "bun.lock";
 
 type SourceKey<'a> = (&'a str, Vec<&'a str>);
 
-fn parse_package_key(input: &str) -> Result<(Option<SourceKey>, &str)> {
+fn parse_package_key<'a>(input: &'a str) -> Result<(Option<SourceKey<'a>>, &'a str)> {
     (
         map(many0(terminated(package_name_str, tag("/"))), |pns| {
             if !pns.is_empty() {

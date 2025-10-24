@@ -210,7 +210,7 @@ impl<'a> Iterator for ModulePathIter<'a> {
 }
 
 impl ModulePath {
-    pub fn iter(&self) -> ModulePathIter {
+    pub fn iter<'a>(&'a self) -> ModulePathIter<'a> {
         ModulePathIter {
             inner: self,
             idx: 0,
