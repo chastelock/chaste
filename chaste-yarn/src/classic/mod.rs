@@ -153,8 +153,10 @@ fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
     index_to_pid: &HashMap<usize, PackageID>,
+    root_package_json: &PackageJson,
     member_package_jsons: &'a [(Cow<'a, str>, PackageJson)],
     mpj_idx_to_pid: &HashMap<usize, PackageID>,
+    dep_kind: DependencyKind,
 ) -> Result<PackageID>
 where
     S: AsRef<str>,
@@ -165,20 +167,63 @@ where
         .enumerate()
         .find(|(_, (_, pj))| pj.name.as_ref().is_some_and(|n| n == descriptor.0))
     {
-        Ok(*mpj_idx_to_pid.get(&idx).unwrap())
-    } else if let Some((idx, _)) = yarn_lock
+        return Ok(*mpj_idx_to_pid.get(&idx).unwrap());
+    }
+    if let Some((idx, _)) = yarn_lock
         .entries
         .iter()
         .enumerate()
         .find(|(_, e)| e.descriptors.contains(&descriptor))
     {
-        Ok(*index_to_pid.get(&idx).unwrap())
-    } else {
-        Err(Error::DependencyNotFound(format!(
-            "{0}@{1}",
-            descriptor.0, descriptor.1
-        )))
+        return Ok(*index_to_pid.get(&idx).unwrap());
     }
+    if dep_kind.is_peer() {
+        // While peer dependencies have an SVS, it's not necessarily satisfied,
+        // for example because of conflicting constraints. These typically get solved by nesting,
+        // but the point of peer dependencies is precisely no nesting.
+        // Package managers solve this by simply ignoring the constraint,
+        // sometimes also showing the warning message that everyone ignores.
+        // Here, this can be noticed by the peer dependency's descriptor not listed.
+        // This means we have to take a guess.
+
+        let candidates = yarn_lock
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.descriptors.iter().any(|(pn, _pv)| *pn == descriptor.0))
+            .collect::<Vec<_>>();
+
+        // If there is only one candidate, that's obviously it.
+        // This can happen if 2 dependencies have a peer dependency on a package,
+        // and one of them is satisfied, but the other is not.
+        if candidates.len() == 1 {
+            return Ok(*index_to_pid.get(&candidates[0].0).unwrap());
+        }
+
+        // If the root package depends on a package directly, this dependency can't be nested further away,
+        // so it has to be in the same place where a peer dependency would be.
+        for root_deps in [
+            &root_package_json.dependencies,
+            &root_package_json.dev_dependencies,
+            &root_package_json.optional_dependencies,
+            &root_package_json.peer_dependencies,
+        ] {
+            if let Some(alt_svs) = root_deps.get(descriptor.0) {
+                if let Some((alt_candidate_index, _)) = candidates.iter().find(|(_, e)| {
+                    e.descriptors
+                        .iter()
+                        .any(|ed| ed.0 == descriptor.0 && ed.1 == alt_svs)
+                }) {
+                    return Ok(*index_to_pid.get(alt_candidate_index).unwrap());
+                }
+            }
+        }
+    }
+
+    Err(Error::DependencyNotFound(format!(
+        "{0}@{1}",
+        descriptor.0, descriptor.1
+    )))
 }
 
 fn pkg_json_to_package<'a>(package_json: &'a PackageJson<'a>) -> Result<Package> {
@@ -304,8 +349,10 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                     &dep_descriptor,
                     &yarn_lock,
                     &index_to_pid,
+                    &root_package_json,
                     &member_package_jsons,
                     &mpj_idx_to_pid,
+                    kind,
                 )?;
                 let mut dep = DependencyBuilder::new(kind, member_pid, dep_pid);
                 let svs =
@@ -338,8 +385,10 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                     dep_descriptor,
                     &yarn_lock,
                     &index_to_pid,
+                    &root_package_json,
                     &member_package_jsons,
                     &mpj_idx_to_pid,
+                    dep_kind,
                 )?;
                 // devDependencies of non-root packages are not written to the lockfile.
                 // It might be peer and/or optional. But in that case, it got added here

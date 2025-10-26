@@ -190,6 +190,7 @@ fn resolution_from_state_key(state_key: &str) -> Cow<'_, str> {
 fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
+    root_package_json: &PackageJson,
     resolutions: &HashMap<Resolution, &str>,
     index_to_pid: &HashMap<usize, PackageID>,
     is_peer: bool,
@@ -222,32 +223,63 @@ where
                 "{descriptor_name}@{descriptor_svs}",
             )));
         }
-        Ok(Some(*index_to_pid.get(&idx).unwrap()))
-    } else if is_peer {
+        return Ok(Some(*index_to_pid.get(&idx).unwrap()));
+    }
+
+    if is_peer {
         // Peer dependencies are cursed. If multiple modules *peer* depend on the same module name,
         // Yarn will resolve them to one module, even if it considers them conflicting.
         // I mean, it can't nest them. Retry, only matching the name and not the SVS.
-        let mut candidate_entries = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
-            e.descriptors
-                .iter()
-                .any(|(d_n, _d_s)| *d_n == descriptor_name)
-        });
-        if let Some((idx, _)) = candidate_entries.next() {
-            if candidate_entries.next().is_some() {
-                return Err(Error::AmbiguousResolution(format!(
-                    "{descriptor_name}@{descriptor_svs}",
-                )));
-            }
-            Ok(Some(*index_to_pid.get(&idx).unwrap()))
-        } else {
-            // They can also be optional.
-            Ok(None)
+        let candidate_entries = yarn_lock
+            .entries
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| {
+                e.descriptors
+                    .iter()
+                    .any(|(d_n, _d_s)| *d_n == descriptor_name)
+            })
+            .collect::<Vec<_>>();
+
+        // If there's just one candidate to consider, it's easy.
+        if candidate_entries.len() == 1 {
+            return Ok(Some(*index_to_pid.get(&candidate_entries[0].0).unwrap()));
         }
-    } else {
-        Err(Error::DependencyNotFound(format!(
+        // Peer dependencies can be optional.
+        // TODO: also check peerDependenciesMeta
+        if candidate_entries.len() == 0 {
+            return Ok(None);
+        }
+
+        // If the root module also depends on it directly, it has to be directly in node_modules/,
+        // where a peer dependency would be.
+        for root_deps in [
+            &root_package_json.dependencies,
+            &root_package_json.dev_dependencies,
+            &root_package_json.optional_dependencies,
+            &root_package_json.peer_dependencies,
+        ] {
+            if let Some(alt_svs) = root_deps.get(descriptor_name) {
+                if let Some((alt_candidate_index, _)) = candidate_entries.iter().find(|(_, e)| {
+                    e.descriptors.iter().any(|ed| {
+                        ed.0 == descriptor_name
+                            && (ed.1 == alt_svs || ed.1.strip_prefix("npm:") == Some(alt_svs))
+                    })
+                }) {
+                    return Ok(Some(*index_to_pid.get(alt_candidate_index).unwrap()));
+                }
+            }
+        }
+
+        // TODO: Check yarn-state if available?
+
+        return Err(Error::AmbiguousResolution(format!(
             "{descriptor_name}@{descriptor_svs}",
-        )))
+        )));
     }
+    Err(Error::DependencyNotFound(format!(
+        "{descriptor_name}@{descriptor_svs}",
+    )))
 }
 
 pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<Chastefile> {
@@ -422,6 +454,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 let Some(dep_pid) = find_dep_pid(
                     dep_descriptor,
                     &yarn_lock,
+                    &root_package_json,
                     &resolutions,
                     &index_to_pid,
                     kind.is_peer(),

@@ -11,4 +11,13 @@ use serde::Deserialize;
 pub(crate) struct PackageJson<'a> {
     #[serde(default)]
     pub(crate) resolutions: HashMap<Cow<'a, str>, Cow<'a, str>>,
+
+    #[serde(default)]
+    pub(crate) dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
+    #[serde(default)]
+    pub(crate) dev_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
+    #[serde(default)]
+    pub(crate) optional_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
+    #[serde(default)]
+    pub(crate) peer_dependencies: HashMap<Cow<'a, str>, Cow<'a, str>>,
 }

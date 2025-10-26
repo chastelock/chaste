@@ -1,0 +1,12 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.1.0",
+    "dependencies": {
+        "mime-db": "=1.54.0",
+        "mime-types": "2.1.35"
+    },
+    "peerDependencies": {
+        "mime-db": "1.54.1"
+    },
+    "packageManager": "yarn@2.4.3"
+}

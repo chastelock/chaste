@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
+use std::cmp::Ordering;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -273,6 +274,48 @@ test_workspaces_berry!(patch, |chastefile: Chastefile, _lv: u8| {
 
     Ok(())
 });
+
+test_workspaces!(
+    peer_conflict_with_direct,
+    |chastefile: Chastefile, _lv: u8| {
+        let mut root_deps = chastefile
+            .root_package_dependencies()
+            .into_iter()
+            .map(|d| (d, chastefile.package(d.on)))
+            .collect::<Vec<_>>();
+        root_deps.sort_unstable_by(|(d1, p1), (_d2, p2)| {
+            p1.name().cmp(&p2.name()).then_with(|| {
+                if d1.kind == DependencyKind::PeerDependency {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
+            })
+        });
+        let [(peer_mdb_dep, _peer_mdb_pkg), (regular_mdb_dep, regular_mdb_pkg), (types_dep, types_pkg)] =
+            *root_deps
+        else {
+            panic!();
+        };
+
+        assert_eq!(peer_mdb_dep.on, regular_mdb_dep.on);
+        assert_eq!(peer_mdb_dep.kind, DependencyKind::PeerDependency);
+        assert_eq!(regular_mdb_dep.kind, DependencyKind::Dependency);
+        assert_eq!(regular_mdb_pkg.name().unwrap(), "mime-db");
+        assert_eq!(regular_mdb_pkg.version().unwrap().to_string(), "1.54.0");
+
+        assert_eq!(types_pkg.name().unwrap(), "mime-types");
+
+        let [indirect_mdb_dep] = *chastefile.package_dependencies(types_dep.on) else {
+            panic!();
+        };
+        let indirect_mdb_pkg = chastefile.package(indirect_mdb_dep.on);
+        assert_eq!(indirect_mdb_pkg.name().unwrap(), "mime-db");
+        assert_eq!(indirect_mdb_pkg.version().unwrap().to_string(), "1.52.0");
+
+        Ok(())
+    }
+);
 
 test_workspaces!(peer_deps, |chastefile: Chastefile, lv: u8| {
     let mut root_deps: Vec<_> = chastefile
