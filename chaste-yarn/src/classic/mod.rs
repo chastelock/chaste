@@ -119,16 +119,33 @@ fn parse_source<'a>(
 }
 
 fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
-    let first_desc = entry.descriptors.first().unwrap();
-    let name = if first_desc.1.starts_with("npm:") {
-        let svs = SourceVersionSpecifier::with_quirks(first_desc.1.to_string(), QUIRKS)?;
-        if let Some(aliased_name) = svs.aliased_package_name() {
-            aliased_name.to_owned()
-        } else {
-            PackageName::new(first_desc.0.to_string())?
+    let alias_descriptors = entry
+        .descriptors
+        .iter()
+        .filter(|(_, svs)| svs.starts_with("npm:"))
+        .map(|desc| {
+            SourceVersionSpecifier::with_quirks(desc.1.to_string(), QUIRKS).map(|svs| (desc, svs))
+        })
+        .collect::<Result<Vec<_>, chaste_types::Error>>()?;
+    let aliased_package_name = alias_descriptors
+        .first()
+        .map(|(_, svs)| svs.aliased_package_name().unwrap());
+    debug_assert!(alias_descriptors.is_empty() || aliased_package_name.is_some());
+    if alias_descriptors.len() > 1 {
+        for (alias_desc, alias_svs) in &alias_descriptors[1..] {
+            if alias_svs.aliased_package_name() != aliased_package_name {
+                let first_alias_desc = alias_descriptors.first().unwrap().0;
+                return Err(Error::ConflictingDescriptors(
+                    format!("{}@{}", first_alias_desc.0, first_alias_desc.1),
+                    format!("{}@{}", alias_desc.0, alias_desc.1),
+                ));
+            }
         }
+    }
+    let name = if let Some(apn) = aliased_package_name {
+        apn.to_owned()
     } else {
-        PackageName::new(first_desc.0.to_string())?
+        PackageName::new(entry.descriptors.first().unwrap().0.to_string())?
     };
     let mut integrity: Integrity = entry.integrity.parse()?;
     let source = if let Some((source, maybe_sha1_hex)) = parse_source(entry, name.as_borrowed())? {

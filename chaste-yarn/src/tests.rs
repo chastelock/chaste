@@ -202,6 +202,47 @@ test_workspace!(
     }
 );
 
+test_workspaces!(npm_alias_resolution, |chastefile: Chastefile, lv: u8| {
+    // Note: In yarn v2 (lockfile v4), npm alias in resolutions is ignored,
+    // so its test case uses a URL tarball on registry.yarnpkg.com.
+    let [even_dep] = *chastefile.root_package_dependencies() else {
+        panic!()
+    };
+    let [odd_dep] = *chastefile.package_dependencies(even_dep.on) else {
+        panic!()
+    };
+    // is-even requests is-odd, this is only overridden via resolutions
+    assert_eq!(odd_dep.alias_name(), None);
+    if lv == 8 {
+        assert_eq!(odd_dep.svs().unwrap(), "npm:^0.1.2");
+    } else {
+        assert_eq!(odd_dep.svs().unwrap(), "^0.1.2");
+    }
+    assert_eq!(odd_dep.svs().unwrap().aliased_package_name(), None);
+
+    // Even though the dependency had no alias, real package is nop
+    let odd = chastefile.package(odd_dep.on);
+    if lv == 4 {
+        // In this test case, this is a tarball, where name behavior is undefined
+        // (the name from package.json in the tarball is not in the lockfile)
+        assert_eq!(odd.name().unwrap(), "is-odd");
+    } else {
+        assert_eq!(odd.name().unwrap(), "nop");
+    }
+    assert_eq!(odd.version().unwrap().to_string(), "1.0.0");
+    assert_eq!(
+        odd.checksums().unwrap().integrity().hashes.len(),
+        if lv == 1 { 2 } else { 1 }
+    );
+    if lv == 4 {
+        assert_eq!(odd.source_type(), Some(PackageSourceType::TarballURL));
+    } else {
+        assert_eq!(odd.source_type(), Some(PackageSourceType::Npm));
+    }
+
+    Ok(())
+});
+
 test_workspaces!(npm_aliased, |chastefile: Chastefile, lv: u8| {
     let [pakig_dep] = *chastefile.root_package_dependencies() else {
         panic!()

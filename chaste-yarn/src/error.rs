@@ -29,6 +29,9 @@ pub enum Error {
     #[error("Ambiguous resolved: {0:?}")]
     AmbiguousResolved(String),
 
+    #[error("Conflicting descriptors: {0:?} and {1:?}")]
+    ConflictingDescriptors(String, String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 
