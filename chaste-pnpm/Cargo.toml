@@ -13,6 +13,11 @@ categories.workspace = true
 repository.workspace = true
 exclude.workspace = true
 
+[features]
+default = []
+
+fuzzing = ["dep:arbitrary"]
+
 [dependencies]
 chaste-types.workspace = true
 nom.workspace = true
@@ -20,3 +25,8 @@ serde = { features = ["derive"], workspace = true }
 serde_json.workspace = true
 serde_norway.workspace = true
 thiserror.workspace = true
+
+[dependencies.arbitrary]
+optional = true
+workspace = true
+features = ["derive"]

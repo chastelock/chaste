@@ -3,8 +3,8 @@
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, VecDeque};
-use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 use chaste_types::{
     package_name_str, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
@@ -24,6 +24,9 @@ use crate::error::Result;
 mod error;
 #[cfg(test)]
 mod tests;
+#[cfg(feature = "fuzzing")]
+pub mod types;
+#[cfg(not(feature = "fuzzing"))]
 mod types;
 
 pub static LOCKFILE_NAME: &str = "pnpm-lock.yaml";
@@ -107,6 +110,17 @@ where
     let lockfile_contents = fs::read_to_string(root_dir.join(LOCKFILE_NAME))?;
     let lockfile: types::Lockfile = serde_norway::from_str(&lockfile_contents)?;
 
+    parse_real(root_dir, lockfile, &fs::read_to_string)
+}
+
+fn parse_real<FG>(
+    root_dir: &Path,
+    lockfile: types::Lockfile,
+    file_getter: &FG,
+) -> Result<Chastefile>
+where
+    FG: Fn(PathBuf) -> Result<String, io::Error>,
+{
     if lockfile.lockfile_version != "9.0" {
         return Err(Error::UnknownLockfileVersion(
             lockfile.lockfile_version.to_string(),
@@ -117,7 +131,7 @@ where
 
     let mut importer_to_pid = HashMap::with_capacity(lockfile.importers.len());
     for importer_path in lockfile.importers.keys() {
-        let package_json_contents = fs::read_to_string(if *importer_path == "." {
+        let package_json_contents = file_getter(if *importer_path == "." {
             root_dir.join(PACKAGE_JSON_FILENAME)
         } else {
             root_dir.join(importer_path).join(PACKAGE_JSON_FILENAME)
@@ -394,4 +408,16 @@ where
     }
 
     Ok(chastefile.build()?)
+}
+
+#[cfg(feature = "fuzzing")]
+pub fn parse_arbitrary<FG>(
+    lockfile: types::Lockfile,
+    root_dir: &Path,
+    file_getter: &FG,
+) -> Result<Chastefile>
+where
+    FG: Fn(PathBuf) -> Result<String, io::Error>,
+{
+    parse_real(root_dir, lockfile, file_getter)
 }

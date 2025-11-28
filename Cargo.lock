@@ -169,6 +169,7 @@ dependencies = [
  "arbitrary",
  "chaste-bun",
  "chaste-npm",
+ "chaste-pnpm",
  "chaste-types",
  "chaste-yarn",
  "libfuzzer-sys",
@@ -189,6 +190,7 @@ dependencies = [
 name = "chaste-pnpm"
 version = "0.5.0"
 dependencies = [
+ "arbitrary",
  "chaste-types",
  "nom",
  "serde",

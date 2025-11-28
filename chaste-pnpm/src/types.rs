@@ -14,8 +14,9 @@ pub(crate) struct PackageJson<'a> {
 }
 
 #[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct Lockfile<'a> {
+pub struct Lockfile<'a> {
     pub(crate) lockfile_version: &'a str,
     pub(crate) settings: lock::Settings,
     #[serde(default)]
@@ -34,6 +35,7 @@ pub(crate) mod lock {
     use serde::Deserialize;
 
     #[derive(Debug, Deserialize)]
+    #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Importer<'a> {
         #[serde(borrow, default)]
@@ -49,6 +51,7 @@ pub(crate) mod lock {
     }
 
     #[derive(Debug, Deserialize)]
+    #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct ImporterDependency<'a> {
         pub(crate) specifier: Cow<'a, str>,
@@ -56,12 +59,14 @@ pub(crate) mod lock {
     }
 
     #[derive(Deserialize, Debug)]
+    #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct PeerDependencyMeta {
         pub(crate) optional: Option<bool>,
     }
 
     #[derive(Debug, Deserialize)]
+    #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Patch<'a> {
         pub(crate) hash: &'a str,
@@ -69,6 +74,7 @@ pub(crate) mod lock {
     }
 
     #[derive(Debug, Deserialize)]
+    #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Package<'a> {
         #[serde(borrow)]
@@ -81,6 +87,7 @@ pub(crate) mod lock {
     }
 
     #[derive(Debug, Deserialize)]
+    #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Resolution<'a> {
         pub(crate) integrity: Option<&'a str>,
@@ -88,6 +95,7 @@ pub(crate) mod lock {
     }
 
     #[derive(Debug, Deserialize)]
+    #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Snapshot<'a> {
         #[serde(borrow, default)]
@@ -99,6 +107,7 @@ pub(crate) mod lock {
     }
 
     #[derive(Debug, Deserialize)]
+    #[cfg_attr(feature = "fuzzing", derive(arbitrary::Arbitrary))]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct Settings {
         pub(crate) auto_install_peers: Option<bool>,

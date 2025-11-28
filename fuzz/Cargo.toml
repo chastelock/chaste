@@ -16,6 +16,7 @@ arbitrary.workspace = true
 
 chaste-bun = { workspace = true, features = ["fuzzing"] }
 chaste-npm = { workspace = true, features = ["fuzzing"] }
+chaste-pnpm = { workspace = true, features = ["fuzzing"] }
 chaste-types.workspace = true
 chaste-yarn = { workspace = true, features = ["berry", "classic", "fuzzing"] }
 
@@ -29,6 +30,13 @@ bench = false
 [[bin]]
 name = "npm-parse"
 path = "fuzz_targets/npm/parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pnpm-parse"
+path = "fuzz_targets/pnpm/parse.rs"
 test = false
 doc = false
 bench = false
