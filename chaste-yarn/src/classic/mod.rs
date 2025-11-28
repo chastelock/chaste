@@ -3,8 +3,8 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::path::Path;
-use std::{fs, str};
+use std::path::{Path, PathBuf};
+use std::{io, str};
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
@@ -256,8 +256,15 @@ fn pkg_json_to_package<'a>(package_json: &'a PackageJson<'a>) -> Result<Package>
     .map_err(Error::ChasteError)
 }
 
-pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<Chastefile> {
-    let root_package_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_FILENAME))?;
+pub(crate) fn resolve<'fp, FG>(
+    yarn_lock: yarn::Lockfile<'_>,
+    root_dir: &Path,
+    file_getter: &FG,
+) -> Result<Chastefile>
+where
+    FG: Fn(PathBuf) -> Result<String, io::Error>,
+{
+    let root_package_contents = file_getter(root_dir.join(PACKAGE_JSON_FILENAME))?;
     let root_package_json: PackageJson = serde_json::from_str(&root_package_contents)?;
 
     let mut member_package_jsons: Vec<(Cow<'_, str>, PackageJson)> = Vec::new();
@@ -288,8 +295,9 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
                 continue;
             }
 
-            let member_package_json_contents = fs::read_to_string(absolute_path)
-                .map_err(|e| Error::IoInWorkspace(e, absolute_path.to_path_buf()))?;
+            let absolute_pathbuf = absolute_path.to_path_buf();
+            let member_package_json_contents = file_getter(absolute_pathbuf.clone())
+                .map_err(|e| Error::IoInWorkspace(e, absolute_pathbuf))?;
             member_package_jsons.push((
                 // must be owned because its lifetime goes out of scope
                 Cow::Owned(relative_workspace_path.to_owned()),

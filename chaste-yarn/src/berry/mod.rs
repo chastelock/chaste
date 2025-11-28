@@ -3,8 +3,8 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::path::Path;
-use std::{fs, io};
+use std::io;
+use std::path::{Path, PathBuf};
 
 use chaste_types::{
     package_name_str, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
@@ -282,8 +282,15 @@ where
     )))
 }
 
-pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<Chastefile> {
-    let root_package_contents = fs::read_to_string(root_dir.join(PACKAGE_JSON_FILENAME))?;
+pub(crate) fn resolve<FG>(
+    yarn_lock: yarn::Lockfile<'_>,
+    root_dir: &Path,
+    file_getter: &FG,
+) -> Result<Chastefile>
+where
+    FG: Fn(PathBuf) -> Result<String, io::Error>,
+{
+    let root_package_contents = file_getter(root_dir.join(PACKAGE_JSON_FILENAME))?;
     let root_package_json: PackageJson = serde_json::from_str(&root_package_contents)?;
 
     let mut resolutions = HashMap::new();
@@ -384,7 +391,7 @@ pub(crate) fn resolve(yarn_lock: yarn::Lockfile<'_>, root_dir: &Path) -> Result<
     }
 
     let maybe_state_contents =
-        match fs::read_to_string(root_dir.join("node_modules").join(".yarn-state.yml")) {
+        match file_getter(root_dir.join("node_modules").join(".yarn-state.yml")) {
             Ok(s) => Some(s),
             Err(e) if e.kind() == io::ErrorKind::NotFound => None,
             Err(e) => return Err(e.into()),

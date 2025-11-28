@@ -166,9 +166,11 @@ dependencies = [
 name = "chaste-fuzz"
 version = "0.0.0"
 dependencies = [
+ "arbitrary",
  "chaste-bun",
  "chaste-npm",
  "chaste-types",
+ "chaste-yarn",
  "libfuzzer-sys",
 ]
 

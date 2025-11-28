@@ -12,10 +12,12 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+arbitrary.workspace = true
 
 chaste-bun = { workspace = true, features = ["fuzzing"] }
 chaste-npm = { workspace = true, features = ["fuzzing"] }
 chaste-types.workspace = true
+chaste-yarn = { workspace = true, features = ["berry", "classic", "fuzzing"] }
 
 [[bin]]
 name = "bun-parse"
@@ -48,6 +50,13 @@ bench = false
 [[bin]]
 name = "types-svs"
 path = "fuzz_targets/types/svs.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "yarn-parse"
+path = "fuzz_targets/yarn/parse.rs"
 test = false
 doc = false
 bench = false

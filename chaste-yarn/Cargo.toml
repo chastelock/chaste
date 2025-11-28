@@ -19,6 +19,8 @@ default = ["classic", "berry"]
 classic = ["dep:globreeks", "dep:walkdir"]
 berry = ["dep:yarn-state", "dep:percent-encoding"]
 
+fuzzing = []
+
 [dependencies]
 chaste-types.workspace = true
 nom.workspace = true
