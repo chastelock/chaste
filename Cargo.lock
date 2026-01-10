@@ -856,7 +856,7 @@ checksum = "6a5cbf750400958819fb6178eaa83bee5cd9c29a26a40cc241df8c70fdd46984"
 [[package]]
 name = "yarn-lock-parser"
 version = "0.12.0"
-source = "git+https://github.com/selfisekai/yarn-lock-parser.git?branch=peer-dependencies#72672bb1b392cf427c28fa5d1b80a41cb7e0a515"
+source = "git+https://github.com/selfisekai/yarn-lock-parser.git?branch=chaste20260110#9a1fbbf374183a947fd842ce0961b238e98fdd72"
 dependencies = [
  "nom",
  "nom-language",

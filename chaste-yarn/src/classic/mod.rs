@@ -174,7 +174,7 @@ fn find_dep_pid<'a, S>(
     member_package_jsons: &'a [(Cow<'a, str>, PackageJson)],
     mpj_idx_to_pid: &HashMap<usize, PackageID>,
     dep_kind: DependencyKind,
-) -> Result<PackageID>
+) -> Result<Option<PackageID>>
 where
     S: AsRef<str>,
 {
@@ -184,7 +184,7 @@ where
         .enumerate()
         .find(|(_, (_, pj))| pj.name.as_ref().is_some_and(|n| n == descriptor.0))
     {
-        return Ok(*mpj_idx_to_pid.get(&idx).unwrap());
+        return Ok(Some(*mpj_idx_to_pid.get(&idx).unwrap()));
     }
     if let Some((idx, _)) = yarn_lock
         .entries
@@ -192,7 +192,7 @@ where
         .enumerate()
         .find(|(_, e)| e.descriptors.contains(&descriptor))
     {
-        return Ok(*index_to_pid.get(&idx).unwrap());
+        return Ok(Some(*index_to_pid.get(&idx).unwrap()));
     }
     if dep_kind.is_peer() {
         // While peer dependencies have an SVS, it's not necessarily satisfied,
@@ -214,7 +214,13 @@ where
         // This can happen if 2 dependencies have a peer dependency on a package,
         // and one of them is satisfied, but the other is not.
         if candidates.len() == 1 {
-            return Ok(*index_to_pid.get(&candidates[0].0).unwrap());
+            return Ok(Some(*index_to_pid.get(&candidates[0].0).unwrap()));
+        }
+
+        // If there are no candidates, assume this is unfulfilled.
+        // In fact, peer dependencies are not locked or downloaded at all.
+        if candidates.is_empty() {
+            return Ok(None);
         }
 
         // If the root package depends on a package directly, this dependency can't be nested further away,
@@ -231,7 +237,7 @@ where
                         .iter()
                         .any(|ed| ed.0 == descriptor.0 && ed.1 == alt_svs)
                 }) {
-                    return Ok(*index_to_pid.get(alt_candidate_index).unwrap());
+                    return Ok(Some(*index_to_pid.get(alt_candidate_index).unwrap()));
                 }
             }
         }
@@ -370,7 +376,7 @@ where
                     }
                     k => k,
                 };
-                let dep_pid = find_dep_pid(
+                let Some(dep_pid) = find_dep_pid(
                     &dep_descriptor,
                     &yarn_lock,
                     &index_to_pid,
@@ -378,7 +384,10 @@ where
                     &member_package_jsons,
                     &mpj_idx_to_pid,
                     kind,
-                )?;
+                )?
+                else {
+                    continue;
+                };
                 let mut dep = DependencyBuilder::new(kind, member_pid, dep_pid);
                 let svs =
                     SourceVersionSpecifier::with_quirks(dep_descriptor.1.to_string(), QUIRKS)?;
@@ -406,7 +415,7 @@ where
             ),
         ] {
             for dep_descriptor in dep_list {
-                let dep_pid = find_dep_pid(
+                let Some(dep_pid) = find_dep_pid(
                     dep_descriptor,
                     &yarn_lock,
                     &index_to_pid,
@@ -414,7 +423,10 @@ where
                     &member_package_jsons,
                     &mpj_idx_to_pid,
                     dep_kind,
-                )?;
+                )?
+                else {
+                    continue;
+                };
                 // devDependencies of non-root packages are not written to the lockfile.
                 // It might be peer and/or optional. But in that case, it got added here
                 // by root and/or another dependency.

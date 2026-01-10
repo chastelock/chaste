@@ -55,4 +55,4 @@ yarn-lock-parser = "0.12.0"
 lto = true
 
 [patch.crates-io]
-yarn-lock-parser = { git = "https://github.com/selfisekai/yarn-lock-parser.git", branch = "peer-dependencies" }
+yarn-lock-parser = { git = "https://github.com/selfisekai/yarn-lock-parser.git", branch = "chaste20260110" }

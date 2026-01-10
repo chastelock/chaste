@@ -1,0 +1,7 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "1.0.0",
+    "peerDependencies": {
+        "is-even": "^1.0.0"
+    }
+}

@@ -399,6 +399,11 @@ test_workspaces!(peer_deps, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
+test_workspaces!(peer_unlocked, |chastefile: Chastefile, _lv: u8| {
+    assert!(chastefile.root_package_dependencies().is_empty());
+    Ok(())
+});
+
 test_workspaces!(peer_unsatisfied, |chastefile: Chastefile, _lv: u8| {
     assert!(!chastefile.packages().into_iter().any(|p| p
         .name()
