@@ -7,6 +7,9 @@ use argh::FromArgs;
 mod audit;
 mod why;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(FromArgs)]
 /// Chaste.
 struct Args {
