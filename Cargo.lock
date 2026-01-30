@@ -163,6 +163,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "chaste-deno"
+version = "0.0.0"
+
+[[package]]
 name = "chaste-fuzz"
 version = "0.0.0"
 dependencies = [

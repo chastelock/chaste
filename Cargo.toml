@@ -7,6 +7,7 @@ members = [
     "chaste",
     "chaste-bun",
     "chaste-cli",
+    "chaste-deno",
     "chaste-npm",
     "chaste-pnpm",
     "chaste-types",

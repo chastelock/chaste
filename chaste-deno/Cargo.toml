@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2024 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "chaste-deno"
+description = "Parser for deno lockfiles"
+edition = "2021"
+#keywords = ["lockfile", "deno"]
+#version.workspace = true
+version = "0.0.0"
+authors.workspace = true
+license.workspace = true
+categories.workspace = true
+repository.workspace = true
+exclude.workspace = true
+
+[dependencies]
