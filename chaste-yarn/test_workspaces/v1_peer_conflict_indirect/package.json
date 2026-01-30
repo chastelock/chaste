@@ -1,0 +1,9 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.1.0",
+    "dependencies": {
+        "@sveltejs/acorn-typescript": "1.0.5",
+        "acorn-globals": "6.0.0",
+        "espree": "^11.1.0"
+    }
+}

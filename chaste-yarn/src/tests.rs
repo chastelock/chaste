@@ -316,6 +316,54 @@ test_workspaces_berry!(patch, |chastefile: Chastefile, _lv: u8| {
     Ok(())
 });
 
+// TODO: https://codeberg.org/selfisekai/chaste/issues/62
+/*
+test_workspaces!(peer_conflict_indirect, |chastefile: Chastefile, lv: u8| {
+    let mut direct_deps = chastefile
+        .root_package_dependencies()
+        .into_iter()
+        .map(|d| (d.on, chastefile.package(d.on)))
+        .collect::<Vec<_>>();
+    direct_deps.sort_by_key(|(_, p)| p.name());
+    let [(svat_pid, svat), (acg_pid, acg), (esp_pid, esp)] = *direct_deps else {
+        panic!();
+    };
+    assert_eq!(svat.name().unwrap(), "@sveltejs/acorn-typescript");
+    assert_eq!(acg.name().unwrap(), "acorn-globals");
+    assert_eq!(esp.name().unwrap(), "espree");
+
+    let mut acorns = chastefile
+        .packages_with_ids()
+        .into_iter()
+        .filter(|(_, p)| p.name().is_some_and(|n| n == "acorn"))
+        .collect::<Vec<_>>();
+    acorns.sort_by_key(|(_, p)| p.version());
+    let [(acorn7_pid, acorn7), (acorn8_pid, acorn8)] = *acorns else {
+        panic!();
+    };
+    assert_eq!(acorn7.version().unwrap().major, 7);
+    assert_eq!(acorn8.version().unwrap().major, 8);
+
+    assert!(chastefile
+        .package_dependencies(acg_pid)
+        .into_iter()
+        .any(|d| !d.kind.is_peer() && d.on == acorn7_pid));
+    assert!(chastefile
+        .package_dependencies(esp_pid)
+        .into_iter()
+        .any(|d| !d.kind.is_peer() && d.on == acorn8_pid));
+    // v1 does not list peer dependencies, so we can't know about it
+    if lv > 1 {
+        assert!(chastefile
+            .package_dependencies(svat_pid)
+            .into_iter()
+            .any(|d| d.kind.is_peer() && d.on == acorn8_pid));
+    }
+
+    Ok(())
+});
+*/
+
 test_workspaces!(
     peer_conflict_with_direct,
     |chastefile: Chastefile, _lv: u8| {
