@@ -2,7 +2,7 @@ steps:
   test:
     when:
       event: [push, pull_request]
-    image: rust:1.93-alpine3.23
+    image: rust:1.93-trixie
     environment:
       CARGO_TERM_COLOR: always
       RUSTFLAGS: "-Ctarget-feature=-crt-static"
