@@ -22,3 +22,13 @@ pub trait ProviderMeta {
     fn provider_name(&self) -> &'static str;
     fn lockfile_version<'m>(&'m self) -> Option<LockfileVersion<'m>>;
 }
+
+impl ProviderMeta for () {
+    fn provider_name(&self) -> &'static str {
+        "()"
+    }
+
+    fn lockfile_version<'m>(&'m self) -> Option<LockfileVersion<'m>> {
+        None
+    }
+}
