@@ -67,7 +67,7 @@ impl Dependency {
     /// # Example
     /// ```
     /// # use chaste_types::{ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageName, SourceVersionSpecifier};
-    /// # let mut chastefile_builder = ChastefileBuilder::new();
+    /// # let mut chastefile_builder = ChastefileBuilder::new(());
     /// # let root_pid = chastefile_builder.add_package(
     /// #     PackageBuilder::new(None, None).build().unwrap(),
     /// # ).unwrap();
@@ -101,7 +101,7 @@ impl Dependency {
     /// # Example
     /// ```
     /// # use chaste_types::{ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageName};
-    /// # let mut chastefile_builder = ChastefileBuilder::new();
+    /// # let mut chastefile_builder = ChastefileBuilder::new(());
     /// # let root_pid = chastefile_builder.add_package(
     /// #     PackageBuilder::new(None, None).build().unwrap(),
     /// # ).unwrap();
