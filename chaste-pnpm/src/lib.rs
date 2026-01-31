@@ -8,9 +8,9 @@ use std::{fs, io};
 
 use chaste_types::{
     package_name_str, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
-    DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
-    PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
-    ProviderMeta, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
+    DependencyKind, InstallationBuilder, Integrity, LockfileVersion, ModulePath, PackageBuilder,
+    PackageDerivation, PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder,
+    PackageSource, ProviderMeta, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take};
@@ -32,11 +32,18 @@ mod types;
 pub static LOCKFILE_NAME: &str = "pnpm-lock.yaml";
 
 #[derive(Debug, Clone)]
-pub struct Meta {}
+#[non_exhaustive]
+pub struct Meta {
+    pub lockfile_version: String,
+}
 
 impl ProviderMeta for Meta {
     fn provider_name(&self) -> &'static str {
         "pnpm"
+    }
+
+    fn lockfile_version<'m>(&'m self) -> Option<LockfileVersion<'m>> {
+        Some(LockfileVersion::Str(&self.lockfile_version))
     }
 }
 
@@ -136,7 +143,9 @@ where
         ));
     }
 
-    let mut chastefile = ChastefileBuilder::new(Meta {});
+    let mut chastefile = ChastefileBuilder::new(Meta {
+        lockfile_version: lockfile.lockfile_version.to_owned(),
+    });
 
     let mut importer_to_pid = HashMap::with_capacity(lockfile.importers.len());
     for importer_path in lockfile.importers.keys() {

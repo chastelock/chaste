@@ -7,7 +7,7 @@ use std::path::Path;
 
 use chaste_types::{
     package_name_str, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
+    InstallationBuilder, Integrity, LockfileVersion, ModulePath, PackageBuilder, PackageDerivation,
     PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
     ProviderMeta, SourceVersionSpecifier, SourceVersionSpecifierKind,
 };
@@ -34,11 +34,18 @@ mod tests;
 mod types;
 
 #[derive(Debug, Clone)]
-pub struct Meta {}
+#[non_exhaustive]
+pub struct Meta {
+    pub lockfile_version: u8,
+}
 
 impl ProviderMeta for Meta {
     fn provider_name(&self) -> &'static str {
         "bun"
+    }
+
+    fn lockfile_version<'m>(&'m self) -> Option<LockfileVersion<'m>> {
+        Some(LockfileVersion::U8(self.lockfile_version))
     }
 }
 
@@ -91,7 +98,9 @@ fn parse_contents(bun_lock: BunLock) -> Result<Chastefile<Meta>> {
         return Err(Error::UnknownLockfileVersion(bun_lock.lockfile_version));
     }
 
-    let mut chastefile = ChastefileBuilder::new(Meta {});
+    let mut chastefile = ChastefileBuilder::new(Meta {
+        lockfile_version: bun_lock.lockfile_version,
+    });
 
     let mut ws_location_to_pid: HashMap<&str, PackageID> =
         HashMap::with_capacity(bun_lock.workspaces.len());

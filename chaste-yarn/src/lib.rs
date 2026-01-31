@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::{fs, io, str};
 
-use chaste_types::{Chastefile, ProviderMeta};
+use chaste_types::{Chastefile, LockfileVersion, ProviderMeta};
 use yarn_lock_parser as yarn;
 
 pub use crate::error::{Error, Result};
@@ -20,6 +20,7 @@ mod tests;
 pub static LOCKFILE_NAME: &str = "yarn.lock";
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Meta {
     pub lockfile_version: u8,
 }
@@ -27,6 +28,10 @@ pub struct Meta {
 impl ProviderMeta for Meta {
     fn provider_name(&self) -> &'static str {
         "yarn"
+    }
+
+    fn lockfile_version<'m>(&'m self) -> Option<LockfileVersion<'m>> {
+        Some(LockfileVersion::U8(self.lockfile_version))
     }
 }
 

@@ -33,17 +33,20 @@ pub enum Meta {
     Yarn(yarn::Meta),
 }
 
-impl types::ProviderMeta for Meta {
-    fn provider_name(&self) -> &'static str {
+impl Meta {
+    fn on_inner<'m, F, O>(&'m self, func: F) -> O
+    where
+        F: FnOnce(&'m dyn types::ProviderMeta) -> O,
+    {
         match self {
             #[cfg(feature = "bun")]
-            Meta::Bun(meta) => meta.provider_name(),
+            Meta::Bun(meta) => func(meta),
             #[cfg(feature = "npm")]
-            Meta::Npm(meta) => meta.provider_name(),
+            Meta::Npm(meta) => func(meta),
             #[cfg(feature = "pnpm")]
-            Meta::Pnpm(meta) => meta.provider_name(),
+            Meta::Pnpm(meta) => func(meta),
             #[cfg(any(feature = "yarn-classic", feature = "yarn-berry"))]
-            Meta::Yarn(meta) => meta.provider_name(),
+            Meta::Yarn(meta) => func(meta),
             #[cfg(not(any(
                 feature = "bun",
                 feature = "npm",
@@ -53,6 +56,16 @@ impl types::ProviderMeta for Meta {
             )))]
             _ => unreachable!(),
         }
+    }
+}
+
+impl types::ProviderMeta for Meta {
+    fn provider_name(&self) -> &'static str {
+        self.on_inner(|m| m.provider_name())
+    }
+
+    fn lockfile_version<'m>(&'m self) -> Option<types::LockfileVersion<'m>> {
+        self.on_inner(|m| m.lockfile_version())
     }
 }
 

@@ -23,7 +23,12 @@ pub fn run(_sub: Audit) -> Result<()> {
     let chastefile = chaste::from_root_path(&cwd)
         .with_context(|| format!("Could not parse the lockfile from {cwd:?}"))?;
 
-    println!("Checked a {} lockfile.", chastefile.meta().provider_name());
+    let meta = chastefile.meta();
+    print!("Checked a {} ", meta.provider_name());
+    if let Some(lv) = meta.lockfile_version() {
+        print!("({lv}) ");
+    }
+    println!("lockfile.");
 
     let mut checksumless = Vec::new();
     let mut insufficient_checksums = Vec::new();

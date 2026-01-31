@@ -8,8 +8,8 @@ use std::{fs, io};
 
 use chaste_types::{
     Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
-    PackageSource, ProviderMeta, SourceVersionSpecifier,
+    InstallationBuilder, Integrity, LockfileVersion, ModulePath, PackageBuilder, PackageID,
+    PackageName, PackageSource, ProviderMeta, SourceVersionSpecifier,
 };
 
 pub use crate::error::{Error, Result};
@@ -30,11 +30,18 @@ pub static LOCKFILE_NAME: &str = "package-lock.json";
 pub static SHRINKWRAP_NAME: &str = "npm-shrinkwrap.json";
 
 #[derive(Debug, Clone)]
-pub struct Meta {}
+#[non_exhaustive]
+pub struct Meta {
+    pub lockfile_version: u8,
+}
 
 impl ProviderMeta for Meta {
     fn provider_name(&self) -> &'static str {
         "npm"
+    }
+
+    fn lockfile_version<'m>(&'m self) -> Option<LockfileVersion<'m>> {
+        Some(LockfileVersion::U8(self.lockfile_version))
     }
 }
 
@@ -180,7 +187,9 @@ impl<'a> PackageParser<'a> {
     fn new(package_lock: &'a PackageLock) -> Self {
         Self {
             package_lock,
-            chastefile_builder: ChastefileBuilder::new(Meta {}),
+            chastefile_builder: ChastefileBuilder::new(Meta {
+                lockfile_version: package_lock.lockfile_version,
+            }),
             path_pid: HashMap::with_capacity(package_lock.packages.len()),
         }
     }
