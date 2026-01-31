@@ -8,4 +8,5 @@ steps:
       RUSTFLAGS: "-Ctarget-feature=-crt-static"
     commands:
       - cargo check
+      - cargo build --bin chaste
       - cargo test
