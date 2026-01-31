@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::{fs, io, str};
 
-use chaste_types::Chastefile;
+use chaste_types::{Chastefile, ProviderMeta};
 use yarn_lock_parser as yarn;
 
 pub use crate::error::{Error, Result};
@@ -19,7 +19,18 @@ mod tests;
 
 pub static LOCKFILE_NAME: &str = "yarn.lock";
 
-pub fn parse<P>(root_dir: P) -> Result<Chastefile>
+#[derive(Debug, Clone)]
+pub struct Meta {
+    pub lockfile_version: u8,
+}
+
+impl ProviderMeta for Meta {
+    fn provider_name(&self) -> &'static str {
+        "yarn"
+    }
+}
+
+pub fn parse<P>(root_dir: P) -> Result<Chastefile<Meta>>
 where
     P: AsRef<Path>,
 {
@@ -29,7 +40,11 @@ where
     parse_real(&lockfile_contents, root_dir, &fs::read_to_string)
 }
 
-fn parse_real<FG>(lockfile_contents: &str, root_dir: &Path, file_getter: &FG) -> Result<Chastefile>
+fn parse_real<FG>(
+    lockfile_contents: &str,
+    root_dir: &Path,
+    file_getter: &FG,
+) -> Result<Chastefile<Meta>>
 where
     FG: Fn(PathBuf) -> Result<String, io::Error>,
 {
@@ -48,7 +63,7 @@ pub fn parse_arbitrary<FG>(
     lockfile_contents: &str,
     root_dir: &Path,
     file_getter: &FG,
-) -> Result<Chastefile>
+) -> Result<Chastefile<Meta>>
 where
     FG: Fn(PathBuf) -> Result<String, io::Error>,
 {

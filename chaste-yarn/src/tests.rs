@@ -11,7 +11,7 @@ use chaste_types::{
 };
 use concat_idents::concat_idents;
 
-use super::{parse, Result};
+use super::{parse, Meta, Result};
 
 static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test_workspaces"));
 
@@ -44,7 +44,7 @@ macro_rules! test_workspaces_berry {
     };
 }
 
-test_workspaces!(basic, |chastefile: Chastefile, _lv: u8| {
+test_workspaces!(basic, |chastefile: Chastefile<Meta>, _lv: u8| {
     let rec_deps = chastefile.recursive_package_dependencies(chastefile.root_package_id());
     assert_eq!(rec_deps.len(), 5);
     assert!(rec_deps
@@ -54,7 +54,7 @@ test_workspaces!(basic, |chastefile: Chastefile, _lv: u8| {
     Ok(())
 });
 
-test_workspaces!(git_ssh, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(git_ssh, |chastefile: Chastefile<Meta>, lv: u8| {
     assert_eq!(
         chastefile
             .recursive_package_dependencies(chastefile.root_package_id())
@@ -80,7 +80,7 @@ test_workspaces!(git_ssh, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(git_url, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(git_url, |chastefile: Chastefile<Meta>, lv: u8| {
     assert_eq!(
         chastefile
             .recursive_package_dependencies(chastefile.root_package_id())
@@ -103,7 +103,7 @@ test_workspaces!(git_url, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(github_ref, |chastefile: Chastefile<Meta>, lv: u8| {
     assert_eq!(
         chastefile
             .recursive_package_dependencies(chastefile.root_package_id())
@@ -163,7 +163,7 @@ test_workspaces!(github_ref, |chastefile: Chastefile, lv: u8| {
 test_workspace!(
     [1],
     npm_alias_duplicate,
-    |chastefile: Chastefile, _lv: u8| {
+    |chastefile: Chastefile<Meta>, _lv: u8| {
         assert_eq!(
             chastefile
                 .recursive_package_dependencies(chastefile.root_package_id())
@@ -202,48 +202,51 @@ test_workspace!(
     }
 );
 
-test_workspaces!(npm_alias_resolution, |chastefile: Chastefile, lv: u8| {
-    // Note: In yarn v2 (lockfile v4), npm alias in resolutions is ignored,
-    // so its test case uses a URL tarball on registry.yarnpkg.com.
-    let [even_dep] = *chastefile.root_package_dependencies() else {
-        panic!()
-    };
-    let [odd_dep] = *chastefile.package_dependencies(even_dep.on) else {
-        panic!()
-    };
-    // is-even requests is-odd, this is only overridden via resolutions
-    assert_eq!(odd_dep.alias_name(), None);
-    if lv == 8 {
-        assert_eq!(odd_dep.svs().unwrap(), "npm:^0.1.2");
-    } else {
-        assert_eq!(odd_dep.svs().unwrap(), "^0.1.2");
-    }
-    assert_eq!(odd_dep.svs().unwrap().aliased_package_name(), None);
+test_workspaces!(
+    npm_alias_resolution,
+    |chastefile: Chastefile<Meta>, lv: u8| {
+        // Note: In yarn v2 (lockfile v4), npm alias in resolutions is ignored,
+        // so its test case uses a URL tarball on registry.yarnpkg.com.
+        let [even_dep] = *chastefile.root_package_dependencies() else {
+            panic!()
+        };
+        let [odd_dep] = *chastefile.package_dependencies(even_dep.on) else {
+            panic!()
+        };
+        // is-even requests is-odd, this is only overridden via resolutions
+        assert_eq!(odd_dep.alias_name(), None);
+        if lv == 8 {
+            assert_eq!(odd_dep.svs().unwrap(), "npm:^0.1.2");
+        } else {
+            assert_eq!(odd_dep.svs().unwrap(), "^0.1.2");
+        }
+        assert_eq!(odd_dep.svs().unwrap().aliased_package_name(), None);
 
-    // Even though the dependency had no alias, real package is nop
-    let odd = chastefile.package(odd_dep.on);
-    if lv == 4 {
-        // In this test case, this is a tarball, where name behavior is undefined
-        // (the name from package.json in the tarball is not in the lockfile)
-        assert_eq!(odd.name().unwrap(), "is-odd");
-    } else {
-        assert_eq!(odd.name().unwrap(), "nop");
-    }
-    assert_eq!(odd.version().unwrap().to_string(), "1.0.0");
-    assert_eq!(
-        odd.checksums().unwrap().integrity().hashes.len(),
-        if lv == 1 { 2 } else { 1 }
-    );
-    if lv == 4 {
-        assert_eq!(odd.source_type(), Some(PackageSourceType::TarballURL));
-    } else {
-        assert_eq!(odd.source_type(), Some(PackageSourceType::Npm));
-    }
+        // Even though the dependency had no alias, real package is nop
+        let odd = chastefile.package(odd_dep.on);
+        if lv == 4 {
+            // In this test case, this is a tarball, where name behavior is undefined
+            // (the name from package.json in the tarball is not in the lockfile)
+            assert_eq!(odd.name().unwrap(), "is-odd");
+        } else {
+            assert_eq!(odd.name().unwrap(), "nop");
+        }
+        assert_eq!(odd.version().unwrap().to_string(), "1.0.0");
+        assert_eq!(
+            odd.checksums().unwrap().integrity().hashes.len(),
+            if lv == 1 { 2 } else { 1 }
+        );
+        if lv == 4 {
+            assert_eq!(odd.source_type(), Some(PackageSourceType::TarballURL));
+        } else {
+            assert_eq!(odd.source_type(), Some(PackageSourceType::Npm));
+        }
 
-    Ok(())
-});
+        Ok(())
+    }
+);
 
-test_workspaces!(npm_aliased, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(npm_aliased, |chastefile: Chastefile<Meta>, lv: u8| {
     let [pakig_dep] = *chastefile.root_package_dependencies() else {
         panic!()
     };
@@ -264,7 +267,7 @@ test_workspaces!(npm_aliased, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(npm_tag, |chastefile: Chastefile, _lv: u8| {
+test_workspaces!(npm_tag, |chastefile: Chastefile<Meta>, _lv: u8| {
     let [nop_dep] = *chastefile.root_package_dependencies() else {
         panic!();
     };
@@ -274,7 +277,7 @@ test_workspaces!(npm_tag, |chastefile: Chastefile, _lv: u8| {
     Ok(())
 });
 
-test_workspaces!(optional_deps, |chastefile: Chastefile, _lv: u8| {
+test_workspaces!(optional_deps, |chastefile: Chastefile<Meta>, _lv: u8| {
     let [jf_dep] = *chastefile.root_package_dependencies() else {
         panic!();
     };
@@ -288,7 +291,7 @@ test_workspaces!(optional_deps, |chastefile: Chastefile, _lv: u8| {
     Ok(())
 });
 
-test_workspaces_berry!(patch, |chastefile: Chastefile, _lv: u8| {
+test_workspaces_berry!(patch, |chastefile: Chastefile<Meta>, _lv: u8| {
     let [rec_a_dep] = *chastefile.root_package_dependencies() else {
         panic!();
     };
@@ -318,7 +321,7 @@ test_workspaces_berry!(patch, |chastefile: Chastefile, _lv: u8| {
 
 // TODO: https://codeberg.org/selfisekai/chaste/issues/62
 /*
-test_workspaces!(peer_conflict_indirect, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(peer_conflict_indirect, |chastefile: Chastefile<Meta>, lv: u8| {
     let mut direct_deps = chastefile
         .root_package_dependencies()
         .into_iter()
@@ -366,7 +369,7 @@ test_workspaces!(peer_conflict_indirect, |chastefile: Chastefile, lv: u8| {
 
 test_workspaces!(
     peer_conflict_with_direct,
-    |chastefile: Chastefile, _lv: u8| {
+    |chastefile: Chastefile<Meta>, _lv: u8| {
         let mut root_deps = chastefile
             .root_package_dependencies()
             .into_iter()
@@ -406,7 +409,7 @@ test_workspaces!(
     }
 );
 
-test_workspaces!(peer_deps, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(peer_deps, |chastefile: Chastefile<Meta>, lv: u8| {
     let mut root_deps: Vec<_> = chastefile
         .root_package_dependencies()
         .into_iter()
@@ -447,19 +450,19 @@ test_workspaces!(peer_deps, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(peer_unlocked, |chastefile: Chastefile, _lv: u8| {
+test_workspaces!(peer_unlocked, |chastefile: Chastefile<Meta>, _lv: u8| {
     assert!(chastefile.root_package_dependencies().is_empty());
     Ok(())
 });
 
-test_workspaces!(peer_unsatisfied, |chastefile: Chastefile, _lv: u8| {
+test_workspaces!(peer_unsatisfied, |chastefile: Chastefile<Meta>, _lv: u8| {
     assert!(!chastefile.packages().into_iter().any(|p| p
         .name()
         .is_some_and(|n| n == "@bazel/bazelisk" || n == "@bazel/concatjs" || n == "typescript")));
     Ok(())
 });
 
-test_workspaces!(resolutions, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(resolutions, |chastefile: Chastefile<Meta>, lv: u8| {
     let [(path_pid, path_pkg)] = *chastefile
         .packages_with_ids()
         .into_iter()
@@ -505,7 +508,7 @@ test_workspaces!(resolutions, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(scope_registry, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(scope_registry, |chastefile: Chastefile<Meta>, lv: u8| {
     let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
     let empty_pkg = chastefile.package(empty_pid);
     assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
@@ -519,20 +522,23 @@ test_workspaces!(scope_registry, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(special_chars_name, |chastefile: Chastefile, _lv: u8| {
-    let root_pkg = chastefile.root_package();
-    assert_eq!(root_pkg.name().unwrap(), "verboden(root)(name~'!*)");
-    let [a_dep] = *chastefile.root_package_dependencies() else {
-        panic!();
-    };
-    let a_pkg = chastefile.package(a_dep.on);
-    assert_eq!(a_pkg.name().unwrap(), "@a/verboden(name~'!*)");
-    assert_eq!(a_pkg.source_type(), Some(PackageSourceType::Npm));
+test_workspaces!(
+    special_chars_name,
+    |chastefile: Chastefile<Meta>, _lv: u8| {
+        let root_pkg = chastefile.root_package();
+        assert_eq!(root_pkg.name().unwrap(), "verboden(root)(name~'!*)");
+        let [a_dep] = *chastefile.root_package_dependencies() else {
+            panic!();
+        };
+        let a_pkg = chastefile.package(a_dep.on);
+        assert_eq!(a_pkg.name().unwrap(), "@a/verboden(name~'!*)");
+        assert_eq!(a_pkg.source_type(), Some(PackageSourceType::Npm));
 
-    Ok(())
-});
+        Ok(())
+    }
+);
 
-test_workspaces!(tarball_url, |chastefile: Chastefile, _lv: u8| {
+test_workspaces!(tarball_url, |chastefile: Chastefile<Meta>, _lv: u8| {
     let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
     let empty_pkg = chastefile.package(empty_pid);
     assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
@@ -543,7 +549,7 @@ test_workspaces!(tarball_url, |chastefile: Chastefile, _lv: u8| {
     Ok(())
 });
 
-test_workspaces!(workspace_basic, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(workspace_basic, |chastefile: Chastefile<Meta>, lv: u8| {
     assert_eq!(chastefile.packages().len(), 4);
     let [(balls_pid, _balls_pkg)] = *chastefile
         .packages_with_ids()
@@ -586,7 +592,7 @@ test_workspaces!(workspace_basic, |chastefile: Chastefile, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(workspace_globs, |chastefile: Chastefile, lv: u8| {
+test_workspaces!(workspace_globs, |chastefile: Chastefile<Meta>, lv: u8| {
     assert_eq!(chastefile.packages().len(), 4);
     let [(balls_pid, _balls_pkg)] = *chastefile
         .packages_with_ids()

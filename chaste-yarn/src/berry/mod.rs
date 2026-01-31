@@ -21,6 +21,7 @@ use yarn_lock_parser as yarn;
 
 use crate::berry::types::PackageJson;
 use crate::error::{Error, Result};
+use crate::Meta;
 
 mod types;
 
@@ -286,7 +287,7 @@ pub(crate) fn resolve<FG>(
     yarn_lock: yarn::Lockfile<'_>,
     root_dir: &Path,
     file_getter: &FG,
-) -> Result<Chastefile>
+) -> Result<Chastefile<Meta>>
 where
     FG: Fn(PathBuf) -> Result<String, io::Error>,
 {
@@ -298,7 +299,9 @@ where
         resolutions.insert(parse_resolution_key(rk)?, rv.as_ref());
     }
 
-    let mut chastefile_builder = ChastefileBuilder::new();
+    let mut chastefile_builder = ChastefileBuilder::new(Meta {
+        lockfile_version: yarn_lock.version,
+    });
     let mut index_to_pid: HashMap<usize, PackageID> =
         HashMap::with_capacity(yarn_lock.entries.len());
 

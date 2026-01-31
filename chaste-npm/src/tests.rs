@@ -6,11 +6,11 @@ use std::sync::LazyLock;
 
 use chaste_types::{Chastefile, Package, PackageID, PackageSourceType};
 
-use super::{parse, Error, Result};
+use super::{parse, Error, Meta, Result};
 
 static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test_workspaces"));
 
-fn test_workspace(name: &str) -> Result<Chastefile> {
+fn test_workspace(name: &str) -> Result<Chastefile<Meta>> {
     parse(TEST_WORKSPACES.join(name))
 }
 

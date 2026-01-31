@@ -9,11 +9,11 @@ use chaste_types::{
 };
 
 use crate::error::Result;
-use crate::parse;
+use crate::{parse, Meta};
 
 static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test_workspaces"));
 
-fn test_workspace(name: &str) -> Result<Chastefile> {
+fn test_workspace(name: &str) -> Result<Chastefile<Meta>> {
     parse(TEST_WORKSPACES.join(name))
 }
 

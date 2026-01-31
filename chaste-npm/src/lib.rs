@@ -9,7 +9,7 @@ use std::{fs, io};
 use chaste_types::{
     Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder, DependencyKind,
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
-    PackageSource, SourceVersionSpecifier,
+    PackageSource, ProviderMeta, SourceVersionSpecifier,
 };
 
 pub use crate::error::{Error, Result};
@@ -29,9 +29,18 @@ mod types;
 pub static LOCKFILE_NAME: &str = "package-lock.json";
 pub static SHRINKWRAP_NAME: &str = "npm-shrinkwrap.json";
 
+#[derive(Debug, Clone)]
+pub struct Meta {}
+
+impl ProviderMeta for Meta {
+    fn provider_name(&self) -> &'static str {
+        "npm"
+    }
+}
+
 struct PackageParser<'a> {
     package_lock: &'a PackageLock<'a>,
-    chastefile_builder: ChastefileBuilder,
+    chastefile_builder: ChastefileBuilder<Meta>,
     path_pid: HashMap<&'a Cow<'a, str>, PackageID>,
 }
 
@@ -171,12 +180,12 @@ impl<'a> PackageParser<'a> {
     fn new(package_lock: &'a PackageLock) -> Self {
         Self {
             package_lock,
-            chastefile_builder: ChastefileBuilder::new(),
+            chastefile_builder: ChastefileBuilder::new(Meta {}),
             path_pid: HashMap::with_capacity(package_lock.packages.len()),
         }
     }
 
-    fn resolve(mut self) -> Result<Chastefile> {
+    fn resolve(mut self) -> Result<Chastefile<Meta>> {
         // First, go through all packages, but ignore entries that say to link to another package.
         // We have to do that before we can resolve the links to their respective packages.
         for (package_path, tree_package) in self
@@ -247,8 +256,8 @@ impl<'a> PackageParser<'a> {
 }
 
 mod parse_lock_ {
-    use super::{Chastefile, Error, PackageLock, PackageParser, Result};
-    pub fn parse_lock(package_lock: &PackageLock) -> Result<Chastefile> {
+    use super::{Chastefile, Error, Meta, PackageLock, PackageParser, Result};
+    pub fn parse_lock(package_lock: &PackageLock) -> Result<Chastefile<Meta>> {
         if ![2, 3].contains(&package_lock.lockfile_version) {
             return Err(Error::UnknownLockVersion(package_lock.lockfile_version));
         }
@@ -263,7 +272,7 @@ pub use parse_lock_::parse_lock;
 #[cfg(not(feature = "fuzzing"))]
 use parse_lock_::parse_lock;
 
-pub fn parse<P>(root_dir: P) -> Result<Chastefile>
+pub fn parse<P>(root_dir: P) -> Result<Chastefile<Meta>>
 where
     P: AsRef<Path>,
 {

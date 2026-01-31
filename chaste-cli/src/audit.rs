@@ -4,6 +4,7 @@
 use anyhow::{Context, Result};
 use argh::FromArgs;
 use chaste::types::ssri::Algorithm;
+use chaste::types::ProviderMeta;
 use chaste::Package;
 
 #[derive(FromArgs)]
@@ -21,6 +22,8 @@ pub fn run(_sub: Audit) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let chastefile = chaste::from_root_path(&cwd)
         .with_context(|| format!("Could not parse the lockfile from {cwd:?}"))?;
+
+    println!("Checked a {} lockfile.", chastefile.meta().provider_name());
 
     let mut checksumless = Vec::new();
     let mut insufficient_checksums = Vec::new();

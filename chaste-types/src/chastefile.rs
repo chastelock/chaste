@@ -7,17 +7,19 @@ use crate::dependency::Dependency;
 use crate::error::{Error, Result};
 use crate::installation::Installation;
 use crate::package::{Package, PackageID};
+use crate::ProviderMeta;
 
 #[derive(Debug, Clone)]
-pub struct Chastefile {
+pub struct Chastefile<P> {
     packages: HashMap<PackageID, Package>,
     installations: Vec<Installation>,
     dependencies: Vec<Dependency>,
     root_package_id: PackageID,
     workspace_members: Vec<PackageID>,
+    provider_meta: P,
 }
 
-impl<'a> Chastefile {
+impl<'a, P: ProviderMeta> Chastefile<P> {
     pub fn package(&'a self, package_id: PackageID) -> &'a Package {
         self.packages.get(&package_id).unwrap()
     }
@@ -147,21 +149,41 @@ impl<'a> Chastefile {
             .filter(|i| i.package_id() == package_id)
             .collect()
     }
+
+    /// Provider-specific metadata
+    pub fn meta(&'a self) -> &'a P {
+        &self.provider_meta
+    }
+
+    pub fn map_meta<F, N>(self, func: F) -> Chastefile<N>
+    where
+        F: FnOnce(P) -> N,
+    {
+        Chastefile {
+            packages: self.packages,
+            installations: self.installations,
+            dependencies: self.dependencies,
+            root_package_id: self.root_package_id,
+            workspace_members: self.workspace_members,
+            provider_meta: func(self.provider_meta),
+        }
+    }
 }
 
 #[derive(Debug)]
-pub struct ChastefileBuilder {
+pub struct ChastefileBuilder<P> {
     packages: HashMap<PackageID, Package>,
     dependencies: Vec<Dependency>,
     installations: Vec<Installation>,
     next_pid: u64,
     root_package_id: Option<PackageID>,
     workspace_members: Vec<PackageID>,
+    provider_meta: P,
 }
 
-impl ChastefileBuilder {
+impl<P> ChastefileBuilder<P> {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn new(provider_meta: P) -> Self {
         Self {
             packages: HashMap::new(),
             dependencies: Vec::new(),
@@ -169,6 +191,7 @@ impl ChastefileBuilder {
             next_pid: 0,
             root_package_id: None,
             workspace_members: Vec::new(),
+            provider_meta,
         }
     }
 
@@ -209,13 +232,14 @@ impl ChastefileBuilder {
         Ok(())
     }
 
-    pub fn build(self) -> Result<Chastefile> {
+    pub fn build(self) -> Result<Chastefile<P>> {
         Ok(Chastefile {
             packages: self.packages,
             dependencies: self.dependencies,
             installations: self.installations,
             root_package_id: self.root_package_id.ok_or(Error::MissingRootPackageID)?,
             workspace_members: self.workspace_members,
+            provider_meta: self.provider_meta,
         })
     }
 }

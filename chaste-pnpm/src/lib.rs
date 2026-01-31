@@ -10,7 +10,7 @@ use chaste_types::{
     package_name_str, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
     DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
     PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
-    SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
+    ProviderMeta, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take};
@@ -30,6 +30,15 @@ pub mod types;
 mod types;
 
 pub static LOCKFILE_NAME: &str = "pnpm-lock.yaml";
+
+#[derive(Debug, Clone)]
+pub struct Meta {}
+
+impl ProviderMeta for Meta {
+    fn provider_name(&self) -> &'static str {
+        "pnpm"
+    }
+}
 
 #[allow(clippy::type_complexity)]
 fn snapshot_key_rest<'a>(
@@ -101,7 +110,7 @@ fn snapshot_key_rest<'a>(
     None
 }
 
-pub fn parse<P>(root_dir: P) -> Result<Chastefile>
+pub fn parse<P>(root_dir: P) -> Result<Chastefile<Meta>>
 where
     P: AsRef<Path>,
 {
@@ -117,7 +126,7 @@ fn parse_real<FG>(
     root_dir: &Path,
     lockfile: types::Lockfile,
     file_getter: &FG,
-) -> Result<Chastefile>
+) -> Result<Chastefile<Meta>>
 where
     FG: Fn(PathBuf) -> Result<String, io::Error>,
 {
@@ -127,7 +136,7 @@ where
         ));
     }
 
-    let mut chastefile = ChastefileBuilder::new();
+    let mut chastefile = ChastefileBuilder::new(Meta {});
 
     let mut importer_to_pid = HashMap::with_capacity(lockfile.importers.len());
     for importer_path in lockfile.importers.keys() {
@@ -415,7 +424,7 @@ pub fn parse_arbitrary<FG>(
     lockfile: types::Lockfile,
     root_dir: &Path,
     file_getter: &FG,
-) -> Result<Chastefile>
+) -> Result<Chastefile<Meta>>
 where
     FG: Fn(PathBuf) -> Result<String, io::Error>,
 {

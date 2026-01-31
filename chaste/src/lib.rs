@@ -18,7 +18,45 @@ pub use chaste_types::{Chastefile, Dependency, DependencyKind, Package, PackageI
 pub mod error;
 use crate::error::{Error, Result};
 
-pub fn from_root_path<P>(root_path: P) -> Result<Chastefile>
+#[derive(Debug, Clone)]
+pub enum Meta {
+    #[cfg(feature = "bun")]
+    Bun(bun::Meta),
+
+    #[cfg(feature = "npm")]
+    Npm(npm::Meta),
+
+    #[cfg(feature = "pnpm")]
+    Pnpm(pnpm::Meta),
+
+    #[cfg(any(feature = "yarn-classic", feature = "yarn-berry"))]
+    Yarn(yarn::Meta),
+}
+
+impl types::ProviderMeta for Meta {
+    fn provider_name(&self) -> &'static str {
+        match self {
+            #[cfg(feature = "bun")]
+            Meta::Bun(meta) => meta.provider_name(),
+            #[cfg(feature = "npm")]
+            Meta::Npm(meta) => meta.provider_name(),
+            #[cfg(feature = "pnpm")]
+            Meta::Pnpm(meta) => meta.provider_name(),
+            #[cfg(any(feature = "yarn-classic", feature = "yarn-berry"))]
+            Meta::Yarn(meta) => meta.provider_name(),
+            #[cfg(not(any(
+                feature = "bun",
+                feature = "npm",
+                feature = "pnpm",
+                feature = "yarn-classic",
+                feature = "yarn-berry"
+            )))]
+            _ => unreachable!(),
+        }
+    }
+}
+
+pub fn from_root_path<P>(root_path: P) -> Result<Chastefile<Meta>>
 where
     P: AsRef<Path>,
 {
@@ -27,7 +65,7 @@ where
     #[cfg(feature = "bun")]
     {
         if root_path.join(bun::LOCKFILE_NAME).exists() {
-            return Ok(bun::parse(root_path)?);
+            return Ok(bun::parse(root_path)?.map_meta(Meta::Bun));
         }
     }
 
@@ -36,21 +74,21 @@ where
         if root_path.join(npm::SHRINKWRAP_NAME).exists()
             || root_path.join(npm::LOCKFILE_NAME).exists()
         {
-            return Ok(npm::parse(root_path)?);
+            return Ok(npm::parse(root_path)?.map_meta(Meta::Npm));
         }
     }
 
     #[cfg(feature = "pnpm")]
     {
         if root_path.join(pnpm::LOCKFILE_NAME).exists() {
-            return Ok(pnpm::parse(root_path)?);
+            return Ok(pnpm::parse(root_path)?.map_meta(Meta::Pnpm));
         }
     }
 
     #[cfg(any(feature = "yarn-berry", feature = "yarn-classic"))]
     {
         if root_path.join(yarn::LOCKFILE_NAME).exists() {
-            return Ok(yarn::parse(root_path)?);
+            return Ok(yarn::parse(root_path)?.map_meta(Meta::Yarn));
         }
     }
 

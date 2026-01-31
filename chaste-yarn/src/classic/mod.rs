@@ -22,6 +22,7 @@ use yarn_lock_parser as yarn;
 
 use crate::classic::types::PackageJson;
 use crate::error::{Error, Result};
+use crate::Meta;
 
 mod types;
 
@@ -266,7 +267,7 @@ pub(crate) fn resolve<'fp, FG>(
     yarn_lock: yarn::Lockfile<'_>,
     root_dir: &Path,
     file_getter: &FG,
-) -> Result<Chastefile>
+) -> Result<Chastefile<Meta>>
 where
     FG: Fn(PathBuf) -> Result<String, io::Error>,
 {
@@ -276,7 +277,9 @@ where
     let mut member_package_jsons: Vec<(Cow<'_, str>, PackageJson)> = Vec::new();
     let mut mpj_idx_to_pid: HashMap<usize, PackageID> = HashMap::new();
 
-    let mut chastefile_builder = ChastefileBuilder::new();
+    let mut chastefile_builder = ChastefileBuilder::new(Meta {
+        lockfile_version: yarn_lock.version,
+    });
     let mut index_to_pid: HashMap<usize, PackageID> =
         HashMap::with_capacity(yarn_lock.entries.len());
 

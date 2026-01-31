@@ -9,7 +9,7 @@ use chaste_types::{
     package_name_str, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
     PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
-    SourceVersionSpecifier, SourceVersionSpecifierKind,
+    ProviderMeta, SourceVersionSpecifier, SourceVersionSpecifierKind,
 };
 use nom::{
     bytes::complete::tag,
@@ -32,6 +32,15 @@ mod error;
 #[cfg(test)]
 mod tests;
 mod types;
+
+#[derive(Debug, Clone)]
+pub struct Meta {}
+
+impl ProviderMeta for Meta {
+    fn provider_name(&self) -> &'static str {
+        "bun"
+    }
+}
 
 pub static LOCKFILE_NAME: &str = "bun.lock";
 
@@ -63,7 +72,7 @@ fn parse_descriptor(input: &str) -> Result<(&str, &str)> {
         .map_err(|_| Error::InvalidKey(input.to_string()))
 }
 
-pub fn parse<P>(root_dir: P) -> Result<Chastefile>
+pub fn parse<P>(root_dir: P) -> Result<Chastefile<Meta>>
 where
     P: AsRef<Path>,
 {
@@ -73,16 +82,16 @@ where
 }
 
 #[cfg(feature = "fuzzing")]
-pub fn parse_lock(bun_lock: BunLock) -> Result<Chastefile> {
+pub fn parse_lock(bun_lock: BunLock) -> Result<Chastefile<Meta>> {
     parse_contents(bun_lock)
 }
 
-fn parse_contents(bun_lock: BunLock) -> Result<Chastefile> {
+fn parse_contents(bun_lock: BunLock) -> Result<Chastefile<Meta>> {
     if !matches!(bun_lock.lockfile_version, (0..=1)) {
         return Err(Error::UnknownLockfileVersion(bun_lock.lockfile_version));
     }
 
-    let mut chastefile = ChastefileBuilder::new();
+    let mut chastefile = ChastefileBuilder::new(Meta {});
 
     let mut ws_location_to_pid: HashMap<&str, PackageID> =
         HashMap::with_capacity(bun_lock.workspaces.len());
