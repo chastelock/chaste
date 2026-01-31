@@ -7,6 +7,6 @@ steps:
       CARGO_TERM_COLOR: always
       RUSTFLAGS: "-Ctarget-feature=-crt-static"
     commands:
-      - cargo check
-      - cargo build --bin chaste
-      - cargo test
+      - cargo check --locked
+      - cargo build --bin chaste --locked
+      - cargo test --locked
