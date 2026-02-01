@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+steps:
+  reuse:
+    when:
+      event: [push, pull_request]
+    image: fsfe/reuse:6
+    commands:
+      - reuse lint
