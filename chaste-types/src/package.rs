@@ -56,6 +56,10 @@ impl Package {
     pub fn is_derived(&self) -> bool {
         self.derived.is_some()
     }
+
+    pub(crate) fn is_duplicate_of(&self, other: &Package) -> bool {
+        self.eq(other) && self.source.is_some()
+    }
 }
 
 impl PartialOrd for Package {

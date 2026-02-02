@@ -202,7 +202,11 @@ impl<P> ChastefileBuilder<P> {
     }
 
     pub fn add_package(&mut self, package: Package) -> Result<PackageID> {
-        if let Some((original_pid, _)) = self.packages.iter().find(|(_, p)| *p == &package) {
+        if let Some((original_pid, _)) = self
+            .packages
+            .iter()
+            .find(|(_, p)| p.is_duplicate_of(&package))
+        {
             return Err(Error::DuplicatePackage(*original_pid));
         }
         let pid = self.new_pid();
