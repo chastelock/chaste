@@ -29,6 +29,9 @@ pub enum Error {
     #[error("Ambiguous resolved: {0:?}")]
     AmbiguousResolved(String),
 
+    #[error("Workspace root package missing from the lockfile")]
+    MissingRoot,
+
     #[error("Conflicting descriptors: {0:?} and {1:?}")]
     ConflictingDescriptors(String, String),
 

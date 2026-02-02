@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -10,7 +10,8 @@ use chaste_types::{
     package_name_str, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
     DependencyKind, InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
     PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
-    PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME, ROOT_MODULE_PATH,
+    PackageSourceType, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
+    ROOT_MODULE_PATH,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take, take_until};
@@ -111,7 +112,7 @@ fn parse_checksum(integrity: &str) -> Result<Checksums> {
     )?))
 }
 
-fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
+fn parse_package(entry: &yarn::Entry) -> Result<(PackageBuilder, Option<PackageSource>)> {
     let source = parse_source(entry);
     let name = match &source {
         Some((n, _)) => n,
@@ -124,10 +125,13 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
     if !entry.integrity.is_empty() {
         pkg.checksums(parse_checksum(entry.integrity)?);
     }
-    if let Some((_, Some(source))) = source {
-        pkg.source(source);
-    }
-    Ok(pkg)
+    let source = if let Some((_, Some(source))) = source {
+        pkg.source(source.clone());
+        Some(source)
+    } else {
+        None
+    };
+    Ok((pkg, source))
 }
 
 fn until_just_package_name_is_left(input: &str) -> IResult<&str, &str> {
@@ -191,10 +195,8 @@ fn resolution_from_state_key(state_key: &str) -> Cow<'_, str> {
 fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
-    root_package_json: &PackageJson,
     resolutions: &HashMap<Resolution, &str>,
     index_to_pid: &HashMap<usize, PackageID>,
-    is_peer: bool,
 ) -> Result<Option<PackageID>>
 where
     S: AsRef<str>,
@@ -226,65 +228,130 @@ where
         }
         return Ok(Some(*index_to_pid.get(&idx).unwrap()));
     }
-
-    if is_peer {
-        // Peer dependencies are cursed. If multiple modules *peer* depend on the same module name,
-        // Yarn will resolve them to one module, even if it considers them conflicting.
-        // I mean, it can't nest them. Retry, only matching the name and not the SVS.
-        let candidate_entries = yarn_lock
-            .entries
-            .iter()
-            .enumerate()
-            .filter(|(_, e)| {
-                e.descriptors
-                    .iter()
-                    .any(|(d_n, _d_s)| *d_n == descriptor_name)
-            })
-            .collect::<Vec<_>>();
-
-        // If there's just one candidate to consider, it's easy.
-        if candidate_entries.len() == 1 {
-            return Ok(Some(*index_to_pid.get(&candidate_entries[0].0).unwrap()));
-        }
-        // Peer dependencies can be optional.
-        // TODO: also check peerDependenciesMeta
-        if candidate_entries.len() == 0 {
-            return Ok(None);
-        }
-
-        // If the root module also depends on it directly, it has to be directly in node_modules/,
-        // where a peer dependency would be.
-        for root_deps in [
-            &root_package_json.dependencies,
-            &root_package_json.dev_dependencies,
-            &root_package_json.optional_dependencies,
-            &root_package_json.peer_dependencies,
-        ] {
-            if let Some(alt_svs) = root_deps.get(descriptor_name) {
-                if let Some((alt_candidate_index, _)) = candidate_entries.iter().find(|(_, e)| {
-                    e.descriptors.iter().any(|ed| {
-                        ed.0 == descriptor_name
-                            && (ed.1 == alt_svs || ed.1.strip_prefix("npm:") == Some(alt_svs))
-                    })
-                }) {
-                    return Ok(Some(*index_to_pid.get(alt_candidate_index).unwrap()));
-                }
-            }
-        }
-
-        // TODO: Check yarn-state if available?
-
-        return Err(Error::AmbiguousResolution(format!(
-            "{descriptor_name}@{descriptor_svs}",
-        )));
-    }
     Err(Error::DependencyNotFound(format!(
         "{descriptor_name}@{descriptor_svs}",
     )))
 }
 
-pub(crate) fn resolve<FG>(
-    yarn_lock: yarn::Lockfile<'_>,
+enum PeerFindOutcome {
+    Found(PackageID),
+    /// Not found and should stay so. There are no candidates to decide between.
+    Ignore,
+    /// There are candidates to decide between. Leave for later.
+    Retry,
+}
+
+fn find_peer_pid<'a, S>(
+    descriptor: &'a (S, S),
+    yarn_lock: &'a yarn::Lockfile<'a>,
+    from_pid: PackageID,
+    resolutions: &HashMap<Resolution, &str>,
+    index_to_pid: &HashMap<usize, PackageID>,
+    dep_children: &HashMap<PackageID, Vec<PackageID>>,
+    package_sources: &HashMap<PackageID, PackageSource>,
+) -> Result<PeerFindOutcome>
+where
+    S: AsRef<str>,
+{
+    let (descriptor_name, descriptor_svs) = (descriptor.0.as_ref(), descriptor.1.as_ref());
+
+    let candidate_entries = yarn_lock
+        .entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| {
+            e.descriptors
+                .iter()
+                .any(|(d_n, _d_s)| *d_n == descriptor_name)
+        })
+        .map(|(idx, e)| (idx, e, *index_to_pid.get(&idx).unwrap()))
+        .collect::<Vec<_>>();
+
+    // If there's just one candidate to consider, it's easy.
+    if let [(_, _, pid)] = *candidate_entries {
+        return Ok(PeerFindOutcome::Found(pid));
+    }
+    // Peer dependencies can be optional.
+    // TODO: also check peerDependenciesMeta
+    if candidate_entries.len() == 0 {
+        return Ok(PeerFindOutcome::Ignore);
+    }
+
+    // This is where fun begins.
+
+    // Check if the dependent package's other dependencies match.
+    // (Sometimes the package may even have the same dependency as both regular and peer.)
+    let siblings_packages: HashSet<PackageID> = HashSet::from_iter(
+        dep_children
+            .get(&from_pid)
+            .unwrap_or(&vec![])
+            .iter()
+            .copied(),
+    );
+    let candidate_siblings = siblings_packages
+        .iter()
+        .filter(|sib| candidate_entries.iter().any(|(_, _, cand)| *sib == cand))
+        .collect::<Vec<_>>();
+    if let [pid] = *candidate_siblings {
+        return Ok(PeerFindOutcome::Found(*pid));
+    }
+
+    // If a package is requested somewhere else with the same specifier.
+    let same_spec_candidates = candidate_entries
+        .iter()
+        .filter(|(_, e, _)| {
+            e.descriptors.iter().any(|(n, s)| {
+                *n == descriptor_name
+                    && (*s == descriptor_svs || s.strip_prefix("npm:") == Some(descriptor_svs))
+            })
+        })
+        .collect::<Vec<_>>();
+    if let [(_, _, pid)] = *same_spec_candidates {
+        return Ok(PeerFindOutcome::Found(*pid));
+    }
+
+    // If the dependency is back on the package that requested it.
+    if let Some((_, _, pid)) = candidate_entries
+        .iter()
+        .find(|(_, _, pid)| *pid == from_pid)
+    {
+        return Ok(PeerFindOutcome::Found(*pid));
+    }
+
+    // Finally, check which candidates satisfy the version requirement.
+    let svs = SourceVersionSpecifier::new(descriptor_svs.to_owned())?;
+    if let Some(range) = svs.npm_range() {
+        let mut satisfying_candidates = candidate_entries
+            .iter()
+            .filter_map(|(_, e, pid)| {
+                if package_sources
+                    .get(pid)
+                    .is_some_and(|s| s.source_type() == PackageSourceType::Npm)
+                {
+                    Some((pid, PackageVersion::parse(e.version).unwrap()))
+                        .filter(|(_, v)| v.satisfies(&range))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        if let [(pid, _)] = *satisfying_candidates {
+            return Ok(PeerFindOutcome::Found(*pid));
+        }
+        // If there are more than 2 matching candidates, choose the one with higher version.
+        if satisfying_candidates.len() > 1 {
+            satisfying_candidates.sort_by(|a, b| a.1.cmp(&b.1));
+            return Ok(PeerFindOutcome::Found(
+                *satisfying_candidates.last().unwrap().0,
+            ));
+        }
+    }
+
+    Ok(PeerFindOutcome::Retry)
+}
+
+pub(crate) fn resolve<'y, FG>(
+    yarn_lock: yarn::Lockfile<'y>,
     root_dir: &Path,
     file_getter: &FG,
 ) -> Result<Chastefile<Meta>>
@@ -304,42 +371,56 @@ where
     });
     let mut index_to_pid: HashMap<usize, PackageID> =
         HashMap::with_capacity(yarn_lock.entries.len());
+    let mut package_sources: HashMap<PackageID, PackageSource> =
+        HashMap::with_capacity(yarn_lock.entries.len());
 
     let mut deferred_pkgs = Vec::new();
 
-    for (index, entry) in yarn_lock.entries.iter().enumerate() {
-        let pkg = parse_package(entry)?;
+    let (root_pid, workspace_pids) = {
+        let mut root_pid = None;
+        let mut workspace_pids = HashMap::new();
+        for (index, entry) in yarn_lock.entries.iter().enumerate() {
+            let (pkg, source) = parse_package(entry)?;
 
-        // For patch: packages, we need to mark the derivation, for which
-        // we need the PackageID they're derived from.
-        if (package_name_str, tag("@patch:"))
-            .parse(entry.resolved)
-            .is_ok()
-        {
-            deferred_pkgs.push((index, entry, pkg));
-            continue;
-        }
+            // For patch: packages, we need to mark the derivation, for which
+            // we need the PackageID they're derived from.
+            if (package_name_str, tag("@patch:"))
+                .parse(entry.resolved)
+                .is_ok()
+            {
+                deferred_pkgs.push((index, entry, pkg));
+                continue;
+            }
 
-        let pid = chastefile_builder.add_package(pkg.build()?)?;
-        index_to_pid.insert(index, pid);
-        if let Some(workspace_path) = entry
-            .descriptors
-            .iter()
-            .find_map(|(_, e_svs)| e_svs.strip_prefix("workspace:"))
-        {
-            if workspace_path == "." {
-                chastefile_builder.set_root_package_id(pid)?;
-                let installation_builder = InstallationBuilder::new(pid, ROOT_MODULE_PATH.clone());
-                chastefile_builder.add_package_installation(installation_builder.build()?);
-            } else {
-                chastefile_builder.set_as_workspace_member(pid)?;
-                chastefile_builder.add_package_installation(
-                    InstallationBuilder::new(pid, ModulePath::new(workspace_path.to_string())?)
-                        .build()?,
-                );
+            let pid = chastefile_builder.add_package(pkg.build()?)?;
+            index_to_pid.insert(index, pid);
+            if let Some(src) = source {
+                package_sources.insert(pid, src);
+            }
+            if let Some(workspace_path) = entry
+                .descriptors
+                .iter()
+                .find_map(|(_, e_svs)| e_svs.strip_prefix("workspace:"))
+            {
+                if workspace_path == "." {
+                    chastefile_builder.set_root_package_id(pid)?;
+                    let installation_builder =
+                        InstallationBuilder::new(pid, ROOT_MODULE_PATH.clone());
+                    chastefile_builder.add_package_installation(installation_builder.build()?);
+                    root_pid = Some(pid);
+                    workspace_pids.insert("", pid);
+                } else {
+                    chastefile_builder.set_as_workspace_member(pid)?;
+                    chastefile_builder.add_package_installation(
+                        InstallationBuilder::new(pid, ModulePath::new(workspace_path.to_string())?)
+                            .build()?,
+                    );
+                    workspace_pids.insert(workspace_path, pid);
+                }
             }
         }
-    }
+        (root_pid.ok_or(Error::MissingRoot)?, workspace_pids)
+    };
     for (index, entry, mut pkg) in deferred_pkgs {
         let Ok((
             _,
@@ -422,6 +503,10 @@ where
         }
     }
 
+    // Berry calls them "virtual packages"
+    let mut peer_dependents = HashSet::new();
+    let mut dep_children: HashMap<PackageID, Vec<PackageID>> = HashMap::new();
+
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
 
@@ -434,52 +519,94 @@ where
         // but, as per above, this shouldn't be a thing here.
         debug_assert!(entry.optional_dependencies.is_empty());
 
-        for (dependencies, deps_metas, kind_) in [
-            (
-                &entry.dependencies,
-                &entry.dependencies_meta,
-                DependencyKind::Dependency,
-            ),
-            (
-                &entry.peer_dependencies,
-                &entry.peer_dependencies_meta,
-                DependencyKind::PeerDependency,
-            ),
-        ] {
-            for dep_descriptor in dependencies {
-                let deps_meta = deps_metas
-                    .iter()
-                    .find(|(k, _)| *k == dep_descriptor.0)
-                    .map(|(_, v)| v);
-                let kind = match (deps_meta.map(|m| m.optional), kind_) {
-                    (Some(Some(true)), DependencyKind::PeerDependency) => {
-                        DependencyKind::OptionalPeerDependency
-                    }
-                    (Some(Some(true)), DependencyKind::Dependency) => {
-                        DependencyKind::OptionalDependency
-                    }
-                    (Some(Some(true)), _) => unreachable!(),
-                    (_, k) => k,
-                };
-                let Some(dep_pid) = find_dep_pid(
-                    dep_descriptor,
-                    &yarn_lock,
-                    &root_package_json,
-                    &resolutions,
-                    &index_to_pid,
-                    kind.is_peer(),
-                )?
-                else {
-                    continue;
-                };
-                let mut dep = DependencyBuilder::new(kind, *from_pid, dep_pid);
-                let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
-                if svs.aliased_package_name().is_some() {
-                    dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
-                }
-                dep.svs(svs);
-                chastefile_builder.add_dependency(dep.build());
+        let mut deps_meta = HashMap::with_capacity(entry.dependencies_meta.len());
+        for (k, v) in &entry.dependencies_meta {
+            deps_meta.insert(k, v);
+        }
+        for dep_descriptor in &entry.dependencies {
+            let kind = match deps_meta.get(&dep_descriptor.0).and_then(|m| m.optional) {
+                Some(true) => DependencyKind::OptionalDependency,
+                Some(false) | None => DependencyKind::Dependency,
+            };
+            let Some(dep_pid) =
+                find_dep_pid(dep_descriptor, &yarn_lock, &resolutions, &index_to_pid)?
+            else {
+                continue;
+            };
+            let mut dep = DependencyBuilder::new(kind, *from_pid, dep_pid);
+            dep_children
+                .get_mut(from_pid)
+                .map(|l| l.push(dep_pid))
+                .unwrap_or_else(|| {
+                    dep_children.insert(*from_pid, vec![dep_pid]);
+                });
+            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            if svs.aliased_package_name().is_some() {
+                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
             }
+            dep.svs(svs);
+            chastefile_builder.add_dependency(dep.build());
+        }
+        if !entry.peer_dependencies.is_empty() {
+            peer_dependents.insert(from_pid);
+        }
+    }
+    let mut retry_count = 0usize;
+    let mut retry_queue = VecDeque::new();
+    let mut peers_queue = yarn_lock.entries.iter().enumerate();
+    loop {
+        let Some((index, entry)) = peers_queue.next().or_else(|| retry_queue.pop_front()) else {
+            break;
+        };
+        let from_pid = index_to_pid.get(&index).unwrap();
+        let mut deps_meta = HashMap::with_capacity(entry.peer_dependencies_meta.len());
+        for (k, v) in &entry.peer_dependencies_meta {
+            deps_meta.insert(k, v);
+        }
+        for dep_descriptor in &entry.peer_dependencies {
+            let kind = match deps_meta.get(&dep_descriptor.0).and_then(|m| m.optional) {
+                Some(true) => DependencyKind::OptionalPeerDependency,
+                Some(false) | None => DependencyKind::PeerDependency,
+            };
+            let dep_pid = match find_peer_pid(
+                dep_descriptor,
+                &yarn_lock,
+                *from_pid,
+                &resolutions,
+                &index_to_pid,
+                &dep_children,
+                &package_sources,
+            )? {
+                PeerFindOutcome::Found(pid) => pid,
+                PeerFindOutcome::Ignore => {
+                    continue;
+                }
+                PeerFindOutcome::Retry => {
+                    retry_count += 1;
+                    if retry_count > retry_queue.len() {
+                        return Err(Error::AmbiguousResolution(format!(
+                            "{}@{}",
+                            dep_descriptor.0, dep_descriptor.1
+                        )));
+                    }
+                    retry_queue.push_back((index, entry));
+                    continue;
+                }
+            };
+            retry_count = 0;
+            dep_children
+                .get_mut(from_pid)
+                .map(|l| l.push(dep_pid))
+                .unwrap_or_else(|| {
+                    dep_children.insert(*from_pid, vec![dep_pid]);
+                });
+            let mut dep = DependencyBuilder::new(kind, *from_pid, dep_pid);
+            let svs = SourceVersionSpecifier::new(dep_descriptor.1.to_string())?;
+            if svs.aliased_package_name().is_some() {
+                dep.alias_name(PackageName::new(dep_descriptor.0.to_string())?);
+            }
+            dep.svs(svs);
+            chastefile_builder.add_dependency(dep.build());
         }
     }
     Ok(chastefile_builder.build()?)
