@@ -145,14 +145,14 @@ fn until_just_package_name_is_left(input: &str) -> IResult<&str, &str> {
         }
         return Ok((ir, il));
     }
-    Err(nom::Err::Failure(nom::error::Error::new(
+    Err(nom::Err::Error(nom::error::Error::new(
         input,
         nom::error::ErrorKind::Verify,
     )))
 }
 
-type ResolutionParent<'a> = (&'a str, Option<&'a str>);
-type Resolution<'a> = (Option<ResolutionParent<'a>>, &'a str);
+type BaseResolution<'a> = (&'a str, Option<&'a str>);
+type Resolution<'a> = (Option<BaseResolution<'a>>, BaseResolution<'a>);
 
 fn parse_resolution_key<'a>(input: &'a str) -> Result<Resolution<'a>> {
     (
@@ -163,7 +163,7 @@ fn parse_resolution_key<'a>(input: &'a str) -> Result<Resolution<'a>> {
             ),
             tag("/"),
         )),
-        terminated(package_name_str, eof),
+        terminated((package_name_str, opt(preceded(tag("@"), rest))), eof),
     )
         .parse(input)
         .map(|(_, r)| r)
@@ -204,7 +204,9 @@ where
     let (descriptor_name, descriptor_svs) = (descriptor.0.as_ref(), descriptor.1.as_ref());
     let candidate_resolutions = resolutions
         .iter()
-        .filter(|((_, pn), _svs)| *pn == descriptor_name)
+        .filter(|((_, (pn, ps)), _svs)| {
+            *pn == descriptor_name && ps.is_none_or(|s| s == descriptor_svs)
+        })
         .map(|(_, svs)| svs)
         .collect::<Vec<&&str>>();
     let mut candidate_entries = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
@@ -620,22 +622,30 @@ mod tests {
 
     #[test]
     fn resolution_keys() -> Result<()> {
-        assert_eq!(parse_resolution_key("lodash")?, (None, "lodash"));
+        assert_eq!(parse_resolution_key("lodash")?, (None, ("lodash", None)));
         assert_eq!(
             parse_resolution_key("@chastelock/testcase")?,
-            (None, "@chastelock/testcase")
+            (None, ("@chastelock/testcase", None))
         );
         assert_eq!(
             parse_resolution_key("lodash/@chastelock/testcase")?,
-            (Some(("lodash", None)), "@chastelock/testcase")
+            (Some(("lodash", None)), ("@chastelock/testcase", None))
         );
         assert_eq!(
             parse_resolution_key("lodash@1/react")?,
-            (Some(("lodash", Some("1"))), "react")
+            (Some(("lodash", Some("1"))), ("react", None))
         );
         assert_eq!(
             parse_resolution_key("lodash@1/@chastelock/testcase")?,
-            (Some(("lodash", Some("1"))), "@chastelock/testcase")
+            (Some(("lodash", Some("1"))), ("@chastelock/testcase", None))
+        );
+        assert_eq!(
+            parse_resolution_key("lodash@^1")?,
+            (None, ("lodash", Some("^1")))
+        );
+        assert_eq!(
+            parse_resolution_key("@chastelock/testcase@^1")?,
+            (None, ("@chastelock/testcase", Some("^1")))
         );
 
         Ok(())
