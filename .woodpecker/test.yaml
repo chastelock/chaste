@@ -11,5 +11,4 @@ steps:
       RUSTFLAGS: "-Ctarget-feature=-crt-static"
     commands:
       - cargo check --locked
-      - cargo build --bin chaste --locked
       - cargo test --locked
