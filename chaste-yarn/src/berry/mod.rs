@@ -205,7 +205,10 @@ where
     let candidate_resolutions = resolutions
         .iter()
         .filter(|((_, (pn, ps)), _svs)| {
-            *pn == descriptor_name && ps.is_none_or(|s| s == descriptor_svs)
+            *pn == descriptor_name
+                && ps.is_none_or(|s| {
+                    s == descriptor_svs || Some(s) == descriptor_svs.strip_prefix("npm:")
+                })
         })
         .map(|(_, svs)| svs)
         .collect::<Vec<&&str>>();

@@ -509,6 +509,51 @@ test_workspaces!(resolutions, |chastefile: Chastefile<Meta>, lv: u8| {
     Ok(())
 });
 
+#[cfg(feature = "berry")]
+test_workspace!(
+    [6, 8],
+    resolutions_svs_scoped,
+    |chastefile: Chastefile<Meta>, lv: u8| {
+        let mut stringhashes = chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "string-hash"))
+            .collect::<Vec<_>>();
+        stringhashes.sort_unstable_by_key(|(_, p)| p.is_derived());
+        let [(og_sh_pid, og_sh_pkg), (patched_sh_pid, patched_sh_pkg)] = *stringhashes else {
+            panic!();
+        };
+        assert!(!og_sh_pkg.is_derived());
+        assert!(patched_sh_pkg.is_derived());
+        let Some(PackageDerivation::Patch(patch)) = patched_sh_pkg.derivation() else {
+            panic!();
+        };
+        assert_eq!(
+            patch.path(),
+            match lv {
+                6 => ".yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
+                // XXX: tilde here refers to package root, not user dir
+                8 => "~/.yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
+                _ => unreachable!(),
+            }
+        );
+        assert_eq!(patched_sh_pkg.derived_from(), Some(og_sh_pid));
+
+        let [mc_pkg_dep] = *chastefile.package_dependents(patched_sh_pid) else {
+            panic!();
+        };
+        // This is the SVS defined by the package, not the "patch:" one actually matched,
+        // which was overridden by a resolution
+        assert_eq!(mc_pkg_dep.svs().unwrap(), "npm:^1.1.3");
+        let mc_pkg = chastefile.package(mc_pkg_dep.from);
+        assert_eq!(mc_pkg.name().unwrap(), "maitred-cache");
+
+        assert!(chastefile.package_dependents(og_sh_pid).is_empty());
+
+        Ok(())
+    }
+);
+
 test_workspaces!(scope_registry, |chastefile: Chastefile<Meta>, lv: u8| {
     let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
     let empty_pkg = chastefile.package(empty_pid);
