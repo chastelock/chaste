@@ -5,7 +5,7 @@ steps:
   test:
     when:
       event: [push, pull_request]
-    image: codeberg.org/chaste/ci-containers:1.93.0-alpine3.23-nextest0.9.124-tarpaulin0.35.1
+    image: codeberg.org/chaste/rust:1.93.0-alpine3.23-nextest0.9.124-tarpaulin0.35.1
     environment:
       CARGO_TERM_COLOR: always
       RUSTFLAGS: "-Ctarget-feature=-crt-static"
