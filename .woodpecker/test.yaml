@@ -5,10 +5,11 @@ steps:
   test:
     when:
       event: [push, pull_request]
-    image: rust:1.93-trixie
+    image: codeberg.org/chaste/ci-containers:1.93.0-alpine3.23-nextest0.9.124-tarpaulin0.35.1
     environment:
       CARGO_TERM_COLOR: always
       RUSTFLAGS: "-Ctarget-feature=-crt-static"
     commands:
       - cargo check --locked
-      - cargo test --locked
+      - cargo nextest run --locked
+      - cargo test --locked --doc
