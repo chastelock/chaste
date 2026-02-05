@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -13,11 +12,9 @@ use chaste_types::{
     PackageSourceType, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
     ROOT_MODULE_PATH,
 };
-use nom::branch::alt;
-use nom::bytes::complete::{tag, take, take_until};
-use nom::combinator::{eof, map, map_res, opt, recognize, rest, verify};
-use nom::sequence::{preceded, terminated};
-use nom::{IResult, Parser};
+use nom::bytes::complete::tag;
+use nom::combinator::eof;
+use nom::Parser as _;
 use yarn_lock_parser as yarn;
 
 use crate::berry::resolutions::{is_same_svs, Resolutions};
@@ -25,82 +22,9 @@ use crate::berry::types::PackageJson;
 use crate::error::{Error, Result};
 use crate::Meta;
 
+mod mjam;
 mod resolutions;
 mod types;
-
-fn npm(input: &str) -> IResult<&str, PackageSource> {
-    map(
-        preceded(tag("npm:"), map_res(rest, PackageVersion::parse)),
-        |_version| PackageSource::Npm,
-    )
-    .parse(input)
-}
-
-fn is_commit_hash(input: &str) -> bool {
-    input.len() == 40
-        && input
-            .as_bytes()
-            .iter()
-            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
-}
-
-fn git_commit(input: &str) -> IResult<&str, PackageSource> {
-    map(
-        (
-            recognize((
-                alt((tag("ssh://"), tag("http://"), tag("https://"))),
-                take_until::<&str, &str, nom::error::Error<&str>>("#commit="),
-            )),
-            tag("#commit="),
-            verify(rest, is_commit_hash),
-        ),
-        |(url, _, _)| PackageSource::Git {
-            url: url.to_string(),
-        },
-    )
-    .parse(input)
-}
-
-/// Note: it must end with ".tgz" in berry.
-fn tarball_url(input: &str) -> IResult<&str, PackageSource> {
-    map(
-        verify(
-            recognize((
-                alt((
-                    tag::<&str, &str, nom::error::Error<&str>>("http://"),
-                    tag::<&str, &str, nom::error::Error<&str>>("https://"),
-                )),
-                rest,
-            )),
-            |u: &str| {
-                !u.contains("?")
-                    && !u.contains("#")
-                    && (u.ends_with(".tgz")
-                        || u.ends_with(".tar.gz")
-                        // This landed in yarn 4:
-                        || u.rsplit_once("/")
-                            .is_some_and(|(_, r)| r.is_empty() && !r.contains(".")))
-            },
-        ),
-        |url| PackageSource::TarballURL {
-            url: url.to_string(),
-        },
-    )
-    .parse(input)
-}
-
-fn parse_source<'a>(entry: &'a yarn::Entry) -> Option<(&'a str, Option<PackageSource>)> {
-    match (
-        terminated(package_name_str, tag("@")),
-        opt(alt((npm, git_commit, tarball_url))),
-    )
-        .parse(entry.resolved)
-    {
-        Ok(("", output)) => Some(output),
-        Ok((_, _)) => None,
-        Err(_e) => None,
-    }
-}
 
 fn parse_checksum(integrity: &str) -> Result<Checksums> {
     // In v8 lockfiles, there is a prefix like "10/".
@@ -115,7 +39,7 @@ fn parse_checksum(integrity: &str) -> Result<Checksums> {
 }
 
 fn parse_package(entry: &yarn::Entry) -> Result<(PackageBuilder, Option<PackageSource>)> {
-    let source = parse_source(entry);
+    let source = mjam::parse_source(entry);
     let name = match &source {
         Some((n, _)) => n,
         _ => entry.name,
@@ -134,28 +58,6 @@ fn parse_package(entry: &yarn::Entry) -> Result<(PackageBuilder, Option<PackageS
         None
     };
     Ok((pkg, source))
-}
-
-fn resolution_from_state_key(state_key: &str) -> Cow<'_, str> {
-    if state_key.len() > 137 {
-        // "tsec@virtual:ea43cfe65230d5ab1f93db69b01a1f672ecef3abbfb61f3ac71a2f930c090b853c9c93d03a1e3590a6d9dfed177d3a468279e756df1df2b5720d71b64487719c#npm:0.2.8"
-        if let Ok((_, (package_name, _virt, _hex, _hash_char, descriptor))) = (
-            package_name_str,
-            tag("@virtual:"),
-            verify(take(128usize), |hex: &str| {
-                hex.as_bytes()
-                    .iter()
-                    .all(|b| (b'a'..=b'f').contains(b) || b.is_ascii_digit())
-            }),
-            tag("#"),
-            rest,
-        )
-            .parse(state_key)
-        {
-            return Cow::Owned(format!("{package_name}@{descriptor}"));
-        }
-    }
-    Cow::Borrowed(state_key)
 }
 
 fn find_dep_pid<'a, S>(
@@ -343,9 +245,7 @@ where
 
     let mut deferred_pkgs = Vec::new();
 
-    let (root_pid, workspace_pids) = {
-        let mut root_pid = None;
-        let mut workspace_pids = HashMap::new();
+    {
         for (index, entry) in yarn_lock.entries.iter().enumerate() {
             let (pkg, source) = parse_package(entry)?;
 
@@ -374,36 +274,19 @@ where
                     let installation_builder =
                         InstallationBuilder::new(pid, ROOT_MODULE_PATH.clone());
                     chastefile_builder.add_package_installation(installation_builder.build()?);
-                    root_pid = Some(pid);
-                    workspace_pids.insert("", pid);
                 } else {
                     chastefile_builder.set_as_workspace_member(pid)?;
                     chastefile_builder.add_package_installation(
                         InstallationBuilder::new(pid, ModulePath::new(workspace_path.to_string())?)
                             .build()?,
                     );
-                    workspace_pids.insert(workspace_path, pid);
                 }
             }
         }
-        (root_pid.ok_or(Error::MissingRoot)?, workspace_pids)
-    };
+    }
     for (index, entry, mut pkg) in deferred_pkgs {
-        let Ok((
-            _,
-            (_, _, patched_pkg_name, _, patched_pkg_svd_penc, _, patch_path, _, _patch_meta),
-        )) = (
-            package_name_str,
-            tag("@patch:"),
-            package_name_str,
-            tag("@"),
-            take_until("#"),
-            tag("#"),
-            take_until("::"),
-            tag("::"),
-            rest,
-        )
-            .parse(entry.resolved)
+        let Some((_, patched_pkg_name, patched_pkg_svd_penc, patch_path, _patch_meta)) =
+            mjam::patch_descriptor(entry.resolved)
         else {
             return Err(Error::InvalidResolved(entry.resolved.to_string()));
         };
@@ -453,7 +336,7 @@ where
         .transpose()?;
     if let Some(state) = maybe_state {
         for st8_pkg in &state.packages {
-            let expected_resolution = resolution_from_state_key(st8_pkg.resolution);
+            let expected_resolution = mjam::resolution_from_state_key(st8_pkg.resolution);
             let (p_idx, _) = yarn_lock
                 .entries
                 .iter()
