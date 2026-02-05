@@ -451,6 +451,49 @@ test_workspaces!(peer_deps, |chastefile: Chastefile<Meta>, lv: u8| {
     Ok(())
 });
 
+test_workspaces!(peer_resolutions, |chastefile: Chastefile<Meta>, lv: u8| {
+    let mut root_deps = chastefile
+        .root_package_dependencies()
+        .into_iter()
+        .map(|d| (d, chastefile.package(d.on)))
+        .collect::<Vec<_>>();
+    root_deps.sort_unstable_by_key(|(d, p)| (p.name(), d.kind.is_peer()));
+    let [(buf0_dep, buf0_pkg), (genes_dep, genes_pkg)] = *root_deps else {
+        panic!();
+    };
+    assert_eq!(genes_pkg.name().unwrap(), "@bufbuild/protoc-gen-es");
+    assert_eq!(buf0_pkg.name().unwrap(), "@bufbuild/protobuf");
+    assert_eq!(buf0_pkg.version().unwrap().to_string(), "1.0.0");
+
+    let mut buf9_deps = chastefile
+        .package_dependencies(genes_dep.on)
+        .into_iter()
+        .map(|d| (d, chastefile.package(d.on)))
+        .filter(|(_, p)| p.name().is_some_and(|n| n == "@bufbuild/protobuf"))
+        .collect::<Vec<_>>();
+    buf9_deps.sort_unstable_by_key(|(d, _)| d.kind.is_peer());
+    if lv == 1 {
+        // in v1, peer dependencies are not listed in the lockfile
+        let [(buf9_dep, buf9_pkg)] = *buf9_deps else {
+            panic!();
+        };
+        assert_eq!(buf9_dep.kind, DependencyKind::Dependency);
+        assert_ne!(buf0_dep.on, buf9_dep.on);
+        assert_eq!(buf9_pkg.version().unwrap().to_string(), "1.9.0");
+    } else {
+        let [(buf9_regular_dep, buf9_pkg), (buf9_peer_dep, _buf9_pkg)] = *buf9_deps else {
+            panic!();
+        };
+        assert_eq!(buf9_regular_dep.kind, DependencyKind::Dependency);
+        assert_eq!(buf9_peer_dep.kind, DependencyKind::PeerDependency);
+        assert_eq!(buf9_peer_dep.on, buf9_regular_dep.on);
+        assert_ne!(buf0_dep.on, buf9_peer_dep.on);
+        assert_eq!(buf9_pkg.version().unwrap().to_string(), "1.9.0");
+    }
+
+    Ok(())
+});
+
 test_workspaces!(peer_unlocked, |chastefile: Chastefile<Meta>, _lv: u8| {
     assert!(chastefile.root_package_dependencies().is_empty());
     Ok(())

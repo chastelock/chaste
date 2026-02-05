@@ -1,0 +1,13 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.0.0",
+    "dependencies": {
+        "@bufbuild/protobuf": "~1.0",
+        "@bufbuild/protoc-gen-es": "^1.8"
+    },
+    "resolutions": {
+        "@bufbuild/protoc-gen-es/@bufbuild/protobuf": "~1.9",
+        "@bufbuild/protoplugin": "npm:nop@1.0.0"
+    },
+    "packageManager": "yarn@2.4.3"
+}

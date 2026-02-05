@@ -20,10 +20,12 @@ use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser};
 use yarn_lock_parser as yarn;
 
+use crate::berry::resolutions::{is_same_svs, Resolutions};
 use crate::berry::types::PackageJson;
 use crate::error::{Error, Result};
 use crate::Meta;
 
+mod resolutions;
 mod types;
 
 fn npm(input: &str) -> IResult<&str, PackageSource> {
@@ -134,42 +136,6 @@ fn parse_package(entry: &yarn::Entry) -> Result<(PackageBuilder, Option<PackageS
     Ok((pkg, source))
 }
 
-fn until_just_package_name_is_left(input: &str) -> IResult<&str, &str> {
-    let last_slash = input.rfind("/");
-    if let Some((il, ir)) = last_slash.map(|lsi| (&input[..lsi], &input[lsi..])) {
-        let previous_slash = il.rfind("/");
-        if let Some((pl, pr)) = previous_slash.map(|lsi| (&input[..lsi], &input[lsi..])) {
-            if !pl.is_empty() && pr.starts_with("/@") {
-                return Ok((pr, pl));
-            }
-        }
-        return Ok((ir, il));
-    }
-    Err(nom::Err::Error(nom::error::Error::new(
-        input,
-        nom::error::ErrorKind::Verify,
-    )))
-}
-
-type BaseResolution<'a> = (&'a str, Option<&'a str>);
-type Resolution<'a> = (Option<BaseResolution<'a>>, BaseResolution<'a>);
-
-fn parse_resolution_key<'a>(input: &'a str) -> Result<Resolution<'a>> {
-    (
-        opt(terminated(
-            (
-                package_name_str,
-                opt(preceded(tag("@"), until_just_package_name_is_left)),
-            ),
-            tag("/"),
-        )),
-        terminated((package_name_str, opt(preceded(tag("@"), rest))), eof),
-    )
-        .parse(input)
-        .map(|(_, r)| r)
-        .map_err(|_| Error::InvalidResolution(input.to_string()))
-}
-
 fn resolution_from_state_key(state_key: &str) -> Cow<'_, str> {
     if state_key.len() > 137 {
         // "tsec@virtual:ea43cfe65230d5ab1f93db69b01a1f672ecef3abbfb61f3ac71a2f930c090b853c9c93d03a1e3590a6d9dfed177d3a468279e756df1df2b5720d71b64487719c#npm:0.2.8"
@@ -195,35 +161,21 @@ fn resolution_from_state_key(state_key: &str) -> Cow<'_, str> {
 fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
-    resolutions: &HashMap<Resolution, &str>,
+    from_entry: &yarn::Entry,
+    resolutions: &Resolutions<'a>,
     index_to_pid: &HashMap<usize, PackageID>,
 ) -> Result<Option<PackageID>>
 where
     S: AsRef<str>,
 {
     let (descriptor_name, descriptor_svs) = (descriptor.0.as_ref(), descriptor.1.as_ref());
-    let candidate_resolutions = resolutions
-        .iter()
-        .filter(|((_, (pn, ps)), _svs)| {
-            *pn == descriptor_name
-                && ps.is_none_or(|s| {
-                    s == descriptor_svs || Some(s) == descriptor_svs.strip_prefix("npm:")
-                })
-        })
-        .map(|(_, svs)| svs)
-        .collect::<Vec<&&str>>();
+    let overridden_resolution =
+        resolutions.find((descriptor_name, descriptor_svs), &from_entry.descriptors);
+    let evaluated_svs = overridden_resolution.unwrap_or(descriptor_svs);
     let mut candidate_entries = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
-        e.descriptors.iter().any(|(d_n, d_s_raw)| {
-            // The SVS can have additional parameters added.
-            // "name@patch:name@0.1.0#./file.patch::locator=%40chastelock%2Ftestcase%40workspace%3A."
-            let d_s = d_s_raw.rsplit_once("::").map(|(l, _)| l).unwrap_or(d_s_raw);
-            *d_n == descriptor_name
-                && (d_s == descriptor_svs
-                    || d_s.strip_prefix("npm:") == Some(descriptor_svs)
-                    || candidate_resolutions
-                        .iter()
-                        .any(|r_s| d_s == **r_s || d_s.strip_prefix("npm:") == Some(r_s)))
-        })
+        e.descriptors
+            .iter()
+            .any(|(d_n, d_s)| *d_n == descriptor_name && (is_same_svs(evaluated_svs, d_s)))
     });
     if let Some((idx, _)) = candidate_entries.next() {
         if candidate_entries.next().is_some() {
@@ -250,7 +202,8 @@ fn find_peer_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
     from_pid: PackageID,
-    resolutions: &HashMap<Resolution, &str>,
+    from_entry: &yarn::Entry,
+    resolutions: &Resolutions<'a>,
     index_to_pid: &HashMap<usize, PackageID>,
     dep_children: &HashMap<PackageID, Vec<PackageID>>,
     package_sources: &HashMap<PackageID, PackageSource>,
@@ -259,6 +212,8 @@ where
     S: AsRef<str>,
 {
     let (descriptor_name, descriptor_svs) = (descriptor.0.as_ref(), descriptor.1.as_ref());
+    let overridden_resolution =
+        resolutions.find((descriptor_name, descriptor_svs), &from_entry.descriptors);
 
     let candidate_entries = yarn_lock
         .entries
@@ -280,6 +235,21 @@ where
     // TODO: also check peerDependenciesMeta
     if candidate_entries.len() == 0 {
         return Ok(PeerFindOutcome::Ignore);
+    }
+    // If an SVS is overridden through package.json "resolutions" field,
+    // it takes that field's value into its descriptors.
+    if let Some(evaluated_svs) = overridden_resolution {
+        if let [(_, _, pid)] = *candidate_entries
+            .iter()
+            .filter(|(_, e, _)| {
+                e.descriptors
+                    .iter()
+                    .any(|(_d_n, d_s)| is_same_svs(evaluated_svs, d_s))
+            })
+            .collect::<Vec<_>>()
+        {
+            return Ok(PeerFindOutcome::Found(*pid));
+        }
     }
 
     // This is where fun begins.
@@ -366,9 +336,9 @@ where
     let root_package_contents = file_getter(root_dir.join(PACKAGE_JSON_FILENAME))?;
     let root_package_json: PackageJson = serde_json::from_str(&root_package_contents)?;
 
-    let mut resolutions = HashMap::new();
+    let mut resolutions = Resolutions::new();
     for (rk, rv) in &root_package_json.resolutions {
-        resolutions.insert(parse_resolution_key(rk)?, rv.as_ref());
+        resolutions.insert(rk, rv.as_ref())?;
     }
 
     let mut chastefile_builder = ChastefileBuilder::new(Meta {
@@ -533,8 +503,13 @@ where
                 Some(true) => DependencyKind::OptionalDependency,
                 Some(false) | None => DependencyKind::Dependency,
             };
-            let Some(dep_pid) =
-                find_dep_pid(dep_descriptor, &yarn_lock, &resolutions, &index_to_pid)?
+            let Some(dep_pid) = find_dep_pid(
+                dep_descriptor,
+                &yarn_lock,
+                entry,
+                &resolutions,
+                &index_to_pid,
+            )?
             else {
                 continue;
             };
@@ -577,6 +552,7 @@ where
                 dep_descriptor,
                 &yarn_lock,
                 *from_pid,
+                entry,
                 &resolutions,
                 &index_to_pid,
                 &dep_children,
@@ -615,42 +591,4 @@ where
         }
     }
     Ok(chastefile_builder.build()?)
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::error::Result;
-
-    use super::parse_resolution_key;
-
-    #[test]
-    fn resolution_keys() -> Result<()> {
-        assert_eq!(parse_resolution_key("lodash")?, (None, ("lodash", None)));
-        assert_eq!(
-            parse_resolution_key("@chastelock/testcase")?,
-            (None, ("@chastelock/testcase", None))
-        );
-        assert_eq!(
-            parse_resolution_key("lodash/@chastelock/testcase")?,
-            (Some(("lodash", None)), ("@chastelock/testcase", None))
-        );
-        assert_eq!(
-            parse_resolution_key("lodash@1/react")?,
-            (Some(("lodash", Some("1"))), ("react", None))
-        );
-        assert_eq!(
-            parse_resolution_key("lodash@1/@chastelock/testcase")?,
-            (Some(("lodash", Some("1"))), ("@chastelock/testcase", None))
-        );
-        assert_eq!(
-            parse_resolution_key("lodash@^1")?,
-            (None, ("lodash", Some("^1")))
-        );
-        assert_eq!(
-            parse_resolution_key("@chastelock/testcase@^1")?,
-            (None, ("@chastelock/testcase", Some("^1")))
-        );
-
-        Ok(())
-    }
 }
