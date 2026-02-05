@@ -190,14 +190,6 @@ where
     )))
 }
 
-enum PeerFindOutcome {
-    Found(PackageID),
-    /// Not found and should stay so. There are no candidates to decide between.
-    Ignore,
-    /// There are candidates to decide between. Leave for later.
-    Retry,
-}
-
 fn find_peer_pid<'a, S>(
     descriptor: &'a (S, S),
     yarn_lock: &'a yarn::Lockfile<'a>,
@@ -207,7 +199,7 @@ fn find_peer_pid<'a, S>(
     index_to_pid: &HashMap<usize, PackageID>,
     dep_children: &HashMap<PackageID, Vec<PackageID>>,
     package_sources: &HashMap<PackageID, PackageSource>,
-) -> Result<PeerFindOutcome>
+) -> Result<Option<PackageID>>
 where
     S: AsRef<str>,
 {
@@ -229,12 +221,12 @@ where
 
     // If there's just one candidate to consider, it's easy.
     if let [(_, _, pid)] = *candidate_entries {
-        return Ok(PeerFindOutcome::Found(pid));
+        return Ok(Some(pid));
     }
     // Peer dependencies can be optional.
     // TODO: also check peerDependenciesMeta
     if candidate_entries.len() == 0 {
-        return Ok(PeerFindOutcome::Ignore);
+        return Ok(None);
     }
     // If an SVS is overridden through package.json "resolutions" field,
     // it takes that field's value into its descriptors.
@@ -248,7 +240,7 @@ where
             })
             .collect::<Vec<_>>()
         {
-            return Ok(PeerFindOutcome::Found(*pid));
+            return Ok(Some(*pid));
         }
     }
 
@@ -268,7 +260,7 @@ where
         .filter(|sib| candidate_entries.iter().any(|(_, _, cand)| *sib == cand))
         .collect::<Vec<_>>();
     if let [pid] = *candidate_siblings {
-        return Ok(PeerFindOutcome::Found(*pid));
+        return Ok(Some(*pid));
     }
 
     // If a package is requested somewhere else with the same specifier.
@@ -282,7 +274,7 @@ where
         })
         .collect::<Vec<_>>();
     if let [(_, _, pid)] = *same_spec_candidates {
-        return Ok(PeerFindOutcome::Found(*pid));
+        return Ok(Some(*pid));
     }
 
     // If the dependency is back on the package that requested it.
@@ -290,7 +282,7 @@ where
         .iter()
         .find(|(_, _, pid)| *pid == from_pid)
     {
-        return Ok(PeerFindOutcome::Found(*pid));
+        return Ok(Some(*pid));
     }
 
     // Finally, check which candidates satisfy the version requirement.
@@ -311,18 +303,18 @@ where
             })
             .collect::<Vec<_>>();
         if let [(pid, _)] = *satisfying_candidates {
-            return Ok(PeerFindOutcome::Found(*pid));
+            return Ok(Some(*pid));
         }
         // If there are more than 2 matching candidates, choose the one with higher version.
         if satisfying_candidates.len() > 1 {
             satisfying_candidates.sort_by(|a, b| a.1.cmp(&b.1));
-            return Ok(PeerFindOutcome::Found(
-                *satisfying_candidates.last().unwrap().0,
-            ));
+            return Ok(Some(*satisfying_candidates.last().unwrap().0));
         }
     }
 
-    Ok(PeerFindOutcome::Retry)
+    // A dependency may be unmet. That's ok. In fact, upstream allows that. Everyone ignores the
+    // "@chastelock/testcase@workspace:. doesn't provide acorn (pf1eb59), requested by @sveltejs/acorn-typescript."
+    Ok(None)
 }
 
 pub(crate) fn resolve<'y, FG>(
@@ -531,13 +523,7 @@ where
             peer_dependents.insert(from_pid);
         }
     }
-    let mut retry_count = 0usize;
-    let mut retry_queue = VecDeque::new();
-    let mut peers_queue = yarn_lock.entries.iter().enumerate();
-    loop {
-        let Some((index, entry)) = peers_queue.next().or_else(|| retry_queue.pop_front()) else {
-            break;
-        };
+    for (index, entry) in yarn_lock.entries.iter().enumerate() {
         let from_pid = index_to_pid.get(&index).unwrap();
         let mut deps_meta = HashMap::with_capacity(entry.peer_dependencies_meta.len());
         for (k, v) in &entry.peer_dependencies_meta {
@@ -548,7 +534,7 @@ where
                 Some(true) => DependencyKind::OptionalPeerDependency,
                 Some(false) | None => DependencyKind::PeerDependency,
             };
-            let dep_pid = match find_peer_pid(
+            let Some(dep_pid) = find_peer_pid(
                 dep_descriptor,
                 &yarn_lock,
                 *from_pid,
@@ -557,24 +543,10 @@ where
                 &index_to_pid,
                 &dep_children,
                 &package_sources,
-            )? {
-                PeerFindOutcome::Found(pid) => pid,
-                PeerFindOutcome::Ignore => {
-                    continue;
-                }
-                PeerFindOutcome::Retry => {
-                    retry_count += 1;
-                    if retry_count > retry_queue.len() {
-                        return Err(Error::AmbiguousResolution(format!(
-                            "{}@{}",
-                            dep_descriptor.0, dep_descriptor.1
-                        )));
-                    }
-                    retry_queue.push_back((index, entry));
-                    continue;
-                }
+            )?
+            else {
+                continue;
             };
-            retry_count = 0;
             dep_children
                 .get_mut(from_pid)
                 .map(|l| l.push(dep_pid))
