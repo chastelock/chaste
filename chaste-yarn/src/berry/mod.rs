@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -247,7 +247,7 @@ where
     // This is where fun begins.
 
     // Check if the dependent package's other dependencies match.
-    // (Sometimes the package may even have the same dependency as both regular and peer.)
+    // (Sometimes the package may have the same dependency as both regular and peer.)
     let siblings_packages: HashSet<PackageID> = HashSet::from_iter(
         dep_children
             .get(&from_pid)
@@ -470,8 +470,6 @@ where
         }
     }
 
-    // Berry calls them "virtual packages"
-    let mut peer_dependents = HashSet::new();
     let mut dep_children: HashMap<PackageID, Vec<PackageID>> = HashMap::new();
 
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
@@ -518,9 +516,6 @@ where
             }
             dep.svs(svs);
             chastefile_builder.add_dependency(dep.build());
-        }
-        if !entry.peer_dependencies.is_empty() {
-            peer_dependents.insert(from_pid);
         }
     }
     for (index, entry) in yarn_lock.entries.iter().enumerate() {
