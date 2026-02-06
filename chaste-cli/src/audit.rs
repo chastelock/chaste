@@ -10,7 +10,11 @@ use chaste::Package;
 #[derive(FromArgs)]
 #[argh(subcommand, name = "audit")]
 /// Potential problems with your dependency tree
-pub struct Audit {}
+pub struct Audit {
+    #[argh(switch)]
+    /// failing checks should not result in non-zero exit code
+    failures_ok: bool,
+}
 
 /// A specific check performed in the audit
 struct Kruisje<'a> {
@@ -18,7 +22,7 @@ struct Kruisje<'a> {
     failed: Vec<&'a Package>,
 }
 
-pub fn run(_sub: Audit) -> Result<()> {
+pub fn run(sub: Audit) -> Result<()> {
     let cwd = std::env::current_dir()?;
     let chastefile = chaste::from_root_path(&cwd)
         .with_context(|| format!("Could not parse the lockfile from {cwd:?}"))?;
@@ -98,5 +102,8 @@ pub fn run(_sub: Audit) -> Result<()> {
         }
     }
 
-    std::process::exit(failed_kruisjes.try_into()?);
+    if !sub.failures_ok {
+        std::process::exit(failed_kruisjes.try_into()?);
+    }
+    Ok(())
 }
