@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 use std::cmp;
+use std::rc::Rc;
 
 pub use nodejs_semver::Version as PackageVersion;
 
@@ -13,7 +14,7 @@ use crate::source::{PackageSource, PackageSourceType};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Package {
-    name: Option<PackageName>,
+    pub(crate) name: Option<Rc<PackageName>>,
     version: Option<PackageVersion>,
     checksums: Option<Checksums>,
     source: Option<PackageSource>,
@@ -22,7 +23,7 @@ pub struct Package {
 
 impl Package {
     pub fn name(&self) -> Option<&PackageName> {
-        self.name.as_ref()
+        self.name.as_deref()
     }
 
     pub fn version(&self) -> Option<&PackageVersion> {
@@ -121,7 +122,7 @@ impl PackageBuilder {
 
     pub fn build(self) -> Result<Package> {
         Ok(Package {
-            name: self.name,
+            name: self.name.map(Rc::new),
             version: self.version.map(PackageVersion::parse).transpose()?,
             checksums: self.checksums.filter(|c| !c.integrity().hashes.is_empty()),
             source: self.source,

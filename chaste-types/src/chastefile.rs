@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::rc::Rc;
 
 use crate::dependency::Dependency;
 use crate::error::{Error, Result};
 use crate::installation::Installation;
 use crate::package::{Package, PackageID};
-use crate::ProviderMeta;
+use crate::{PackageName, ProviderMeta};
 
 #[derive(Debug, Clone)]
 pub struct Chastefile<P> {
@@ -173,6 +174,7 @@ impl<'a, P: ProviderMeta> Chastefile<P> {
 #[derive(Debug)]
 pub struct ChastefileBuilder<P> {
     packages: HashMap<PackageID, Package>,
+    package_by_name: HashMap<Rc<PackageName>, Vec<PackageID>>,
     dependencies: Vec<Dependency>,
     installations: Vec<Installation>,
     next_pid: u64,
@@ -186,6 +188,7 @@ impl<P> ChastefileBuilder<P> {
     pub fn new(provider_meta: P) -> Self {
         Self {
             packages: HashMap::new(),
+            package_by_name: HashMap::new(),
             dependencies: Vec::new(),
             installations: Vec::new(),
             next_pid: 0,
@@ -202,14 +205,27 @@ impl<P> ChastefileBuilder<P> {
     }
 
     pub fn add_package(&mut self, package: Package) -> Result<PackageID> {
-        if let Some((original_pid, _)) = self
-            .packages
-            .iter()
-            .find(|(_, p)| p.is_duplicate_of(&package))
+        if let Some(list) = package
+            .name
+            .as_ref()
+            .and_then(|n| self.package_by_name.get(n))
         {
-            return Err(Error::DuplicatePackage(*original_pid));
+            if let Some((original_pid, _)) = list
+                .into_iter()
+                .map(|pid| (*pid, self.packages.get(pid).unwrap()))
+                .find(|(_, p)| p.is_duplicate_of(&package))
+            {
+                return Err(Error::DuplicatePackage(original_pid));
+            }
         }
         let pid = self.new_pid();
+        if let Some(name) = &package.name {
+            if let Some(list) = self.package_by_name.get_mut(name) {
+                list.push(pid);
+            } else {
+                self.package_by_name.insert(name.clone(), vec![pid]);
+            }
+        }
         self.packages.insert(pid, package);
         Ok(pid)
     }

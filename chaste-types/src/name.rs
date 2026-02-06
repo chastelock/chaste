@@ -11,7 +11,7 @@ use nom::{IResult, Parser};
 use crate::error::{Error, Result};
 use crate::misc::partial_eq_field;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub(crate) struct PackageNamePositions {
     scope_end: Option<usize>,
     pub(crate) total_length: usize,
@@ -112,13 +112,13 @@ impl PackageNamePositions {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct PackageName {
     inner: String,
     positions: PackageNamePositions,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct PackageNameBorrowed<'a> {
     pub(crate) inner: &'a str,
     pub(crate) positions: &'a PackageNamePositions,
