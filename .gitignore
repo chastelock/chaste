@@ -9,3 +9,4 @@ node_modules/
 fuzz/artifacts/
 fuzz/corpus/
 fuzz/coverage/
+cobertura.xml
