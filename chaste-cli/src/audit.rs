@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use argh::FromArgs;
 use chaste::types::ssri::Algorithm;
 use chaste::types::ProviderMeta;
@@ -22,11 +22,7 @@ struct Kruisje<'a> {
     failed: Vec<&'a Package>,
 }
 
-pub fn run(sub: Audit) -> Result<()> {
-    let cwd = std::env::current_dir()?;
-    let chastefile = chaste::from_root_path(&cwd)
-        .with_context(|| format!("Could not parse the lockfile from {cwd:?}"))?;
-
+pub fn run(sub: Audit, chastefile: chaste::Chastefile<chaste::Meta>) -> Result<()> {
     let meta = chastefile.meta();
     print!("Checked a {} ", meta.provider_name());
     if let Some(lv) = meta.lockfile_version() {

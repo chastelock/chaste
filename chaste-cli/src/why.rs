@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use argh::FromArgs;
 use chaste::{Dependency, PackageID};
 
@@ -46,11 +46,7 @@ where
     }
 }
 
-pub fn run(sub: Why) -> Result<()> {
-    let cwd = std::env::current_dir()?;
-    let chastefile = chaste::from_root_path(&cwd)
-        .with_context(|| format!("Could not parse the lockfile from {cwd:?}"))?;
-
+pub fn run(sub: Why, chastefile: chaste::Chastefile<chaste::Meta>) -> Result<()> {
     let packages = chastefile
         .packages_with_ids()
         .into_iter()
