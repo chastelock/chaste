@@ -23,25 +23,29 @@ pub fn specifiers<'a>(input: &'a str) -> Result<Vec<(&'a str, &'a str)>> {
         .map_err(|_| Error::InvalidEntryKey(input.to_owned()))
 }
 
-pub fn resolved_source<'a>(
-    input: &'a str,
-) -> IResult<&'a str, (Option<PackageSource>, Option<&'a str>)> {
+pub enum Resolved<'a> {
+    Remote(PackageSource),
+    Workspace(&'a str),
+}
+
+pub fn resolved_source<'a>(input: &'a str) -> IResult<&'a str, Resolved<'a>> {
     alt((
         preceded(
             tag("npm:"),
-            map(rest, |i| (Some(PackageSource::Npm), Some(i))),
+            map(rest, |_| Resolved::Remote(PackageSource::Npm)),
         ),
         preceded(
             tag("git:"),
             map(rest, |i: &str| {
-                (Some(PackageSource::Git { url: i.to_owned() }), None)
+                Resolved::Remote(PackageSource::Git { url: i.to_owned() })
             }),
         ),
+        preceded(tag("workspace:"), map(rest, |i| Resolved::Workspace(i))),
     ))
     .parse(input)
 }
 
-pub fn resolved<'a>(input: &'a str) -> Result<(&'a str, (Option<PackageSource>, Option<&'a str>))> {
+pub fn resolved<'a>(input: &'a str) -> Result<(&'a str, Resolved<'a>)> {
     (package_name_str, preceded(tag("@"), resolved_source))
         .parse(input)
         .map(|(_, r)| r)

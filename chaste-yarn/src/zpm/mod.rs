@@ -6,8 +6,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageID,
-    PackageName, SourceVersionSpecifier,
+    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
+    ModulePath, PackageBuilder, PackageID, PackageName, SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
 
 use crate::btree_candidates::Candidates;
@@ -56,20 +56,33 @@ where
         .build()?,
     )?;
     chastefile.set_root_package_id(root_pid)?;
+    chastefile.add_package_installation(
+        InstallationBuilder::new(root_pid, ROOT_MODULE_PATH.clone()).build()?,
+    );
 
     let mut spec_to_pid: BTreeMap<(&'y str, &'y str), PackageID> = BTreeMap::new();
     let mut ekey_to_pid: BTreeMap<&'y str, PackageID> = BTreeMap::new();
     for (key, entry) in lockfile.entries.iter() {
         let specifiers = mjam::specifiers(key)?;
-        let (name, (source, _)) = mjam::resolved(entry.resolution.resolution)?;
+        let (name, resolved) = mjam::resolved(entry.resolution.resolution)?;
         let mut pkg = PackageBuilder::new(
             Some(PackageName::new(name.to_owned())?),
             Some(entry.resolution.version.to_owned()),
         );
-        if let Some(src) = source {
-            pkg.source(src);
+        let mut workspace_path = None;
+        match resolved {
+            mjam::Resolved::Remote(src) => pkg.source(src),
+            mjam::Resolved::Workspace(path) => {
+                workspace_path = Some(path);
+            }
         }
         let pid = chastefile.add_package(pkg.build()?)?;
+        if let Some(path) = workspace_path {
+            chastefile.set_as_workspace_member(pid)?;
+            chastefile.add_package_installation(
+                InstallationBuilder::new(pid, ModulePath::new(path.to_owned())?).build()?,
+            );
+        }
         for spec in specifiers {
             if spec_to_pid.insert(spec, pid).is_some() {
                 return Err(Error::DuplicateSpecifiers(format!("{}@{}", spec.0, spec.1)));
