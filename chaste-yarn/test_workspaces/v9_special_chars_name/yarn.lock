@@ -1,0 +1,14 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "@a/verboden(name~'!*)@npm:1.0.0": {
+      "checksum": "3ae132172741797fa30324c87c2f7bc5cf18d0a962f21b83ba6ab667909835ebeca695b7e66c852e8098ab2362fdabf855a6d73d50267a99783be90d602f9900",
+      "resolution": {
+        "resolution": "@a/verboden(name~'!*)@npm:1.0.0",
+        "version": "1.0.0"
+      }
+    }
+  }
+}

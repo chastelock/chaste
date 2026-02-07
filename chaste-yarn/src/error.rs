@@ -38,6 +38,12 @@ pub enum Error {
     #[error("Duplicate specifiers: more than one package claims to fulfil {0:?}")]
     DuplicateSpecifiers(String),
 
+    #[error("Lockfile is in unknown format")]
+    UnknownFormat,
+
+    #[error("Invalid entry key: {0:?}")]
+    InvalidEntryKey(String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 

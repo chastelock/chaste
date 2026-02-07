@@ -1,0 +1,122 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "balanced-match@npm:^1.0.0": {
+      "checksum": "48d05e1b2dcd428623470b96a7b4799695e318be92a693209887d19670e24bc739b7e0ac12c5b8fb9ae879ee8766cef436f20810d41657f20939e6e5458e3606",
+      "resolution": {
+        "resolution": "balanced-match@npm:1.0.2",
+        "version": "1.0.2"
+      }
+    },
+    "brace-expansion@npm:^1.1.7": {
+      "checksum": "5d7d455e49ca9ce17ce0bdd6793840015f5d12ea83c3a0cded3d5891a2885520037aa1bfd5c3812c4c0b3aa81659b3d05ed3cff99234d4ccd0434d357c4652fe",
+      "resolution": {
+        "resolution": "brace-expansion@npm:1.1.11",
+        "version": "1.1.11",
+        "dependencies": {
+          "balanced-match": "^1.0.0",
+          "concat-map": "0.0.1"
+        }
+      }
+    },
+    "concat-map@npm:0.0.1": {
+      "checksum": "1c701c2b9dc3981fb0df276d49cda9c714eb8231e71797a30bd9b1519247bf935957424a82a88a34c03a928b6b29f9a66dd47831508ef8c7e5a99ad1b3536ca1",
+      "resolution": {
+        "resolution": "concat-map@npm:0.0.1",
+        "version": "0.0.1"
+      }
+    },
+    "fs.realpath@npm:^1.0.0": {
+      "checksum": "57f387e7ea958ffff1a5e1b5537464bdc08f784fce870cc17a0cfe9319c1eeb9962e9081278aff9d4c3ba8af9d87435bbbec2e1e2667e9876d31924b5cafd99d",
+      "resolution": {
+        "resolution": "fs.realpath@npm:1.0.0",
+        "version": "1.0.0"
+      }
+    },
+    "glob@npm:^7.1.1": {
+      "checksum": "90761abea3018c55ef1233b01771092b7cd6ea945eb4f79c8325f03e2a9f53f2fc1666264d900fdf4dcc7037467b67db1c14f1b2cfbfd90f2156a4880878b30e",
+      "resolution": {
+        "resolution": "glob@npm:7.2.3",
+        "version": "7.2.3",
+        "dependencies": {
+          "fs.realpath": "^1.0.0",
+          "inflight": "^1.0.4",
+          "inherits": "2",
+          "minimatch": "^3.1.1",
+          "once": "^1.3.0",
+          "path-is-absolute": "^1.0.0"
+        }
+      }
+    },
+    "inflight@npm:^1.0.4": {
+      "checksum": "deed7105b634e3e4826a99b7dffea580a2114b8f9c7083fd622df283d6104de87737ad801be697a229f5f35623f8c4f5f89d72ab352b61389cb2dcb50a559ce4",
+      "resolution": {
+        "resolution": "inflight@npm:1.0.6",
+        "version": "1.0.6",
+        "dependencies": {
+          "once": "^1.3.0",
+          "wrappy": "1"
+        }
+      }
+    },
+    "inherits@npm:2": {
+      "checksum": "552e8afa79fc18dce4813eac3236b1fd46af3e9301b36ba10566713b91be71b0ba681066e9c6f1eb6bee93ace81eea900bc03fd336fd68ac009f7c1219da6a5d",
+      "resolution": {
+        "resolution": "inherits@npm:2.0.4",
+        "version": "2.0.4"
+      }
+    },
+    "minimatch@npm:^3.0.3, minimatch@npm:^3.1.1": {
+      "checksum": "16595f20c95b877f900673a13b30093764a2add3bb0f9d23f8f9c209d236dd330065b52dfc198cc28a4bc8d1c07a4c07ac6de7161baa5c2941bc89bf1a511aed",
+      "resolution": {
+        "resolution": "minimatch@npm:3.1.2",
+        "version": "3.1.2",
+        "dependencies": {
+          "brace-expansion": "^1.1.7"
+        }
+      }
+    },
+    "once@npm:^1.3.0": {
+      "checksum": "e8ea9ae0c4dfd7d2fd9ffb19c0bc69bc84b2d30ba7c2c25a515a473919c78937e9f92060c1dcc428ada234c1886f3ca52d0af4690f4483e8296408b4418989e0",
+      "resolution": {
+        "resolution": "once@npm:1.4.0",
+        "version": "1.4.0",
+        "dependencies": {
+          "wrappy": "1"
+        }
+      }
+    },
+    "path-is-absolute@npm:^1.0.0": {
+      "checksum": "330ce792732d4df952b632f51f86fa693d923962810d9b2084531526782cfc7280a409a5cb3e998c679de090f95bdb47ebbb292b64b1db268b06c0459b98409e",
+      "resolution": {
+        "resolution": "path-is-absolute@npm:1.0.1",
+        "version": "1.0.1"
+      }
+    },
+    "tsec@npm:0.2.8": {
+      "checksum": "5b4ed09f9818f194d6bb202ca6476ecf06f568ac2084be8aacab616bb3f06c0fc0c054005e20a0f92ddc794ef5bd6b3ae9cac5bf9077916f6ea06c216159c108",
+      "resolution": {
+        "resolution": "tsec@npm:0.2.8",
+        "version": "0.2.8",
+        "dependencies": {
+          "glob": "^7.1.1",
+          "minimatch": "^3.0.3"
+        },
+        "peerDependencies": {
+          "@bazel/bazelisk": ">=1.7.5",
+          "@bazel/concatjs": ">=5.3.0",
+          "typescript": ">=3.9.2"
+        }
+      }
+    },
+    "wrappy@npm:1": {
+      "checksum": "65bf0fca13eeedd3c814e8ca3325c8e998f9c051891a188b7f9cbe1ac0b48893e8b1371d2c1bc5b0006b223e5616d93e70740c528d29c2e178b178635be28146",
+      "resolution": {
+        "resolution": "wrappy@npm:1.0.2",
+        "version": "1.0.2"
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+    "name": "verboden(root)(name~'!*)",
+    "version": "1.0.0",
+    "dependencies": {
+        "@a/verboden(name~'!*)": "1.0.0"
+    },
+    "packageManager": "yarn@6.0.0-rc.13"
+}

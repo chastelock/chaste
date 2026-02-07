@@ -1,0 +1,24 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "ligma-api@npm:^1.0.0": {
+      "checksum": null,
+      "resolution": {
+        "resolution": "ligma-api@workspace:pkgs/ligma-api",
+        "version": "1.0.0",
+        "dependencies": {
+          "long": "^5.0.0"
+        }
+      }
+    },
+    "long@npm:^5.0.0": {
+      "checksum": "a6565de21cb6bf919ace06d34638d3b8272d08b7078859f44e692cff64e7eb90356b787675c1138f20997a7f7cef6d081c5fef8ba11d6e88424a15fc49873970",
+      "resolution": {
+        "resolution": "long@npm:5.3.2",
+        "version": "5.3.2"
+      }
+    }
+  }
+}

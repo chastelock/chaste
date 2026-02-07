@@ -1,0 +1,27 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "@chastelock/recursion-a@npm:^0.1.0": {
+      "checksum": "79a59ebbed2da3128714cb53c9bd91ee7d3a79620bdd7ae1f4a914b266857e37e7aea401b6e11cb6713853dd7377a5b71ed00e5b66455b04ced4160606f32850",
+      "resolution": {
+        "resolution": "@chastelock/recursion-a@npm:0.1.0",
+        "version": "0.1.0",
+        "dependencies": {
+          "@chastelock/recursion-b": "^0.1.0"
+        }
+      }
+    },
+    "@chastelock/recursion-b@npm:0.1.0": {
+      "checksum": "6999df0655e7009535b4e5b097b7e146fe2503c426d35ed2832c50744b7323849c7ce2e64acc853beac8ea28aa6026885c18ef2d75d4469e853ff24790aab001",
+      "resolution": {
+        "resolution": "@chastelock/recursion-b@npm:0.1.0",
+        "version": "0.1.0",
+        "dependencies": {
+          "@chastelock/recursion-a": "^0.1.0"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "mime-db@npm:1.52.0": {
+      "checksum": "8049857c5255211ba1b1febcdd238e13726176d225e73fc422173ad8c333f9aec2e1bae48fcc4197d04f7e6f05edadadb879f002e09f330adec1e6de65ea3c13",
+      "resolution": {
+        "resolution": "mime-db@npm:1.52.0",
+        "version": "1.52.0"
+      }
+    },
+    "mime-db@npm:=1.54.0": {
+      "checksum": "aa539f86b6acaaa7958af1f7f44bde07a8a5eccf4a8d5bf356dd27ac956d664450da880fdbeb6d3a8421bd6b2ae90bb778b139e16691083630b2a8027d8a2240",
+      "resolution": {
+        "resolution": "mime-db@npm:1.54.0",
+        "version": "1.54.0"
+      }
+    },
+    "mime-types@npm:2.1.35": {
+      "checksum": "98a26b0cb786b4b6ead7e6f576628e8a0aa9c832f556d52cda7c193de5459648326bd69f45bc16cb4ab541dd1ff5db7ed7fc11ca4f27a0f68b4170e245911ad5",
+      "resolution": {
+        "resolution": "mime-types@npm:2.1.35",
+        "version": "2.1.35",
+        "dependencies": {
+          "mime-db": "1.52.0"
+        }
+      }
+    }
+  }
+}

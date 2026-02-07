@@ -1,0 +1,41 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "balanced-match@npm:^1.0.0": {
+      "checksum": "48d05e1b2dcd428623470b96a7b4799695e318be92a693209887d19670e24bc739b7e0ac12c5b8fb9ae879ee8766cef436f20810d41657f20939e6e5458e3606",
+      "resolution": {
+        "resolution": "balanced-match@npm:1.0.2",
+        "version": "1.0.2"
+      }
+    },
+    "brace-expansion@npm:^2.0.1": {
+      "checksum": "49f7ff13d6a658ca2d5ae00e92cc7e01dbcd6313aa0247cde76ac9ef801cf0723bcdc0e2d8bde22ba18966f7b53899c7cbff5d10944f264803a402d956ac5823",
+      "resolution": {
+        "resolution": "brace-expansion@npm:2.0.1",
+        "version": "2.0.1",
+        "dependencies": {
+          "balanced-match": "^1.0.0"
+        }
+      }
+    },
+    "minimatch@github:isaacs/minimatch#v10.0.1": {
+      "checksum": "5c5b79c93f0d2c1cab4e56249f8f14e609aaf965a0a1f0897ce3622e68fa0765dc5cfec8a56578775e96e764bd4da783bff0a0213f204f086414e7387e8670ab",
+      "resolution": {
+        "resolution": "minimatch@git:github:isaacs/minimatch#commit=0569cd3373408f9d701d3aab187b3f43a24a0db7",
+        "version": "10.0.1",
+        "dependencies": {
+          "brace-expansion": "^2.0.1"
+        }
+      }
+    },
+    "node-semver@github:npm/node-semver#semver=^7.6.0": {
+      "checksum": "dfe2343f80cfd87e8f30ae644d701c8463c8681dbefd5abb33041d7588d9d208f4a079e5331d0c92931eec1d6379e10d5a1e19b201eb09182a938234b8251ab8",
+      "resolution": {
+        "resolution": "node-semver@git:github:npm/node-semver#commit=0a12d6c7debb1dc82d8645c770e77c47bac5e1ea",
+        "version": "7.6.3"
+      }
+    }
+  }
+}

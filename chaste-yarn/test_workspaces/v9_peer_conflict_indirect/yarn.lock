@@ -1,0 +1,78 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "@sveltejs/acorn-typescript@npm:^1": {
+      "checksum": "6efd920c4cf448ee46104278502707511c64d18ac8e564bb4c15d5fb5ca362ff3c349fe25f664a8d5e5322a04f454729a5932c6f26813986d30d461c970dd2ae",
+      "resolution": {
+        "resolution": "@sveltejs/acorn-typescript@npm:1.0.8",
+        "version": "1.0.8",
+        "peerDependencies": {
+          "acorn": "^8.9.0"
+        }
+      }
+    },
+    "acorn@npm:^7.1.1": {
+      "checksum": "3a9ea4a8108074b4d24893a22ab809ecd04951eaea57ca14288beced2fa03e53381978dc453b2630485f98ac60e19b548df920a1a65ef47ba74d01f9e5df2e28",
+      "resolution": {
+        "resolution": "acorn@npm:7.4.1",
+        "version": "7.4.1"
+      }
+    },
+    "acorn@npm:^8.15.0": {
+      "checksum": "135ca660be20c1eec744911ce05762af53e3fbba97df40f40796957a722c4926d7db2475e6a67afd83bb8772a2bfda649d50846f5a1e4d71c96f257897b896e8",
+      "resolution": {
+        "resolution": "acorn@npm:8.15.0",
+        "version": "8.15.0"
+      }
+    },
+    "acorn-globals@npm:6.0.0": {
+      "checksum": "8475d188f77d28305ec129e1b485c5da47e58b693a6380edaa0e40c71fcee084a2437649b0f523c1652f8cbb5d610cfb5ea064233e01d9b5d542a426bbdb3bdd",
+      "resolution": {
+        "resolution": "acorn-globals@npm:6.0.0",
+        "version": "6.0.0",
+        "dependencies": {
+          "acorn": "^7.1.1",
+          "acorn-walk": "^7.1.1"
+        }
+      }
+    },
+    "acorn-jsx@npm:^5.3.2": {
+      "checksum": "16f336c73c05b20af67274a243974f3e165417b59e18656d837f791296da4128663956beb85321e96faea3e2f0a6de7e5cbfddc1a08efdb876cc1b785a07983c",
+      "resolution": {
+        "resolution": "acorn-jsx@npm:5.3.2",
+        "version": "5.3.2",
+        "peerDependencies": {
+          "acorn": "^6.0.0 || ^7.0.0 || ^8.0.0"
+        }
+      }
+    },
+    "acorn-walk@npm:^7.1.1": {
+      "checksum": "1c285101f19bf5748997f84af32b17b4d32ccd1acf2c86d2b72b4149016ba1ee706f57c2bb338cbb51f60be660e719af8c168fb7ef3cb5067ddabbe3f1c6fe95",
+      "resolution": {
+        "resolution": "acorn-walk@npm:7.2.0",
+        "version": "7.2.0"
+      }
+    },
+    "eslint-visitor-keys@npm:^5.0.0": {
+      "checksum": "45c2d0cb5f0f8c1497ff58a9e6d82bc9fe478791273e8be33a69ce84a3a03b922010fbf6955470e439417e0acc181a798558a34ac9b25886f666b2260031a2dc",
+      "resolution": {
+        "resolution": "eslint-visitor-keys@npm:5.0.0",
+        "version": "5.0.0"
+      }
+    },
+    "espree@npm:^11.1.0": {
+      "checksum": "05ce4ed7ea685676e06c1087640710dfe67521d21ecae98d51b656520623f6f22e4f196f468493e1fff75634d8ef739d036196e4c512f50ecccfdf919c95f818",
+      "resolution": {
+        "resolution": "espree@npm:11.1.0",
+        "version": "11.1.0",
+        "dependencies": {
+          "acorn": "^8.15.0",
+          "acorn-jsx": "^5.3.2",
+          "eslint-visitor-keys": "^5.0.0"
+        }
+      }
+    }
+  }
+}

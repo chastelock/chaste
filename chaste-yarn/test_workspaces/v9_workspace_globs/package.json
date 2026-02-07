@@ -1,0 +1,7 @@
+{
+    "private": true,
+    "workspaces": [
+        "pkgs/*"
+    ],
+    "packageManager": "yarn@6.0.0-rc.13"
+}

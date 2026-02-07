@@ -1,0 +1,54 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "is-buffer@npm:^1.1.5": {
+      "checksum": "8a67170ab0ebcdcedf4c4eca0074c72174d9ae16de4e936e9c9655ea4bace94f523f9bdacacd82036b2a5c97b8482172455718f184239202e273e7473d7ea4f0",
+      "resolution": {
+        "resolution": "is-buffer@npm:1.1.6",
+        "version": "1.1.6"
+      }
+    },
+    "is-even@npm:1.0.0": {
+      "checksum": "399b0ee68185a5dd952bec742188a8273ac7c6364825885b6eec24bb0782184edd5211d6493dfab8721f95c3ce8269a84c72cd1d4d2df019e93c2933c40fa136",
+      "resolution": {
+        "resolution": "is-even@npm:1.0.0",
+        "version": "1.0.0",
+        "dependencies": {
+          "is-odd": "^0.1.2"
+        }
+      }
+    },
+    "is-number@npm:^3.0.0": {
+      "checksum": "97350ee3a9523ba25b1449b7828c1cff517e44a5bcc0fc78b3031673e294f81a43873a7c0c4ee94d935e3969271a140433c9766dbdd1cd8d1d0945031560eb52",
+      "resolution": {
+        "resolution": "is-number@npm:3.0.0",
+        "version": "3.0.0",
+        "dependencies": {
+          "kind-of": "^3.0.2"
+        }
+      }
+    },
+    "is-odd@npm:^0.1.2": {
+      "checksum": "e11aaf31704216affd10688a6d021f92f79be9531c677f450d3393a70355c0fae099b6fc499303568026d7afa2bf2bb7f7172ceb38cde32369d525ec0e82ef0f",
+      "resolution": {
+        "resolution": "is-odd@npm:0.1.2",
+        "version": "0.1.2",
+        "dependencies": {
+          "is-number": "^3.0.0"
+        }
+      }
+    },
+    "kind-of@npm:^3.0.2": {
+      "checksum": "c33a8faa652624f07c2bd20d47032cfff0b5c8ee4e14b9a9759aa059d51b3324bebbec1f73731c3590258dfd4286418bc8ae8cf84bf8dd934eccdfe7cd91a511",
+      "resolution": {
+        "resolution": "kind-of@npm:3.2.2",
+        "version": "3.2.2",
+        "dependencies": {
+          "is-buffer": "^1.1.5"
+        }
+      }
+    }
+  }
+}

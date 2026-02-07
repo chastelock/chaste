@@ -1,0 +1,27 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "graceful-fs@npm:^4.1.6": {
+      "checksum": "6ceec34498986a588226b4358cc8fa3d0132f391cd2fce25c4984059b6e2c80b651f0e7ec9c150197047f55f296209895393e2912667ef27c61c3fdcad81fc37",
+      "resolution": {
+        "resolution": "graceful-fs@npm:4.2.11",
+        "version": "4.2.11"
+      }
+    },
+    "jsonfile@npm:4.0.0": {
+      "checksum": "4dda011af5da0718e907b7701c1d58c75b75c80ddf24f72083a58e3e2e977077774c977e5f38cc3b0e74227decf7e9026a803eb09c56a67ff609f12a0d8897e4",
+      "resolution": {
+        "resolution": "jsonfile@npm:4.0.0",
+        "version": "4.0.0",
+        "dependencies": {
+          "graceful-fs": "^4.1.6"
+        },
+        "optionalDependencies": [
+          "graceful-fs"
+        ]
+      }
+    }
+  }
+}

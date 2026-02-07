@@ -14,10 +14,16 @@ repository.workspace = true
 exclude.workspace = true
 
 [features]
-default = ["classic", "berry"]
+default = ["classic", "berry", "zpm"]
 
-classic = ["dep:globreeks", "dep:walkdir"]
-berry = ["dep:yarn-state", "dep:percent-encoding", "dep:itertools"]
+classic = ["dep:globreeks", "dep:walkdir", "dep:yarn-lock-parser"]
+berry = [
+    "dep:yarn-state",
+    "dep:percent-encoding",
+    "dep:itertools",
+    "dep:yarn-lock-parser",
+]
+zpm = []
 
 fuzzing = []
 
@@ -26,7 +32,6 @@ chaste-types.workspace = true
 nom.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-yarn-lock-parser.workspace = true
 
 [dependencies.globreeks]
 workspace = true
@@ -45,6 +50,10 @@ workspace = true
 features = ["derive"]
 
 [dependencies.walkdir]
+workspace = true
+optional = true
+
+[dependencies.yarn-lock-parser]
 workspace = true
 optional = true
 

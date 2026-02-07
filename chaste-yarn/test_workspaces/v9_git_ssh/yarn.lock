@@ -1,0 +1,14 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "node-semver@ssh://git@github.com/npm/node-semver.git#semver=^7.5.0": {
+      "checksum": "e7c51e254793acc6b51ae548f4b56f3b4ae981c89ce781b84a9acf489a8fe5dbf3a4de77a4557c6ea89db0efffe44fbd59cf78418d4b8595e2c29ad6d74ebf04",
+      "resolution": {
+        "resolution": "node-semver@git:ssh://git@github.com/npm/node-semver.git#commit=refs%2Ftags%2Fv7.7.4",
+        "version": "7.7.4"
+      }
+    }
+  }
+}

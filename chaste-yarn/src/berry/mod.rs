@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use std::collections::{btree_map, BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -19,13 +19,13 @@ use nom::combinator::eof;
 use nom::Parser as _;
 use yarn_lock_parser as yarn;
 
-use crate::berry::resolutions::{is_same_svs, Resolutions};
 use crate::berry::types::PackageJson;
+use crate::btree_candidates::Candidates;
 use crate::error::{Error, Result};
+use crate::resolutions::{is_same_svs, Resolutions};
 use crate::Meta;
 
 mod mjam;
-mod resolutions;
 mod types;
 
 fn parse_checksum(integrity: &str) -> Result<Checksums> {
@@ -62,34 +62,6 @@ fn parse_package(entry: &yarn::Entry) -> Result<(PackageBuilder, Option<PackageS
     Ok((pkg, source))
 }
 
-struct Candidates<'a, T> {
-    first_value: &'a str,
-    range: btree_map::Range<'a, (&'a str, &'a str), T>,
-}
-
-impl<'a, T> Candidates<'a, T> {
-    fn new(first_value: &'a str, btree: &'a BTreeMap<(&'a str, &'a str), T>) -> Self {
-        Candidates {
-            first_value,
-            range: btree.range((first_value, "")..),
-        }
-    }
-}
-
-impl<'a, T> Iterator for Candidates<'a, T> {
-    type Item = (&'a (&'a str, &'a str), &'a T);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let Some(item) = self.range.next() else {
-            return None;
-        };
-        if item.0 .0 != self.first_value {
-            return None;
-        }
-        Some(item)
-    }
-}
-
 fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
     from_entry: &yarn::Entry,
@@ -100,8 +72,9 @@ where
     S: AsRef<str>,
 {
     let (descriptor_name, descriptor_svs) = (descriptor.0.as_ref(), descriptor.1.as_ref());
-    let overridden_resolution =
-        resolutions.find((descriptor_name, descriptor_svs), &from_entry.descriptors);
+    let overridden_resolution = resolutions.find((descriptor_name, descriptor_svs), || {
+        &from_entry.descriptors
+    });
     let evaluated_svs = overridden_resolution.unwrap_or(descriptor_svs);
     let mut candidate_entries = Candidates::new(descriptor_name, &descriptor_to_pid)
         .filter(|((_, d_s), _)| is_same_svs(evaluated_svs, d_s));
@@ -133,8 +106,9 @@ where
     S: AsRef<str>,
 {
     let (descriptor_name, descriptor_svs) = (descriptor.0.as_ref(), descriptor.1.as_ref());
-    let overridden_resolution =
-        resolutions.find((descriptor_name, descriptor_svs), &from_entry.descriptors);
+    let overridden_resolution = resolutions.find((descriptor_name, descriptor_svs), || {
+        &from_entry.descriptors
+    });
 
     let candidate_entries =
         Candidates::new(descriptor_name, &descriptor_to_pid).collect::<Vec<_>>();

@@ -1,0 +1,9 @@
+{
+    "name": "@chastelock/testcase",
+    "version": "0.0.0",
+    "dependencies": {
+        "@sveltejs/acorn-typescript": "^1",
+        "acorn-globals": "~6.0"
+    },
+    "packageManager": "yarn@6.0.0-rc.13"
+}

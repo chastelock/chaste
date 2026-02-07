@@ -1,0 +1,14 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "nop@npm:^1.0.0": {
+      "checksum": "71832a38ddf94e293145f3529b207b5cd1cbc93c835b91068455a7ef5905a3e5c73ce65a7c00a8f6a30c2a073ed5a7ca073b51cbb50702c283d1a15ae50c3f98",
+      "resolution": {
+        "resolution": "nop@npm:1.0.0",
+        "version": "1.0.0"
+      }
+    }
+  }
+}

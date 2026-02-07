@@ -1,0 +1,82 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "@types/cookie@npm:^0.6.0": {
+      "checksum": "db1742dc53a14595460d5b72467636df2af447238a64bdec6d69822ad7faf1e66bf079db956d5756566154f1b3666ceb35fd54a07835446ffc27e26e4a7bddb5",
+      "resolution": {
+        "resolution": "@types/cookie@npm:0.6.0",
+        "version": "0.6.0"
+      }
+    },
+    "cookie@npm:^1.0.1": {
+      "checksum": "b77da3a7723c8e0a906d86d7f8edbd030a997ec202260ef04998cb65b7024c28f1ad4aa80ace7d47b1a3c2ce1576a091fa472b900895236adf1a26801df2dbe5",
+      "resolution": {
+        "resolution": "cookie@npm:1.0.2",
+        "version": "1.0.2"
+      }
+    },
+    "react@npm:^19.0.0": {
+      "checksum": "ca5e5af4c4769a139ec6859d140c95ba05e19408f2b173ea5e49e12a89399b2724af40c6e044245cae5ffce31be2849bfcbb2e309f8052420ede8df21ccdacb3",
+      "resolution": {
+        "resolution": "react@npm:19.0.0",
+        "version": "19.0.0"
+      }
+    },
+    "react-dom@npm:^19.0.0": {
+      "checksum": "3e38058b48e3cbc856eebba28506d09d5cac0226fdcfa470e71e98fb7441ba309818637f7f4f5303dbd96015be99d843632c12a2d4d6af614a40e2c6afa9d9e0",
+      "resolution": {
+        "resolution": "react-dom@npm:19.0.0",
+        "version": "19.0.0",
+        "dependencies": {
+          "scheduler": "^0.25.0"
+        },
+        "peerDependencies": {
+          "react": "^19.0.0"
+        }
+      }
+    },
+    "react-router@npm:^7.2.0": {
+      "checksum": "8b0758e7a81a3f18f6d974bfeeaf4721c83abbacd98d416eed23b27b081c4f24e9cb72a8a3080f86768ce522cf06ce5d6b499e4bfec09a678c10bc16590936f2",
+      "resolution": {
+        "resolution": "react-router@npm:7.2.0",
+        "version": "7.2.0",
+        "dependencies": {
+          "@types/cookie": "^0.6.0",
+          "cookie": "^1.0.1",
+          "set-cookie-parser": "^2.6.0",
+          "turbo-stream": "2.4.0"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-dom": ">=18"
+        },
+        "optionalPeerDependencies": [
+          "react-dom"
+        ]
+      }
+    },
+    "scheduler@npm:^0.25.0": {
+      "checksum": "6772c6f8d30ea9f6c178e5c1eff6ed88a24e98f42e562cc4515004dc447fd9adf4f1d32d9b0852843eff75c0dcc7cac25242b20dd0c6fb7e77a27848e2037639",
+      "resolution": {
+        "resolution": "scheduler@npm:0.25.0",
+        "version": "0.25.0"
+      }
+    },
+    "set-cookie-parser@npm:^2.6.0": {
+      "checksum": "78626dc1f61697cedffcf2f652d700928503a4d0487210bf76fbf6c3d91125a63c2fc0b0cf7bc3c94db58c89bb479d03898b9b1e7a50d175b6ba10a2b4a842fe",
+      "resolution": {
+        "resolution": "set-cookie-parser@npm:2.7.1",
+        "version": "2.7.1"
+      }
+    },
+    "turbo-stream@npm:2.4.0": {
+      "checksum": "7b5b7a9aab605d7f1ada0282f4b573ae6de9960a899fd21809b858353104d27b9aefe0e515d7d4ca8ec82924b8a5af40817e9db511a4f33c53eab92d956be977",
+      "resolution": {
+        "resolution": "turbo-stream@npm:2.4.0",
+        "version": "2.4.0"
+      }
+    }
+  }
+}

@@ -5,17 +5,28 @@ use std::path::{Path, PathBuf};
 use std::{fs, io, str};
 
 use chaste_types::{Chastefile, LockfileVersion, ProviderMeta};
+use nom::branch::alt;
+use nom::bytes::streaming::tag;
+use nom::character::complete::space0;
+use nom::sequence::preceded;
+use nom::Parser;
 use yarn_lock_parser as yarn;
 
 pub use crate::error::{Error, Result};
 
 #[cfg(feature = "berry")]
 mod berry;
+#[cfg(any(feature = "berry", feature = "zpm"))]
+pub(crate) mod btree_candidates;
 #[cfg(feature = "classic")]
 mod classic;
 mod error;
+#[cfg(any(feature = "berry", feature = "zpm"))]
+pub(crate) mod resolutions;
 #[cfg(test)]
 mod tests;
+#[cfg(feature = "zpm")]
+mod zpm;
 
 pub static LOCKFILE_NAME: &str = "yarn.lock";
 
@@ -53,13 +64,31 @@ fn parse_real<FG>(
 where
     FG: Fn(PathBuf) -> Result<String, io::Error>,
 {
-    let yarn_lock: yarn::Lockfile = yarn::parse_str(&lockfile_contents)?;
-    match yarn_lock.version {
-        #[cfg(feature = "classic")]
-        1 => classic::resolve(yarn_lock, root_dir, file_getter),
-        #[cfg(feature = "berry")]
-        2..=8 => berry::resolve(yarn_lock, root_dir, file_getter),
-        _ => Err(Error::UnknownLockfileVersion(yarn_lock.version)),
+    enum Format {
+        Indented,
+        Json,
+    }
+    match preceded(
+        space0::<&str, ()>,
+        alt((
+            tag("{").map(|_| Format::Json),
+            tag("#").map(|_| Format::Indented),
+        )),
+    )
+    .parse(lockfile_contents)
+    {
+        Ok((_, Format::Indented)) => {
+            let yarn_lock: yarn::Lockfile = yarn::parse_str(&lockfile_contents)?;
+            match yarn_lock.version {
+                #[cfg(feature = "classic")]
+                1 => classic::resolve(yarn_lock, root_dir, file_getter),
+                #[cfg(feature = "berry")]
+                2..=8 => berry::resolve(yarn_lock, root_dir, file_getter),
+                _ => Err(Error::UnknownLockfileVersion(yarn_lock.version)),
+            }
+        }
+        Ok((_, Format::Json)) => zpm::resolve(lockfile_contents, root_dir, file_getter),
+        Err(_) => Err(Error::UnknownFormat),
     }
 }
 

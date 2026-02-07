@@ -1,0 +1,8 @@
+{
+    "private": true,
+    "workspaces": [
+        "ligma-api",
+        "balls"
+    ],
+    "packageManager": "yarn@6.0.0-rc.13"
+}

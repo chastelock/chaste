@@ -35,6 +35,8 @@ macro_rules! test_workspaces {
         test_workspace!([1], $name, $solver);
         #[cfg(feature = "berry")]
         test_workspace!([4, 6, 8], $name, $solver);
+        #[cfg(feature = "zpm")]
+        test_workspace!([9], $name, $solver);
     };
 }
 macro_rules! test_workspaces_berry {

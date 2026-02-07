@@ -1,0 +1,162 @@
+// SPDX-FileCopyrightText: 2026 The Chaste Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
+use std::collections::BTreeMap;
+use std::io;
+use std::path::{Path, PathBuf};
+
+use chaste_types::{
+    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, PackageBuilder, PackageID,
+    PackageName, SourceVersionSpecifier,
+};
+
+use crate::btree_candidates::Candidates;
+use crate::error::Result;
+use crate::resolutions::{is_same_svs, Resolutions};
+use crate::{Error, Meta};
+
+mod mjam;
+mod types;
+
+const PACKAGE_JSON_FILENAME: &str = "package.json";
+
+pub(crate) fn resolve<'y, FG>(
+    lockfile_contents: &'y str,
+    root_dir: &Path,
+    file_getter: &FG,
+) -> Result<Chastefile<Meta>>
+where
+    FG: Fn(PathBuf) -> Result<String, io::Error>,
+{
+    let lockfile: types::Lockfile<'y> = serde_json::from_str(lockfile_contents)?;
+    if lockfile.metadata.version != 9 {
+        return Err(Error::UnknownLockfileVersion(lockfile.metadata.version));
+    }
+
+    let root_package_contents = file_getter(root_dir.join(PACKAGE_JSON_FILENAME))?;
+    let root_package_json: types::PackageJson = serde_json::from_str(&root_package_contents)?;
+
+    let mut resolutions = Resolutions::new();
+    for (key, value) in &root_package_json.resolutions {
+        resolutions.insert(key, value)?;
+    }
+
+    let mut chastefile = ChastefileBuilder::new(Meta {
+        lockfile_version: lockfile.metadata.version,
+    });
+
+    let root_pid = chastefile.add_package(
+        PackageBuilder::new(
+            root_package_json
+                .name
+                .map(|n| PackageName::new(n.to_string()))
+                .transpose()?,
+            root_package_json.version.map(|v| v.to_string()),
+        )
+        .build()?,
+    )?;
+    chastefile.set_root_package_id(root_pid)?;
+
+    let mut spec_to_pid: BTreeMap<(&'y str, &'y str), PackageID> = BTreeMap::new();
+    let mut ekey_to_pid: BTreeMap<&'y str, PackageID> = BTreeMap::new();
+    for (key, entry) in lockfile.entries.iter() {
+        let specifiers = mjam::specifiers(key)?;
+        let (name, _) = mjam::resolved(entry.resolution.resolution)?;
+        let pkg = PackageBuilder::new(
+            Some(PackageName::new(name.to_owned())?),
+            Some(entry.resolution.version.to_owned()),
+        );
+        let pid = chastefile.add_package(pkg.build()?)?;
+        for spec in specifiers {
+            if spec_to_pid.insert(spec, pid).is_some() {
+                return Err(Error::DuplicateSpecifiers(format!("{}@{}", spec.0, spec.1)));
+            }
+        }
+        ekey_to_pid.insert(key, pid);
+    }
+
+    for (kind, dependencies) in [
+        (DependencyKind::Dependency, &root_package_json.dependencies),
+        (
+            DependencyKind::DevDependency,
+            &root_package_json.dev_dependencies,
+        ),
+        (
+            DependencyKind::OptionalDependency,
+            &root_package_json.optional_dependencies,
+        ),
+        (
+            DependencyKind::PeerDependency,
+            &root_package_json.peer_dependencies,
+        ),
+    ] {
+        for (dep_name, dep_svs) in dependencies {
+            let evaluated_svs = resolutions
+                .find((dep_name, dep_svs), || &[])
+                .unwrap_or(dep_svs);
+            let mut candidates = Candidates::new(dep_name, &spec_to_pid)
+                .filter(|((_, s), _)| is_same_svs(evaluated_svs, s));
+            let Some((_, pid)) = candidates.next() else {
+                if kind.is_peer() || kind.is_optional() {
+                    continue;
+                }
+                return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
+            };
+            if candidates.next().is_some() {
+                return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
+            }
+            let mut dep = DependencyBuilder::new(kind, root_pid, *pid);
+            dep.svs(SourceVersionSpecifier::new(dep_svs.to_string())?);
+            chastefile.add_dependency(dep.build());
+        }
+    }
+
+    for (key, entry) in lockfile.entries.iter() {
+        let &from_pid = ekey_to_pid.get(key).unwrap();
+        for (kind_, dependencies, optional_deps) in [
+            (
+                DependencyKind::Dependency,
+                &entry.resolution.dependencies,
+                &entry.resolution.optional_dependencies,
+            ),
+            (
+                DependencyKind::PeerDependency,
+                &entry.resolution.peer_dependencies,
+                &entry.resolution.optional_peer_dependencies,
+            ),
+        ] {
+            // XXX: this is pointlessly run even if there are no relevant resolutions
+            let parent_specifiers = mjam::specifiers(key)?;
+            for (dep_name, dep_svs) in dependencies {
+                let kind = match (kind_, optional_deps.contains(dep_name)) {
+                    (DependencyKind::Dependency, false) => DependencyKind::Dependency,
+                    (DependencyKind::Dependency, true) => DependencyKind::OptionalDependency,
+                    (DependencyKind::PeerDependency, false) => DependencyKind::PeerDependency,
+                    (DependencyKind::PeerDependency, true) => {
+                        DependencyKind::OptionalPeerDependency
+                    }
+                    _ => unreachable!(),
+                };
+                let evaluated_svs = resolutions
+                    .find((dep_name, dep_svs), || &parent_specifiers)
+                    .unwrap_or(dep_svs);
+                let mut candidates = Candidates::new(dep_name, &spec_to_pid)
+                    .filter(|((_, s), _)| is_same_svs(evaluated_svs, s));
+                let Some((_, pid)) = candidates.next() else {
+                    if kind.is_optional() {
+                        continue;
+                    }
+                    return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
+                };
+                if candidates.next().is_some() {
+                    return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
+                }
+                let mut dep = DependencyBuilder::new(kind, from_pid, *pid);
+                dep.svs(SourceVersionSpecifier::new(dep_svs.to_string())?);
+                chastefile.add_dependency(dep.build());
+            }
+        }
+    }
+
+    chastefile.build().map_err(Error::ChasteError)
+}

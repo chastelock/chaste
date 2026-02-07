@@ -1,0 +1,68 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "base64-js@npm:^1.3.1": {
+      "checksum": "2802701fbf46f5f980abe62a4a87bee3176d14f51eb8f18df941c205c282a9b8cd47742673fb125b02f079a7b11794868cabf51cd76c388869cd0731a42e8055",
+      "resolution": {
+        "resolution": "base64-js@npm:1.5.1",
+        "version": "1.5.1"
+      }
+    },
+    "buffer@npm:^5.6.0": {
+      "checksum": "2ef230406f4d1bf2c7ff4f3f7847647134aa740f10d40efeb254bc3b6147df7f11aae9b57bf4515deb7b83f584567ebcb3f3244cc1b6bd1551297766372c7efb",
+      "resolution": {
+        "resolution": "buffer@npm:5.7.1",
+        "version": "5.7.1",
+        "dependencies": {
+          "base64-js": "^1.3.1",
+          "ieee754": "^1.1.13"
+        }
+      }
+    },
+    "ieee754@npm:^1.1.13": {
+      "checksum": "b635744c4a9ff424e48a031796e90a5d5a70c9a3f382ad1f0ec5efe75754fd24efdefb980d674cfbf41e2f06c85317938c0e5c9ea11e732fdedf6dff40b18773",
+      "resolution": {
+        "resolution": "ieee754@npm:1.2.1",
+        "version": "1.2.1"
+      }
+    },
+    "lodash@npm:^4.17.21": {
+      "checksum": "d32a297351ab5dd9e340910af4f4ea9713453b6a26af943537d42ea9717c7b291e479e756718a83a7cdce47e0fcdd7a6c1f7c6f159e828a977e8b654f992f817",
+      "resolution": {
+        "resolution": "lodash@npm:4.17.23",
+        "version": "4.17.23"
+      }
+    },
+    "maitred-cache@npm:^1.0.1": {
+      "checksum": "6353a821b62207ec518cfdd75b32f88823c47a2e574529dae86dfd85fef3f46cc1a9dc25489d0e79ba73e59e74273f2f3535ca09b889eee6f50a560f87f17c5e",
+      "resolution": {
+        "resolution": "maitred-cache@npm:1.0.1",
+        "version": "1.0.1",
+        "dependencies": {
+          "lodash": "^4.17.21",
+          "object-sizeof": "^1.6.1",
+          "string-hash": "^1.1.3"
+        }
+      }
+    },
+    "object-sizeof@npm:^1.6.1": {
+      "checksum": "1620da4c3f0a1b15f98f966c48775efab0cf37ad7d34008f4b75794d68e3ffb6128254dc3cea960a19cc10ff569383ecc98b0dd9e40a96b47bbfe9d9b8e4f4fa",
+      "resolution": {
+        "resolution": "object-sizeof@npm:1.6.3",
+        "version": "1.6.3",
+        "dependencies": {
+          "buffer": "^5.6.0"
+        }
+      }
+    },
+    "string-hash@npm:1.1.3": {
+      "checksum": "341dfa7256f53d9779b4a8424d7fada56ebe557d415e84ff092343eda5b74cc5f4ae6106b8d698922b3470440c9b31d652f91b0884e8aab9d1ebc6aaa9f411ef",
+      "resolution": {
+        "resolution": "string-hash@npm:1.1.3",
+        "version": "1.1.3"
+      }
+    }
+  }
+}

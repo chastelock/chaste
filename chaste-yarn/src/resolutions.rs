@@ -75,8 +75,11 @@ impl<'a> Resolutions<'a> {
         Ok(())
     }
 
-    pub fn find(&self, selector: (&str, &str), parent: &[(&str, &str)]) -> Option<&'a str> {
-        for ((sel, key_parent), value) in self.store.range(
+    pub fn find<P>(&self, selector: (&str, &str), parent: P) -> Option<&'a str>
+    where
+        P: Fn() -> &'a [(&'a str, &'a str)],
+    {
+        let range = self.store.range(
             (
                 ResolutionSelector {
                     name: selector.0,
@@ -84,14 +87,15 @@ impl<'a> Resolutions<'a> {
                 },
                 None,
             )..,
-        ) {
+        );
+        for ((sel, key_parent), value) in range {
             if sel.name != selector.0 {
                 break;
             }
             if sel.svs.is_none_or(|s| is_same_svs(s, selector.1)) {
                 match key_parent {
                     Some(kp)
-                        if parent.iter().any(|p| {
+                        if parent().iter().any(|p| {
                             kp.name == p.0 && kp.svs.is_none_or(|s| is_same_svs(s, p.1))
                         }) =>
                     {
@@ -129,8 +133,8 @@ pub(crate) fn is_same_svs(one: &str, other: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::ResolutionKey;
-    use crate::{berry::resolutions::Resolutions, error::Result};
+    use super::{ResolutionKey, Resolutions};
+    use crate::error::Result;
 
     #[test]
     fn test_parse_resolution_keys() -> Result<()> {
@@ -188,29 +192,29 @@ mod tests {
 
         const IRRELEVANT_PARENT: [(&str, &str); 1] = [("irrelevant", "npm:nop@^1")];
         assert_eq!(
-            resolutions.find(("nonexistent", "^5000"), &IRRELEVANT_PARENT),
+            resolutions.find(("nonexistent", "^5000"), || &IRRELEVANT_PARENT),
             None
         );
         assert_eq!(
-            resolutions.find(("lodash", "^1337"), &IRRELEVANT_PARENT),
+            resolutions.find(("lodash", "^1337"), || &IRRELEVANT_PARENT),
             Some("^6.7")
         );
         assert_eq!(
-            resolutions.find(("preact", "npm:^1"), &IRRELEVANT_PARENT),
+            resolutions.find(("preact", "npm:^1"), || &IRRELEVANT_PARENT),
             Some("^10")
         );
         assert_eq!(
-            resolutions.find(
-                ("preact", "^19"),
-                &[("kleur", "^0"), ("kleur", "=999999998.1.0")]
-            ),
+            resolutions.find(("preact", "^19"), || &[
+                ("kleur", "^0"),
+                ("kleur", "=999999998.1.0")
+            ]),
             None
         );
         assert_eq!(
-            resolutions.find(
-                ("preact", "^19"),
-                &[("kleur", "^999999998"), ("kleur", "=999999998.1.0")]
-            ),
+            resolutions.find(("preact", "^19"), || &[
+                ("kleur", "^999999998"),
+                ("kleur", "=999999998.1.0")
+            ]),
             Some("^2000")
         );
 

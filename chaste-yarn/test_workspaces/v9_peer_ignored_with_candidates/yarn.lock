@@ -1,0 +1,42 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "@sveltejs/acorn-typescript@npm:^1": {
+      "checksum": "6efd920c4cf448ee46104278502707511c64d18ac8e564bb4c15d5fb5ca362ff3c349fe25f664a8d5e5322a04f454729a5932c6f26813986d30d461c970dd2ae",
+      "resolution": {
+        "resolution": "@sveltejs/acorn-typescript@npm:1.0.8",
+        "version": "1.0.8",
+        "peerDependencies": {
+          "acorn": "^8.9.0"
+        }
+      }
+    },
+    "acorn@npm:^7.1.1": {
+      "checksum": "3a9ea4a8108074b4d24893a22ab809ecd04951eaea57ca14288beced2fa03e53381978dc453b2630485f98ac60e19b548df920a1a65ef47ba74d01f9e5df2e28",
+      "resolution": {
+        "resolution": "acorn@npm:7.4.1",
+        "version": "7.4.1"
+      }
+    },
+    "acorn-globals@npm:~6.0": {
+      "checksum": "8475d188f77d28305ec129e1b485c5da47e58b693a6380edaa0e40c71fcee084a2437649b0f523c1652f8cbb5d610cfb5ea064233e01d9b5d542a426bbdb3bdd",
+      "resolution": {
+        "resolution": "acorn-globals@npm:6.0.0",
+        "version": "6.0.0",
+        "dependencies": {
+          "acorn": "^7.1.1",
+          "acorn-walk": "^7.1.1"
+        }
+      }
+    },
+    "acorn-walk@npm:^7.1.1": {
+      "checksum": "1c285101f19bf5748997f84af32b17b4d32ccd1acf2c86d2b72b4149016ba1ee706f57c2bb338cbb51f60be660e719af8c168fb7ef3cb5067ddabbe3f1c6fe95",
+      "resolution": {
+        "resolution": "acorn-walk@npm:7.2.0",
+        "version": "7.2.0"
+      }
+    }
+  }
+}

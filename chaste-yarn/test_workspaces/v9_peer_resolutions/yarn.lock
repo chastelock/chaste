@@ -1,0 +1,45 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "@bufbuild/protobuf@npm:~1.0": {
+      "checksum": "8fd7f36280d85db7d17bbc7ac74186939c3dfdc53e265079a526a9803e5f2515e63f003e2b3795aee19b93e062212687412501e09cc2b1d5733c4ba520c988c2",
+      "resolution": {
+        "resolution": "@bufbuild/protobuf@npm:1.0.0",
+        "version": "1.0.0"
+      }
+    },
+    "@bufbuild/protobuf@npm:~1.9": {
+      "checksum": "ceccbab1b9058bdc0c53509082e87f6741f4dd40afd3f9357a8ea5d6949b18324f5f98410d07c671d2e5a1f9b3159ce95c5c0bd3a0e3ff60525b58a043f4cbcc",
+      "resolution": {
+        "resolution": "@bufbuild/protobuf@npm:1.9.0",
+        "version": "1.9.0"
+      }
+    },
+    "@bufbuild/protoc-gen-es@npm:^1.8": {
+      "checksum": "68b034150402c21658b3015bc38808279223876f85986b0ddceb6bedb6beb834894644e75f77e0e003aba3cd419e05dc5daf5a265888f6a0947982c98a24bcc4",
+      "resolution": {
+        "resolution": "@bufbuild/protoc-gen-es@npm:1.10.1",
+        "version": "1.10.1",
+        "dependencies": {
+          "@bufbuild/protobuf": "^1.10.1",
+          "@bufbuild/protoplugin": "1.10.1"
+        },
+        "peerDependencies": {
+          "@bufbuild/protobuf": "1.10.1"
+        },
+        "optionalPeerDependencies": [
+          "@bufbuild/protobuf"
+        ]
+      }
+    },
+    "nop@npm:1.0.0": {
+      "checksum": "71832a38ddf94e293145f3529b207b5cd1cbc93c835b91068455a7ef5905a3e5c73ce65a7c00a8f6a30c2a073ed5a7ca073b51cbb50702c283d1a15ae50c3f98",
+      "resolution": {
+        "resolution": "nop@npm:1.0.0",
+        "version": "1.0.0"
+      }
+    }
+  }
+}

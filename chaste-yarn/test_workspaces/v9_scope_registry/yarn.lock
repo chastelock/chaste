@@ -1,0 +1,14 @@
+{
+  "__metadata": {
+    "version": 9
+  },
+  "entries": {
+    "@a/empty@npm:0.0.1": {
+      "checksum": "e9450df73e95df05a17ef827205b01ceab522c7fe02cea837381a90d74c6d400904e1f385e6298c3daf9a9dee9b0783c7bac4a2ac865a158ef308f6df8101d12",
+      "resolution": {
+        "resolution": "@a/empty@npm:@a/empty@0.0.1#https://codeberg.org/api/packages/libselfisekai/npm/%40a%2Fempty/-/0.0.1/empty-0.0.1.tgz",
+        "version": "0.0.1"
+      }
+    }
+  }
+}
