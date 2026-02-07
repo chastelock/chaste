@@ -12,6 +12,8 @@ use chaste_types::{
     PackageSourceType, PackageVersion, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
     ROOT_MODULE_PATH,
 };
+
+use itertools::Itertools as _;
 use nom::bytes::complete::tag;
 use nom::combinator::eof;
 use nom::Parser as _;
@@ -249,8 +251,6 @@ where
     let mut chastefile_builder = ChastefileBuilder::new(Meta {
         lockfile_version: yarn_lock.version,
     });
-    let mut index_to_pid: HashMap<usize, PackageID> =
-        HashMap::with_capacity(yarn_lock.entries.len());
     let mut descriptor_to_pid: BTreeMap<(&'y str, &'y str), PackageID> = BTreeMap::new();
     let mut pid_to_entry: HashMap<PackageID, &yarn::Entry> =
         HashMap::with_capacity(yarn_lock.entries.len());
@@ -260,7 +260,7 @@ where
     let mut deferred_pkgs = Vec::new();
 
     {
-        for (index, entry) in yarn_lock.entries.iter().enumerate() {
+        for entry in &yarn_lock.entries {
             let (pkg, source) = parse_package(entry)?;
 
             // For patch: packages, we need to mark the derivation, for which
@@ -269,12 +269,11 @@ where
                 .parse(entry.resolved)
                 .is_ok()
             {
-                deferred_pkgs.push((index, entry, pkg));
+                deferred_pkgs.push((entry, pkg));
                 continue;
             }
 
             let pid = chastefile_builder.add_package(pkg.build()?)?;
-            index_to_pid.insert(index, pid);
             pid_to_entry.insert(pid, entry);
             for (pn, ps) in &entry.descriptors {
                 if descriptor_to_pid.insert((pn, ps), pid).is_some() {
@@ -304,7 +303,7 @@ where
             }
         }
     }
-    for (index, entry, mut pkg) in deferred_pkgs {
+    for (entry, mut pkg) in deferred_pkgs {
         let Some((_, patched_pkg_name, patched_pkg_svd_penc, patch_path, _patch_meta)) =
             mjam::patch_descriptor(entry.resolved)
         else {
@@ -313,23 +312,24 @@ where
         // "npm%3A0.1.0" -> "npm:0.1.0"
         let patched_pkg_svd =
             percent_encoding::percent_decode_str(patched_pkg_svd_penc).decode_utf8()?;
-        let mut source_candidates = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
-            (
-                tag::<&str, &str, ()>(patched_pkg_name),
-                tag("@"),
-                tag(patched_pkg_svd.as_ref()),
-                eof,
-            )
-                .parse(e.resolved)
-                .is_ok()
-        });
-        let Some((source_idx, _)) = source_candidates.next() else {
+        let mut source_candidates = Candidates::new(patched_pkg_name, &descriptor_to_pid)
+            .unique_by(|(_, cpid)| **cpid)
+            .filter(|(_, cpid)| {
+                (
+                    tag::<&str, &str, ()>(patched_pkg_name),
+                    tag("@"),
+                    tag(patched_pkg_svd.as_ref()),
+                    eof,
+                )
+                    .parse(pid_to_entry.get(cpid).unwrap().resolved)
+                    .is_ok()
+            });
+        let Some((_, &source_pid)) = source_candidates.next() else {
             return Err(Error::InvalidResolved(entry.resolved.to_string()));
         };
         if source_candidates.next().is_some() {
             return Err(Error::AmbiguousResolved(entry.resolved.to_string()));
         }
-        let source_pid = *index_to_pid.get(&source_idx).unwrap();
         let patch = PackagePatchBuilder::new(
             patch_path
                 .strip_prefix("./")
@@ -341,7 +341,6 @@ where
                 .build()?,
         );
         let pid = chastefile_builder.add_package(pkg.build()?)?;
-        index_to_pid.insert(index, pid);
         pid_to_entry.insert(pid, entry);
         for (pn, ps) in &entry.descriptors {
             if descriptor_to_pid.insert((pn, ps), pid).is_some() {
@@ -363,16 +362,13 @@ where
     if let Some(state) = maybe_state {
         for st8_pkg in &state.packages {
             let expected_resolution = mjam::resolution_from_state_key(st8_pkg.resolution);
-            let (p_idx, _) = yarn_lock
-                .entries
+            let (&pid, _) = pid_to_entry
                 .iter()
-                .enumerate()
                 .find(|(_, e)| e.resolved == expected_resolution)
                 .ok_or_else(|| Error::StatePackageNotFound(expected_resolution.to_string()))?;
-            let pid = index_to_pid.get(&p_idx).unwrap();
             for st8_location in &st8_pkg.locations {
                 let installation =
-                    InstallationBuilder::new(*pid, ModulePath::new(st8_location.to_string())?)
+                    InstallationBuilder::new(pid, ModulePath::new(st8_location.to_string())?)
                         .build()?;
                 chastefile_builder.add_package_installation(installation);
             }
@@ -381,9 +377,7 @@ where
 
     let mut dep_children: HashMap<PackageID, Vec<PackageID>> = HashMap::new();
 
-    for (index, entry) in yarn_lock.entries.iter().enumerate() {
-        let from_pid = index_to_pid.get(&index).unwrap();
-
+    for (from_pid, entry) in pid_to_entry.iter() {
         // In berry, dependencies are stored in 2 sections under an Entry:
         // either "peerDependencies:", "dependencies:".
         // If they are optional, this will be indicated in "peerDependenciesMeta:",
@@ -422,8 +416,7 @@ where
             chastefile_builder.add_dependency(dep.build());
         }
     }
-    for (index, entry) in yarn_lock.entries.iter().enumerate() {
-        let from_pid = index_to_pid.get(&index).unwrap();
+    for (from_pid, entry) in pid_to_entry.iter() {
         let mut deps_meta = HashMap::with_capacity(entry.peer_dependencies_meta.len());
         for (k, v) in &entry.peer_dependencies_meta {
             deps_meta.insert(k, v);

@@ -17,7 +17,7 @@ exclude.workspace = true
 default = ["classic", "berry"]
 
 classic = ["dep:globreeks", "dep:walkdir"]
-berry = ["dep:yarn-state", "dep:percent-encoding"]
+berry = ["dep:yarn-state", "dep:percent-encoding", "dep:itertools"]
 
 fuzzing = []
 
@@ -29,6 +29,10 @@ thiserror.workspace = true
 yarn-lock-parser.workspace = true
 
 [dependencies.globreeks]
+workspace = true
+optional = true
+
+[dependencies.itertools]
 workspace = true
 optional = true
 
