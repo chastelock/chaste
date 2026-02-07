@@ -5,7 +5,7 @@ use chaste_types::{package_name_str, PackageSource};
 
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag};
-use nom::combinator::eof;
+use nom::combinator::{eof, map, rest};
 use nom::multi::separated_list1;
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser as _};
@@ -26,9 +26,18 @@ pub fn specifiers<'a>(input: &'a str) -> Result<Vec<(&'a str, &'a str)>> {
 pub fn resolved_source<'a>(
     input: &'a str,
 ) -> IResult<&'a str, (Option<PackageSource>, Option<&'a str>)> {
-    alt((preceded(tag("npm:"), |i| {
-        Ok(("", (Some(PackageSource::Npm), Some(i))))
-    }),))
+    alt((
+        preceded(
+            tag("npm:"),
+            map(rest, |i| (Some(PackageSource::Npm), Some(i))),
+        ),
+        preceded(
+            tag("git:"),
+            map(rest, |i: &str| {
+                (Some(PackageSource::Git { url: i.to_owned() }), None)
+            }),
+        ),
+    ))
     .parse(input)
 }
 
