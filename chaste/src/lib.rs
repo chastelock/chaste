@@ -55,7 +55,7 @@ impl Implementation {
             _ => unreachable!(),
         }
     }
-    pub fn from_name(name: &'static str) -> Option<Implementation> {
+    pub fn from_name(name: &str) -> Option<Implementation> {
         use Implementation::*;
         match name {
             #[cfg(feature = "bun")]
