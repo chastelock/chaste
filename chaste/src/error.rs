@@ -9,6 +9,9 @@ pub enum Error {
     #[error("No lockfile was found in the root directory")]
     NoLockfile,
 
+    #[error("Multiple lockfiles found in directory: {0:?}")]
+    MultipleLockfiles(Vec<crate::Implementation>),
+
     #[error("I/O error: {0:?}")]
     IoError(#[from] std::io::Error),
 
