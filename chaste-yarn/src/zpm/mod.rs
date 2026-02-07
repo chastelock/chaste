@@ -107,13 +107,26 @@ where
         ),
     ] {
         for (dep_name, dep_svs) in dependencies {
-            let evaluated_svs = resolutions
-                .find((dep_name, dep_svs), || &[])
-                .unwrap_or(dep_svs);
-            let mut candidates = Candidates::new(dep_name, &spec_to_pid)
-                .filter(|((_, s), _)| is_same_svs(evaluated_svs, s));
+            let override_spec = resolutions.find((dep_name, dep_svs), || &[]);
+            let evaluated_spec = override_spec.unwrap_or(dep_svs);
+            let original_svs = SourceVersionSpecifier::new(dep_svs.to_string())?;
+            let override_svs = if let Some(ospec) = override_spec {
+                &SourceVersionSpecifier::new(ospec.to_string())?
+            } else {
+                &original_svs
+            };
+            let alias = override_svs.aliased_package_name();
+            let alias_spec = override_svs
+                .npm_range_str()
+                .filter(|_| alias.is_some())
+                .unwrap_or(evaluated_spec);
+            let mut candidates = Candidates::new(
+                alias.as_ref().map(|n| n.as_ref()).unwrap_or(dep_name),
+                &spec_to_pid,
+            )
+            .filter(|((_, s), _)| is_same_svs(alias_spec, s));
             let Some((_, pid)) = candidates.next() else {
-                if kind.is_peer() || kind.is_optional() {
+                if kind.is_optional() {
                     continue;
                 }
                 return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
@@ -122,7 +135,10 @@ where
                 return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
             }
             let mut dep = DependencyBuilder::new(kind, root_pid, *pid);
-            dep.svs(SourceVersionSpecifier::new(dep_svs.to_string())?);
+            if alias.is_some() {
+                dep.alias_name(PackageName::new(dep_name.to_string())?);
+            }
+            dep.svs(original_svs);
             chastefile.add_dependency(dep.build());
         }
     }
@@ -153,11 +169,24 @@ where
                     }
                     _ => unreachable!(),
                 };
-                let evaluated_svs = resolutions
-                    .find((dep_name, dep_svs), || &parent_specifiers)
-                    .unwrap_or(dep_svs);
-                let mut candidates = Candidates::new(dep_name, &spec_to_pid)
-                    .filter(|((_, s), _)| is_same_svs(evaluated_svs, s));
+                let override_spec = resolutions.find((dep_name, dep_svs), || &parent_specifiers);
+                let evaluated_spec = override_spec.unwrap_or(dep_svs);
+                let original_svs = SourceVersionSpecifier::new(dep_svs.to_string())?;
+                let override_svs = if let Some(ospec) = override_spec {
+                    &SourceVersionSpecifier::new(ospec.to_string())?
+                } else {
+                    &original_svs
+                };
+                let alias = override_svs.aliased_package_name();
+                let alias_spec = override_svs
+                    .npm_range_str()
+                    .filter(|_| alias.is_some())
+                    .unwrap_or(evaluated_spec);
+                let mut candidates = Candidates::new(
+                    alias.as_ref().map(|n| n.as_ref()).unwrap_or(dep_name),
+                    &spec_to_pid,
+                )
+                .filter(|((_, s), _)| is_same_svs(alias_spec, s));
                 let Some((_, pid)) = candidates.next() else {
                     if kind.is_optional() {
                         continue;
@@ -168,7 +197,10 @@ where
                     return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
                 }
                 let mut dep = DependencyBuilder::new(kind, from_pid, *pid);
-                dep.svs(SourceVersionSpecifier::new(dep_svs.to_string())?);
+                if alias.is_some() {
+                    dep.alias_name(PackageName::new(dep_name.to_string())?);
+                }
+                dep.svs(original_svs);
                 chastefile.add_dependency(dep.build());
             }
         }
