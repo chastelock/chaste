@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2026 The Chaste Authors
 // SPDX-License-Identifier: BSD-2-Clause
 
-use chaste_types::package_name_str;
+use chaste_types::{package_name_str, PackageSource};
 
+use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag};
-use nom::combinator::{eof, rest};
+use nom::combinator::eof;
 use nom::multi::separated_list1;
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser as _};
@@ -22,8 +23,17 @@ pub fn specifiers<'a>(input: &'a str) -> Result<Vec<(&'a str, &'a str)>> {
         .map_err(|_| Error::InvalidEntryKey(input.to_owned()))
 }
 
-pub fn resolved<'a>(input: &'a str) -> Result<(&'a str, &'a str)> {
-    (package_name_str, preceded(tag("@"), rest))
+pub fn resolved_source<'a>(
+    input: &'a str,
+) -> IResult<&'a str, (Option<PackageSource>, Option<&'a str>)> {
+    alt((preceded(tag("npm:"), |i| {
+        Ok(("", (Some(PackageSource::Npm), Some(i))))
+    }),))
+    .parse(input)
+}
+
+pub fn resolved<'a>(input: &'a str) -> Result<(&'a str, (Option<PackageSource>, Option<&'a str>))> {
+    (package_name_str, preceded(tag("@"), resolved_source))
         .parse(input)
         .map(|(_, r)| r)
         .map_err(|_| Error::InvalidResolved(input.to_owned()))

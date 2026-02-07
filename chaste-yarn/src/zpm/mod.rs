@@ -61,11 +61,14 @@ where
     let mut ekey_to_pid: BTreeMap<&'y str, PackageID> = BTreeMap::new();
     for (key, entry) in lockfile.entries.iter() {
         let specifiers = mjam::specifiers(key)?;
-        let (name, _) = mjam::resolved(entry.resolution.resolution)?;
-        let pkg = PackageBuilder::new(
+        let (name, (source, _)) = mjam::resolved(entry.resolution.resolution)?;
+        let mut pkg = PackageBuilder::new(
             Some(PackageName::new(name.to_owned())?),
             Some(entry.resolution.version.to_owned()),
         );
+        if let Some(src) = source {
+            pkg.source(src);
+        }
         let pid = chastefile.add_package(pkg.build()?)?;
         for spec in specifiers {
             if spec_to_pid.insert(spec, pid).is_some() {
