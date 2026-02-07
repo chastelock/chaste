@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024 The Chaste Authors
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{btree_map, BTreeMap, HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -60,12 +60,39 @@ fn parse_package(entry: &yarn::Entry) -> Result<(PackageBuilder, Option<PackageS
     Ok((pkg, source))
 }
 
+struct Candidates<'a, T> {
+    first_value: &'a str,
+    range: btree_map::Range<'a, (&'a str, &'a str), T>,
+}
+
+impl<'a, T> Candidates<'a, T> {
+    fn new(first_value: &'a str, btree: &'a BTreeMap<(&'a str, &'a str), T>) -> Self {
+        Candidates {
+            first_value,
+            range: btree.range((first_value, "")..),
+        }
+    }
+}
+
+impl<'a, T> Iterator for Candidates<'a, T> {
+    type Item = (&'a (&'a str, &'a str), &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let Some(item) = self.range.next() else {
+            return None;
+        };
+        if item.0 .0 != self.first_value {
+            return None;
+        }
+        Some(item)
+    }
+}
+
 fn find_dep_pid<'a, S>(
     descriptor: &'a (S, S),
-    yarn_lock: &'a yarn::Lockfile<'a>,
     from_entry: &yarn::Entry,
     resolutions: &Resolutions<'a>,
-    index_to_pid: &HashMap<usize, PackageID>,
+    descriptor_to_pid: &BTreeMap<(&'a str, &'a str), PackageID>,
 ) -> Result<Option<PackageID>>
 where
     S: AsRef<str>,
@@ -74,19 +101,17 @@ where
     let overridden_resolution =
         resolutions.find((descriptor_name, descriptor_svs), &from_entry.descriptors);
     let evaluated_svs = overridden_resolution.unwrap_or(descriptor_svs);
-    let mut candidate_entries = yarn_lock.entries.iter().enumerate().filter(|(_, e)| {
-        e.descriptors
-            .iter()
-            .any(|(d_n, d_s)| *d_n == descriptor_name && (is_same_svs(evaluated_svs, d_s)))
-    });
-    if let Some((idx, _)) = candidate_entries.next() {
+    let mut candidate_entries = Candidates::new(descriptor_name, &descriptor_to_pid)
+        .filter(|((_, d_s), _)| is_same_svs(evaluated_svs, d_s));
+    if let Some((_, pid)) = candidate_entries.next() {
         if candidate_entries.next().is_some() {
             return Err(Error::AmbiguousResolution(format!(
                 "{descriptor_name}@{descriptor_svs}",
             )));
         }
-        return Ok(Some(*index_to_pid.get(&idx).unwrap()));
+        return Ok(Some(*pid));
     }
+
     Err(Error::DependencyNotFound(format!(
         "{descriptor_name}@{descriptor_svs}",
     )))
@@ -94,11 +119,11 @@ where
 
 fn find_peer_pid<'a, S>(
     descriptor: &'a (S, S),
-    yarn_lock: &'a yarn::Lockfile<'a>,
     from_pid: PackageID,
     from_entry: &yarn::Entry,
     resolutions: &Resolutions<'a>,
-    index_to_pid: &HashMap<usize, PackageID>,
+    descriptor_to_pid: &BTreeMap<(&'a str, &'a str), PackageID>,
+    pid_to_entry: &HashMap<PackageID, &'a yarn::Entry<'a>>,
     dep_children: &HashMap<PackageID, Vec<PackageID>>,
     package_sources: &HashMap<PackageID, PackageSource>,
 ) -> Result<Option<PackageID>>
@@ -109,21 +134,12 @@ where
     let overridden_resolution =
         resolutions.find((descriptor_name, descriptor_svs), &from_entry.descriptors);
 
-    let candidate_entries = yarn_lock
-        .entries
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| {
-            e.descriptors
-                .iter()
-                .any(|(d_n, _d_s)| *d_n == descriptor_name)
-        })
-        .map(|(idx, e)| (idx, e, *index_to_pid.get(&idx).unwrap()))
-        .collect::<Vec<_>>();
+    let candidate_entries =
+        Candidates::new(descriptor_name, &descriptor_to_pid).collect::<Vec<_>>();
 
     // If there's just one candidate to consider, it's easy.
-    if let [(_, _, pid)] = *candidate_entries {
-        return Ok(Some(pid));
+    if let [(_, pid)] = *candidate_entries {
+        return Ok(Some(*pid));
     }
     // Peer dependencies can be optional.
     // TODO: also check peerDependenciesMeta
@@ -133,16 +149,12 @@ where
     // If an SVS is overridden through package.json "resolutions" field,
     // it takes that field's value into its descriptors.
     if let Some(evaluated_svs) = overridden_resolution {
-        if let [(_, _, pid)] = *candidate_entries
+        if let [(_, pid)] = *candidate_entries
             .iter()
-            .filter(|(_, e, _)| {
-                e.descriptors
-                    .iter()
-                    .any(|(_d_n, d_s)| is_same_svs(evaluated_svs, d_s))
-            })
+            .filter(|((_, d_s), _)| is_same_svs(evaluated_svs, d_s))
             .collect::<Vec<_>>()
         {
-            return Ok(Some(*pid));
+            return Ok(Some(**pid));
         }
     }
 
@@ -159,7 +171,7 @@ where
     );
     let candidate_siblings = siblings_packages
         .iter()
-        .filter(|sib| candidate_entries.iter().any(|(_, _, cand)| *sib == cand))
+        .filter(|sib| candidate_entries.iter().any(|(_, cand)| sib == cand))
         .collect::<Vec<_>>();
     if let [pid] = *candidate_siblings {
         return Ok(Some(*pid));
@@ -168,23 +180,21 @@ where
     // If a package is requested somewhere else with the same specifier.
     let same_spec_candidates = candidate_entries
         .iter()
-        .filter(|(_, e, _)| {
-            e.descriptors.iter().any(|(n, s)| {
-                *n == descriptor_name
-                    && (*s == descriptor_svs || s.strip_prefix("npm:") == Some(descriptor_svs))
-            })
+        .filter(|((_, s), _)| {
+            *s == descriptor_svs || s.strip_prefix("npm:") == Some(descriptor_svs)
         })
         .collect::<Vec<_>>();
-    if let [(_, _, pid)] = *same_spec_candidates {
-        return Ok(Some(*pid));
+    if let [(_, pid)] = *same_spec_candidates {
+        return Ok(Some(**pid));
     }
 
     // If the dependency is back on the package that requested it.
-    if let Some((_, _, pid)) = candidate_entries
+    if candidate_entries
         .iter()
-        .find(|(_, _, pid)| *pid == from_pid)
+        .find(|(_, pid)| **pid == from_pid)
+        .is_some()
     {
-        return Ok(Some(*pid));
+        return Ok(Some(from_pid));
     }
 
     // Finally, check which candidates satisfy the version requirement.
@@ -192,12 +202,13 @@ where
     if let Some(range) = svs.npm_range() {
         let mut satisfying_candidates = candidate_entries
             .iter()
-            .filter_map(|(_, e, pid)| {
+            .filter_map(|(_, pid)| {
                 if package_sources
                     .get(pid)
                     .is_some_and(|s| s.source_type() == PackageSourceType::Npm)
                 {
-                    Some((pid, PackageVersion::parse(e.version).unwrap()))
+                    let entry = pid_to_entry.get(*pid).unwrap();
+                    Some((pid, PackageVersion::parse(entry.version).unwrap()))
                         .filter(|(_, v)| v.satisfies(&range))
                 } else {
                     None
@@ -205,12 +216,12 @@ where
             })
             .collect::<Vec<_>>();
         if let [(pid, _)] = *satisfying_candidates {
-            return Ok(Some(*pid));
+            return Ok(Some(**pid));
         }
         // If there are more than 2 matching candidates, choose the one with higher version.
         if satisfying_candidates.len() > 1 {
             satisfying_candidates.sort_by(|a, b| a.1.cmp(&b.1));
-            return Ok(Some(*satisfying_candidates.last().unwrap().0));
+            return Ok(Some(**satisfying_candidates.last().unwrap().0));
         }
     }
 
@@ -240,6 +251,9 @@ where
     });
     let mut index_to_pid: HashMap<usize, PackageID> =
         HashMap::with_capacity(yarn_lock.entries.len());
+    let mut descriptor_to_pid: BTreeMap<(&'y str, &'y str), PackageID> = BTreeMap::new();
+    let mut pid_to_entry: HashMap<PackageID, &yarn::Entry> =
+        HashMap::with_capacity(yarn_lock.entries.len());
     let mut package_sources: HashMap<PackageID, PackageSource> =
         HashMap::with_capacity(yarn_lock.entries.len());
 
@@ -261,6 +275,12 @@ where
 
             let pid = chastefile_builder.add_package(pkg.build()?)?;
             index_to_pid.insert(index, pid);
+            pid_to_entry.insert(pid, entry);
+            for (pn, ps) in &entry.descriptors {
+                if descriptor_to_pid.insert((pn, ps), pid).is_some() {
+                    return Err(Error::DuplicateSpecifiers(format!("{pn}@{ps}")));
+                }
+            }
             if let Some(src) = source {
                 package_sources.insert(pid, src);
             }
@@ -322,6 +342,12 @@ where
         );
         let pid = chastefile_builder.add_package(pkg.build()?)?;
         index_to_pid.insert(index, pid);
+        pid_to_entry.insert(pid, entry);
+        for (pn, ps) in &entry.descriptors {
+            if descriptor_to_pid.insert((pn, ps), pid).is_some() {
+                return Err(Error::DuplicateSpecifiers(format!("{pn}@{ps}")));
+            }
+        }
     }
 
     let maybe_state_contents =
@@ -376,13 +402,8 @@ where
                 Some(true) => DependencyKind::OptionalDependency,
                 Some(false) | None => DependencyKind::Dependency,
             };
-            let Some(dep_pid) = find_dep_pid(
-                dep_descriptor,
-                &yarn_lock,
-                entry,
-                &resolutions,
-                &index_to_pid,
-            )?
+            let Some(dep_pid) =
+                find_dep_pid(dep_descriptor, entry, &resolutions, &descriptor_to_pid)?
             else {
                 continue;
             };
@@ -414,11 +435,11 @@ where
             };
             let Some(dep_pid) = find_peer_pid(
                 dep_descriptor,
-                &yarn_lock,
                 *from_pid,
                 entry,
                 &resolutions,
-                &index_to_pid,
+                &descriptor_to_pid,
+                &pid_to_entry,
                 &dep_children,
                 &package_sources,
             )?

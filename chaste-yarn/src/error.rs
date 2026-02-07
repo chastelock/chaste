@@ -35,6 +35,9 @@ pub enum Error {
     #[error("Conflicting descriptors: {0:?} and {1:?}")]
     ConflictingDescriptors(String, String),
 
+    #[error("Duplicate specifiers: more than one package claims to fulfil {0:?}")]
+    DuplicateSpecifiers(String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 
