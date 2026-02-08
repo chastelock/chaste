@@ -191,24 +191,47 @@ fn resolve_dependency(
         .npm_range_str()
         .filter(|_| alias.is_some())
         .unwrap_or(evaluated_spec);
-    let mut candidates = Candidates::new(
+    let candidates = Candidates::new(
         alias.as_ref().map(|n| n.as_ref()).unwrap_or(dep_name),
         &spec_to_pid,
-    )
-    .filter(|((_, s), _)| is_same_svs_zpm(alias_spec, s));
-    let Some((_, pid)) = candidates.next() else {
-        if kind.is_optional() {
-            return Ok(None);
+    );
+    let Some(pid) = (if kind.is_peer() {
+        resolve_peer_dependency(candidates.collect())?
+    } else {
+        let mut candidates = candidates.filter(|((_, s), _)| is_same_svs_zpm(alias_spec, s));
+        let Some((_, pid)) = candidates.next() else {
+            if kind.is_optional() {
+                return Ok(None);
+            }
+            return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
+        };
+        if candidates.next().is_some() {
+            return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
         }
-        return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
+        Some(*pid)
+    }) else {
+        return Ok(None);
     };
-    if candidates.next().is_some() {
-        return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
-    }
-    let mut dep = DependencyBuilder::new(kind, from_pid, *pid);
+    let mut dep = DependencyBuilder::new(kind, from_pid, pid);
     if original_svs.aliased_package_name().is_some() {
         dep.alias_name(PackageName::new(dep_name.to_string())?);
     }
     dep.svs(original_svs);
     Ok(Some(dep.build()))
+}
+
+fn resolve_peer_dependency<'y>(
+    candidate_entries: Vec<(&(&'y str, &'y str), &PackageID)>,
+) -> Result<Option<PackageID>> {
+    // If there's just one candidate to consider, it's easy.
+    if let [(_, pid)] = *candidate_entries {
+        return Ok(Some(*pid));
+    }
+    // Peer dependencies can be optional.
+    // TODO: also check peerDependenciesMeta
+    if candidate_entries.len() == 0 {
+        return Ok(None);
+    }
+
+    todo!();
 }

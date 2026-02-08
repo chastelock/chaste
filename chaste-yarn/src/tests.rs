@@ -443,11 +443,13 @@ test_workspaces!(peer_deps, |chastefile: Chastefile<Meta>, lv: u8| {
         assert_eq!(react_dep.svs().unwrap(), "^19.0.0");
         let react_pkg = chastefile.package(react_dep.on);
         assert_eq!(react_pkg.name().unwrap(), "react");
-        // This requires node_modules/.yarn-state.yml
-        let [react_inst] = *chastefile.package_installations(react_dep.on) else {
-            panic!();
-        };
-        assert_eq!(react_inst.path().as_ref(), "node_modules/react");
+        if lv < 9 {
+            // This requires node_modules/.yarn-state.yml
+            let [react_inst] = *chastefile.package_installations(react_dep.on) else {
+                panic!();
+            };
+            assert_eq!(react_inst.path().as_ref(), "node_modules/react");
+        }
     }
 
     Ok(())
