@@ -13,7 +13,7 @@ use chaste_types::{
 
 use crate::btree_candidates::Candidates;
 use crate::error::Result;
-use crate::resolutions::{is_same_svs, Resolutions};
+use crate::resolutions::{is_same_svs_zpm, Resolutions};
 use crate::{Error, Meta};
 
 mod mjam;
@@ -195,7 +195,7 @@ fn resolve_dependency(
         alias.as_ref().map(|n| n.as_ref()).unwrap_or(dep_name),
         &spec_to_pid,
     )
-    .filter(|((_, s), _)| is_same_svs(alias_spec, s));
+    .filter(|((_, s), _)| is_same_svs_zpm(alias_spec, s));
     let Some((_, pid)) = candidates.next() else {
         if kind.is_optional() {
             return Ok(None);
