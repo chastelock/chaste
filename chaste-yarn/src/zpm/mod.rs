@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Chaste Authors
 // SPDX-License-Identifier: BSD-2-Clause
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -98,6 +98,8 @@ where
         ekey_to_pid.insert(key, pid);
     }
 
+    let mut dep_children: HashMap<PackageID, Vec<PackageID>> = HashMap::new();
+
     for (kind, dependencies) in [
         (DependencyKind::Dependency, &root_package_json.dependencies),
         (
@@ -121,7 +123,16 @@ where
                 root_pid,
                 &[],
                 &spec_to_pid,
+                &dep_children,
             )? {
+                if !kind.is_peer() {
+                    dep_children
+                        .get_mut(&root_pid)
+                        .map(|l| l.push(dep.on))
+                        .unwrap_or_else(|| {
+                            dep_children.insert(root_pid, vec![dep.on]);
+                        });
+                }
                 chastefile.add_dependency(dep);
             }
         }
@@ -160,7 +171,16 @@ where
                     from_pid,
                     &parent_specifiers,
                     &spec_to_pid,
+                    &dep_children,
                 )? {
+                    if !kind.is_peer() {
+                        dep_children
+                            .get_mut(&from_pid)
+                            .map(|l| l.push(dep.on))
+                            .unwrap_or_else(|| {
+                                dep_children.insert(from_pid, vec![dep.on]);
+                            });
+                    }
                     chastefile.add_dependency(dep);
                 }
             }
@@ -177,6 +197,7 @@ fn resolve_dependency(
     from_pid: PackageID,
     parent_specifiers: &[(&str, &str)],
     spec_to_pid: &BTreeMap<(&str, &str), PackageID>,
+    dep_children: &HashMap<PackageID, Vec<PackageID>>,
 ) -> Result<Option<Dependency>> {
     let override_spec = resolutions.find((dep_name, dep_svs), || parent_specifiers);
     let evaluated_spec = override_spec.unwrap_or(dep_svs);
@@ -196,7 +217,7 @@ fn resolve_dependency(
         &spec_to_pid,
     );
     let Some(pid) = (if kind.is_peer() {
-        resolve_peer_dependency(candidates.collect())?
+        resolve_peer_dependency(candidates.collect(), dep_children, from_pid)?
     } else {
         let mut candidates = candidates.filter(|((_, s), _)| is_same_svs_zpm(alias_spec, s));
         let Some((_, pid)) = candidates.next() else {
@@ -222,6 +243,8 @@ fn resolve_dependency(
 
 fn resolve_peer_dependency<'y>(
     candidate_entries: Vec<(&(&'y str, &'y str), &PackageID)>,
+    dep_children: &HashMap<PackageID, Vec<PackageID>>,
+    from_pid: PackageID,
 ) -> Result<Option<PackageID>> {
     // If there's just one candidate to consider, it's easy.
     if let [(_, pid)] = *candidate_entries {
@@ -231,6 +254,23 @@ fn resolve_peer_dependency<'y>(
     // TODO: also check peerDependenciesMeta
     if candidate_entries.len() == 0 {
         return Ok(None);
+    }
+
+    // Check if the dependent package's other dependencies match.
+    // (Sometimes the package may have the same dependency as both regular and peer.)
+    let siblings_packages: HashSet<PackageID> = HashSet::from_iter(
+        dep_children
+            .get(&from_pid)
+            .unwrap_or(&vec![])
+            .iter()
+            .copied(),
+    );
+    let candidate_siblings = siblings_packages
+        .iter()
+        .filter(|sib| candidate_entries.iter().any(|(_, cand)| sib == cand))
+        .collect::<Vec<_>>();
+    if let [pid] = *candidate_siblings {
+        return Ok(Some(*pid));
     }
 
     todo!();
