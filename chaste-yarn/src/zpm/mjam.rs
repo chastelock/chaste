@@ -5,7 +5,7 @@ use chaste_types::{package_name_str, PackageSource};
 
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag};
-use nom::combinator::{eof, map, rest};
+use nom::combinator::{eof, map, peek, rest, verify};
 use nom::multi::separated_list1;
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser as _};
@@ -41,6 +41,15 @@ pub fn resolved_source<'a>(input: &'a str) -> IResult<&'a str, Resolved<'a>> {
             }),
         ),
         preceded(tag("workspace:"), map(rest, |i| Resolved::Workspace(i))),
+        preceded(
+            peek(alt((tag("https://"), tag("http://")))),
+            map(
+                verify(rest, |i: &str| {
+                    i.ends_with(".tgz") || i.ends_with(".tar.gz")
+                }),
+                |i: &str| Resolved::Remote(PackageSource::TarballURL { url: i.to_owned() }),
+            ),
+        ),
     ))
     .parse(input)
 }
