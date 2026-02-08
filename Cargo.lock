@@ -876,8 +876,7 @@ checksum = "6a5cbf750400958819fb6178eaa83bee5cd9c29a26a40cc241df8c70fdd46984"
 [[package]]
 name = "yarn-lock-parser"
 version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19adbb071e1f1df5b37b4d43092a1ed8cb644c7162499f30c94a3a96bf53cf4f"
+source = "git+https://github.com/selfisekai/yarn-lock-parser.git?branch=double-quoted-name-meta#19335720207647a08e51af09009412d45484f8dd"
 dependencies = [
  "nom",
  "nom-language",
