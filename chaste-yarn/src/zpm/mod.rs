@@ -206,7 +206,7 @@ fn resolve_dependency(
         return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
     }
     let mut dep = DependencyBuilder::new(kind, from_pid, *pid);
-    if alias.is_some() {
+    if original_svs.aliased_package_name().is_some() {
         dep.alias_name(PackageName::new(dep_name.to_string())?);
     }
     dep.svs(original_svs);
