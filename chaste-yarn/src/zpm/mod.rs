@@ -217,7 +217,17 @@ fn resolve_dependency(
         &spec_to_pid,
     );
     let Some(pid) = (if kind.is_peer() {
-        resolve_peer_dependency(candidates.collect(), dep_children, from_pid)?
+        resolve_peer_dependency(
+            (
+                alias.as_ref().map(|n| n.as_ref()).unwrap_or(dep_name),
+                alias_spec,
+            ),
+            override_spec,
+            override_svs,
+            candidates.collect(),
+            dep_children,
+            from_pid,
+        )?
     } else {
         let mut candidates = candidates.filter(|((_, s), _)| is_same_svs_zpm(alias_spec, s));
         let Some((_, pid)) = candidates.next() else {
@@ -242,6 +252,9 @@ fn resolve_dependency(
 }
 
 fn resolve_peer_dependency<'y>(
+    (dep_name, dep_svs): (&'y str, &'y str),
+    override_spec: Option<&'y str>,
+    override_svs: &SourceVersionSpecifier,
     candidate_entries: Vec<(&(&'y str, &'y str), &PackageID)>,
     dep_children: &HashMap<PackageID, Vec<PackageID>>,
     from_pid: PackageID,
@@ -254,6 +267,17 @@ fn resolve_peer_dependency<'y>(
     // TODO: also check peerDependenciesMeta
     if candidate_entries.len() == 0 {
         return Ok(None);
+    }
+    // If an SVS is overridden through package.json "resolutions" field,
+    // it takes that field's value into its descriptors.
+    if let Some(evaluated_svs) = override_spec {
+        if let [(_, pid)] = *candidate_entries
+            .iter()
+            .filter(|((_, d_s), _)| is_same_svs_zpm(evaluated_svs, d_s))
+            .collect::<Vec<_>>()
+        {
+            return Ok(Some(**pid));
+        }
     }
 
     // Check if the dependent package's other dependencies match.
@@ -273,5 +297,25 @@ fn resolve_peer_dependency<'y>(
         return Ok(Some(*pid));
     }
 
-    todo!();
+    // If a package is requested somewhere else with the same specifier.
+    let same_spec_candidates = candidate_entries
+        .iter()
+        .filter(|((_, s), _)| is_same_svs_zpm(dep_svs, s))
+        .collect::<Vec<_>>();
+    if let [(_, pid)] = *same_spec_candidates {
+        return Ok(Some(**pid));
+    }
+
+    // If the dependency is back on the package that requested it.
+    if candidate_entries
+        .iter()
+        .find(|(_, pid)| **pid == from_pid)
+        .is_some()
+    {
+        return Ok(Some(from_pid));
+    }
+
+    // A dependency may be unmet. That's ok. In fact, upstream allows that. Everyone ignores the
+    // "@chastelock/testcase@workspace:. doesn't provide acorn (pf1eb59), requested by @sveltejs/acorn-typescript."
+    Ok(None)
 }
