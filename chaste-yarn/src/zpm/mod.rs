@@ -127,20 +127,20 @@ where
         }
     }
 
-    for (key, entry) in lockfile.entries.iter() {
-        let &from_pid = ekey_to_pid.get(key).unwrap();
-        for (kind_, dependencies, optional_deps) in [
-            (
-                DependencyKind::Dependency,
-                &entry.resolution.dependencies,
-                &entry.resolution.optional_dependencies,
-            ),
-            (
-                DependencyKind::PeerDependency,
-                &entry.resolution.peer_dependencies,
-                &entry.resolution.optional_peer_dependencies,
-            ),
-        ] {
+    for kind_ in [DependencyKind::Dependency, DependencyKind::PeerDependency] {
+        for (key, entry) in lockfile.entries.iter() {
+            let (dependencies, optional_deps) = match kind_ {
+                DependencyKind::Dependency => (
+                    &entry.resolution.dependencies,
+                    &entry.resolution.optional_dependencies,
+                ),
+                DependencyKind::PeerDependency => (
+                    &entry.resolution.peer_dependencies,
+                    &entry.resolution.optional_peer_dependencies,
+                ),
+                _ => unreachable!(),
+            };
+            let &from_pid = ekey_to_pid.get(key).unwrap();
             // XXX: this is pointlessly run even if there are no relevant resolutions
             let parent_specifiers = mjam::specifiers(key)?;
             for (dep_name, dep_svs) in dependencies {
