@@ -6,8 +6,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, DependencyBuilder, DependencyKind, InstallationBuilder,
-    ModulePath, PackageBuilder, PackageID, PackageName, SourceVersionSpecifier, ROOT_MODULE_PATH,
+    Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
+    InstallationBuilder, ModulePath, PackageBuilder, PackageID, PackageName,
+    SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
 
 use crate::btree_candidates::Candidates;
@@ -107,39 +108,16 @@ where
         ),
     ] {
         for (dep_name, dep_svs) in dependencies {
-            let override_spec = resolutions.find((dep_name, dep_svs), || &[]);
-            let evaluated_spec = override_spec.unwrap_or(dep_svs);
-            let original_svs = SourceVersionSpecifier::new(dep_svs.to_string())?;
-            let override_svs = if let Some(ospec) = override_spec {
-                &SourceVersionSpecifier::new(ospec.to_string())?
-            } else {
-                &original_svs
-            };
-            let alias = override_svs.aliased_package_name();
-            let alias_spec = override_svs
-                .npm_range_str()
-                .filter(|_| alias.is_some())
-                .unwrap_or(evaluated_spec);
-            let mut candidates = Candidates::new(
-                alias.as_ref().map(|n| n.as_ref()).unwrap_or(dep_name),
+            if let Some(dep) = resolve_dependency(
+                (dep_name, dep_svs),
+                kind,
+                &resolutions,
+                root_pid,
+                &[],
                 &spec_to_pid,
-            )
-            .filter(|((_, s), _)| is_same_svs(alias_spec, s));
-            let Some((_, pid)) = candidates.next() else {
-                if kind.is_optional() {
-                    continue;
-                }
-                return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
-            };
-            if candidates.next().is_some() {
-                return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
+            )? {
+                chastefile.add_dependency(dep);
             }
-            let mut dep = DependencyBuilder::new(kind, root_pid, *pid);
-            if alias.is_some() {
-                dep.alias_name(PackageName::new(dep_name.to_string())?);
-            }
-            dep.svs(original_svs);
-            chastefile.add_dependency(dep.build());
         }
     }
 
@@ -169,42 +147,62 @@ where
                     }
                     _ => unreachable!(),
                 };
-                let override_spec = resolutions.find((dep_name, dep_svs), || &parent_specifiers);
-                let evaluated_spec = override_spec.unwrap_or(dep_svs);
-                let original_svs = SourceVersionSpecifier::new(dep_svs.to_string())?;
-                let override_svs = if let Some(ospec) = override_spec {
-                    &SourceVersionSpecifier::new(ospec.to_string())?
-                } else {
-                    &original_svs
-                };
-                let alias = override_svs.aliased_package_name();
-                let alias_spec = override_svs
-                    .npm_range_str()
-                    .filter(|_| alias.is_some())
-                    .unwrap_or(evaluated_spec);
-                let mut candidates = Candidates::new(
-                    alias.as_ref().map(|n| n.as_ref()).unwrap_or(dep_name),
+                if let Some(dep) = resolve_dependency(
+                    (dep_name, dep_svs),
+                    kind,
+                    &resolutions,
+                    from_pid,
+                    &parent_specifiers,
                     &spec_to_pid,
-                )
-                .filter(|((_, s), _)| is_same_svs(alias_spec, s));
-                let Some((_, pid)) = candidates.next() else {
-                    if kind.is_optional() {
-                        continue;
-                    }
-                    return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
-                };
-                if candidates.next().is_some() {
-                    return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
+                )? {
+                    chastefile.add_dependency(dep);
                 }
-                let mut dep = DependencyBuilder::new(kind, from_pid, *pid);
-                if alias.is_some() {
-                    dep.alias_name(PackageName::new(dep_name.to_string())?);
-                }
-                dep.svs(original_svs);
-                chastefile.add_dependency(dep.build());
             }
         }
     }
 
     chastefile.build().map_err(Error::ChasteError)
+}
+
+fn resolve_dependency(
+    (dep_name, dep_svs): (&str, &str),
+    kind: DependencyKind,
+    resolutions: &Resolutions,
+    from_pid: PackageID,
+    parent_specifiers: &[(&str, &str)],
+    spec_to_pid: &BTreeMap<(&str, &str), PackageID>,
+) -> Result<Option<Dependency>> {
+    let override_spec = resolutions.find((dep_name, dep_svs), || parent_specifiers);
+    let evaluated_spec = override_spec.unwrap_or(dep_svs);
+    let original_svs = SourceVersionSpecifier::new(dep_svs.to_string())?;
+    let override_svs = if let Some(ospec) = override_spec {
+        &SourceVersionSpecifier::new(ospec.to_string())?
+    } else {
+        &original_svs
+    };
+    let alias = override_svs.aliased_package_name();
+    let alias_spec = override_svs
+        .npm_range_str()
+        .filter(|_| alias.is_some())
+        .unwrap_or(evaluated_spec);
+    let mut candidates = Candidates::new(
+        alias.as_ref().map(|n| n.as_ref()).unwrap_or(dep_name),
+        &spec_to_pid,
+    )
+    .filter(|((_, s), _)| is_same_svs(alias_spec, s));
+    let Some((_, pid)) = candidates.next() else {
+        if kind.is_optional() {
+            return Ok(None);
+        }
+        return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
+    };
+    if candidates.next().is_some() {
+        return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
+    }
+    let mut dep = DependencyBuilder::new(kind, from_pid, *pid);
+    if alias.is_some() {
+        dep.alias_name(PackageName::new(dep_name.to_string())?);
+    }
+    dep.svs(original_svs);
+    Ok(Some(dep.build()))
 }
