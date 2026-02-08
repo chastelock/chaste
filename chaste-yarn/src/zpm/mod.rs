@@ -133,7 +133,7 @@ where
         let specifiers = mjam::specifiers(key)?;
         let (name, resolved) = mjam::resolved(entry.resolution.resolution)?;
         match resolved {
-            mjam::Resolved::Workspace(path) => {
+            Some(mjam::Resolved::Workspace(path)) => {
                 let Some(pid) = member_package_jsons
                     .iter()
                     .enumerate()
@@ -158,10 +158,11 @@ where
             Some(entry.resolution.version.to_owned()),
         );
         match resolved {
-            mjam::Resolved::Remote(ref src) => {
+            Some(mjam::Resolved::Remote(ref src)) => {
                 pkg.source(src.clone());
             }
-            mjam::Resolved::Workspace(_) => unreachable!(),
+            None => {}
+            Some(mjam::Resolved::Workspace(_)) => unreachable!(),
         }
         if let Some(checksum) = entry.checksum {
             pkg.checksums(Checksums::RepackZip(Integrity::from_hex(
@@ -177,7 +178,7 @@ where
         }
         ekey_to_pid.insert(key, pid);
         pid_to_entry.insert(pid, entry);
-        if let mjam::Resolved::Remote(src) = resolved {
+        if let Some(mjam::Resolved::Remote(src)) = resolved {
             package_sources.insert(pid, src);
         }
     }

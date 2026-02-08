@@ -5,7 +5,7 @@ use chaste_types::{package_name_str, PackageSource};
 
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag};
-use nom::combinator::{eof, map, peek, rest, verify};
+use nom::combinator::{eof, map, opt, peek, rest, verify};
 use nom::multi::separated_list1;
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser as _};
@@ -54,8 +54,8 @@ pub fn resolved_source<'a>(input: &'a str) -> IResult<&'a str, Resolved<'a>> {
     .parse(input)
 }
 
-pub fn resolved<'a>(input: &'a str) -> Result<(&'a str, Resolved<'a>)> {
-    (package_name_str, preceded(tag("@"), resolved_source))
+pub fn resolved<'a>(input: &'a str) -> Result<(&'a str, Option<Resolved<'a>>)> {
+    (package_name_str, preceded(tag("@"), opt(resolved_source)))
         .parse(input)
         .map(|(_, r)| r)
         .map_err(|_| Error::InvalidResolved(input.to_owned()))
