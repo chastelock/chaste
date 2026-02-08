@@ -4,13 +4,15 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, yoke::Yokeable)]
 #[serde(rename_all = "camelCase")]
 pub struct PackageJson<'y> {
     #[serde(borrow)]
     pub name: Option<Cow<'y, str>>,
     #[serde(borrow)]
     pub version: Option<Cow<'y, str>>,
+    #[serde(default)]
+    pub(crate) workspaces: Option<Vec<Cow<'y, str>>>,
     #[serde(default, borrow)]
     pub dependencies: BTreeMap<Cow<'y, str>, Cow<'y, str>>,
     #[serde(default, borrow)]

@@ -52,6 +52,7 @@ ssri = { version = "9.2", default-features = false }
 thiserror = "2.0"
 walkdir = "2.5.0"
 yarn-lock-parser = "0.13.0"
+yoke = "0.8"
 
 [patch.crates-io]
 yarn-lock-parser = { git = "https://github.com/selfisekai/yarn-lock-parser.git", branch = "double-quoted-name-meta" }

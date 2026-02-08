@@ -670,8 +670,8 @@ test_workspaces!(workspace_basic, |chastefile: Chastefile<Meta>, lv: u8| {
         .collect::<Vec<&str>>();
     balls_install_paths.sort_unstable();
     // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
-    // In classic, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
-    if lv == 1 {
+    // In classic and zpm, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
+    if lv == 1 || lv > 8 {
         assert_eq!(balls_installations.len(), 1);
         assert_eq!(balls_install_paths, ["balls"]);
     } else {
@@ -713,8 +713,8 @@ test_workspaces!(workspace_globs, |chastefile: Chastefile<Meta>, lv: u8| {
         .collect::<Vec<&str>>();
     balls_install_paths.sort_unstable();
     // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
-    // In classic, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
-    if lv == 1 {
+    // In classic and zpm, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
+    if lv == 1 || lv > 8 {
         assert_eq!(balls_installations.len(), 1);
         assert_eq!(balls_install_paths, ["pkgs/balls"]);
     } else {

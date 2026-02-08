@@ -23,7 +23,7 @@ berry = [
     "dep:itertools",
     "dep:yarn-lock-parser",
 ]
-zpm = []
+zpm = ["dep:globreeks", "dep:walkdir", "dep:yoke"]
 
 fuzzing = []
 
@@ -60,6 +60,11 @@ optional = true
 [dependencies.yarn-state]
 workspace = true
 optional = true
+
+[dependencies.yoke]
+workspace = true
+optional = true
+features = ["derive"]
 
 [dev-dependencies]
 concat-idents.workspace = true

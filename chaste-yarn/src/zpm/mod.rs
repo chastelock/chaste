@@ -10,6 +10,9 @@ use chaste_types::{
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
     PackageSource, PackageSourceType, PackageVersion, SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
+use globreeks::Globreeks;
+use walkdir::WalkDir;
+use yoke::Yoke;
 
 use crate::btree_candidates::Candidates;
 use crate::error::Result;
@@ -46,13 +49,49 @@ where
         lockfile_version: lockfile.metadata.version,
     });
 
+    let mut member_package_jsons: Vec<(String, Yoke<types::PackageJson, String>)> = Vec::new();
+    let mut mpj_idx_to_pid: HashMap<usize, PackageID> = HashMap::new();
+    if let Some(workspaces) = &root_package_json.workspaces {
+        let dir_globset = Globreeks::new(workspaces.iter())?;
+
+        for de_result in WalkDir::new(root_dir).into_iter() {
+            let de = de_result?;
+            if !de.file_type().is_file() || de.file_name() != PACKAGE_JSON_FILENAME {
+                continue;
+            }
+            let absolute_path = de.path();
+            let relative_workspace_path = absolute_path
+                .parent()
+                .unwrap()
+                .strip_prefix(root_dir)
+                .unwrap()
+                .to_str()
+                .expect("Path is Unicode-representable");
+            if !dir_globset.evaluate(relative_workspace_path) {
+                continue;
+            }
+
+            let absolute_pathbuf = absolute_path.to_path_buf();
+            let member_package_json_contents = file_getter(absolute_pathbuf.clone())
+                .map_err(|e| Error::IoInWorkspace(e, absolute_pathbuf))?;
+            member_package_jsons.push((
+                // must be owned because its lifetime goes out of scope
+                relative_workspace_path.to_owned(),
+                Yoke::try_attach_to_cart(member_package_json_contents, |cont| {
+                    serde_json::from_str(cont)
+                })?,
+            ));
+        }
+    }
+
     let root_pid = chastefile.add_package(
         PackageBuilder::new(
             root_package_json
                 .name
+                .as_deref()
                 .map(|n| PackageName::new(n.to_string()))
                 .transpose()?,
-            root_package_json.version.map(|v| v.to_string()),
+            root_package_json.version.as_deref().map(|v| v.to_string()),
         )
         .build()?,
     )?;
@@ -60,6 +99,29 @@ where
     chastefile.add_package_installation(
         InstallationBuilder::new(root_pid, ROOT_MODULE_PATH.clone()).build()?,
     );
+
+    for (idx, (workspace_path, package_json)) in member_package_jsons
+        .iter()
+        .map(|(path, y)| (path, y.get()))
+        .enumerate()
+    {
+        let pid = chastefile.add_package(
+            PackageBuilder::new(
+                package_json
+                    .name
+                    .as_deref()
+                    .map(|n| PackageName::new(n.to_string()))
+                    .transpose()?,
+                package_json.version.as_deref().map(|v| v.to_string()),
+            )
+            .build()?,
+        )?;
+        mpj_idx_to_pid.insert(idx, pid);
+        chastefile.set_as_workspace_member(pid)?;
+        chastefile.add_package_installation(
+            InstallationBuilder::new(pid, ModulePath::new(workspace_path.clone())?).build()?,
+        );
+    }
 
     let mut spec_to_pid: BTreeMap<(&'y str, &'y str), PackageID> = BTreeMap::new();
     let mut ekey_to_pid: BTreeMap<&'y str, PackageID> = BTreeMap::new();
@@ -70,18 +132,36 @@ where
     for (key, entry) in lockfile.entries.iter() {
         let specifiers = mjam::specifiers(key)?;
         let (name, resolved) = mjam::resolved(entry.resolution.resolution)?;
+        match resolved {
+            mjam::Resolved::Workspace(path) => {
+                let Some(pid) = member_package_jsons
+                    .iter()
+                    .enumerate()
+                    .find(|(_, (p, _))| p == path)
+                    .map(|(idx, _)| *mpj_idx_to_pid.get(&idx).unwrap())
+                else {
+                    todo!();
+                };
+                for spec in specifiers {
+                    if spec_to_pid.insert(spec, pid).is_some() {
+                        return Err(Error::DuplicateSpecifiers(format!("{}@{}", spec.0, spec.1)));
+                    }
+                }
+                ekey_to_pid.insert(key, pid);
+                pid_to_entry.insert(pid, entry);
+                continue;
+            }
+            _ => {}
+        }
         let mut pkg = PackageBuilder::new(
             Some(PackageName::new(name.to_owned())?),
             Some(entry.resolution.version.to_owned()),
         );
-        let mut workspace_path = None;
         match resolved {
             mjam::Resolved::Remote(ref src) => {
                 pkg.source(src.clone());
             }
-            mjam::Resolved::Workspace(path) => {
-                workspace_path = Some(path);
-            }
+            mjam::Resolved::Workspace(_) => unreachable!(),
         }
         if let Some(checksum) = entry.checksum {
             pkg.checksums(Checksums::RepackZip(Integrity::from_hex(
@@ -90,12 +170,6 @@ where
             )?));
         }
         let pid = chastefile.add_package(pkg.build()?)?;
-        if let Some(path) = workspace_path {
-            chastefile.set_as_workspace_member(pid)?;
-            chastefile.add_package_installation(
-                InstallationBuilder::new(pid, ModulePath::new(path.to_owned())?).build()?,
-            );
-        }
         for spec in specifiers {
             if spec_to_pid.insert(spec, pid).is_some() {
                 return Err(Error::DuplicateSpecifiers(format!("{}@{}", spec.0, spec.1)));
@@ -110,42 +184,59 @@ where
 
     let mut dep_children: HashMap<PackageID, Vec<PackageID>> = HashMap::new();
 
-    for (kind, dependencies) in [
-        (DependencyKind::Dependency, &root_package_json.dependencies),
-        (
-            DependencyKind::DevDependency,
-            &root_package_json.dev_dependencies,
-        ),
-        (
-            DependencyKind::OptionalDependency,
-            &root_package_json.optional_dependencies,
-        ),
-        (
-            DependencyKind::PeerDependency,
-            &root_package_json.peer_dependencies,
-        ),
-    ] {
-        for (dep_name, dep_svs) in dependencies {
-            if let Some(dep) = resolve_dependency(
-                (dep_name, dep_svs),
-                kind,
-                &resolutions,
-                root_pid,
-                &[],
-                &spec_to_pid,
-                &dep_children,
-                &package_sources,
-                &pid_to_entry,
-            )? {
-                if !kind.is_peer() {
-                    dep_children
-                        .get_mut(&root_pid)
-                        .map(|l| l.push(dep.on))
-                        .unwrap_or_else(|| {
-                            dep_children.insert(root_pid, vec![dep.on]);
-                        });
+    let mut mpji = member_package_jsons
+        .iter()
+        .enumerate()
+        .map(|(idx, (_, p))| (*mpj_idx_to_pid.get(&idx).unwrap(), p.get()));
+    let mut root_done = false;
+    loop {
+        let Some((pid, package_json)) = mpji.next().or_else(|| {
+            if !root_done {
+                root_done = true;
+                Some((root_pid, &root_package_json))
+            } else {
+                None
+            }
+        }) else {
+            break;
+        };
+        for (kind, dependencies) in [
+            (DependencyKind::Dependency, &package_json.dependencies),
+            (
+                DependencyKind::DevDependency,
+                &package_json.dev_dependencies,
+            ),
+            (
+                DependencyKind::OptionalDependency,
+                &package_json.optional_dependencies,
+            ),
+            (
+                DependencyKind::PeerDependency,
+                &package_json.peer_dependencies,
+            ),
+        ] {
+            for (dep_name, dep_svs) in dependencies {
+                if let Some(dep) = resolve_dependency(
+                    (dep_name, dep_svs),
+                    kind,
+                    &resolutions,
+                    pid,
+                    &[],
+                    &spec_to_pid,
+                    &dep_children,
+                    &package_sources,
+                    &pid_to_entry,
+                )? {
+                    if !kind.is_peer() {
+                        dep_children
+                            .get_mut(&pid)
+                            .map(|l| l.push(dep.on))
+                            .unwrap_or_else(|| {
+                                dep_children.insert(pid, vec![dep.on]);
+                            });
+                    }
+                    chastefile.add_dependency(dep);
                 }
-                chastefile.add_dependency(dep);
             }
         }
     }
