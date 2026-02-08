@@ -87,7 +87,11 @@ where
                 _ => Err(Error::UnknownLockfileVersion(yarn_lock.version)),
             }
         }
+        #[cfg(feature = "zpm")]
         Ok((_, Format::Json)) => zpm::resolve(lockfile_contents, root_dir, file_getter),
+        #[cfg(not(feature = "zpm"))]
+        Ok((_, Format::Json)) => Err(Error::UnknownFormat),
+
         Err(_) => Err(Error::UnknownFormat),
     }
 }
