@@ -3,9 +3,10 @@
 
 use std::collections::BTreeMap;
 
-use nom::bytes::complete::{tag, take_till1};
-use nom::combinator::opt;
-use nom::sequence::preceded;
+use nom::branch::alt;
+use nom::bytes::complete::{is_not, tag, take_till1};
+use nom::combinator::{map, opt, rest};
+use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser as _};
 
 use chaste_types::package_name_str;
@@ -127,6 +128,29 @@ pub(crate) fn is_same_svs(one: &str, other: &str) -> bool {
     // The SVS can have additional parameters added.
     // "name@patch:name@0.1.0#./file.patch::locator=%40chastelock%2Ftestcase%40workspace%3A."
     if_only!(Some(one) == other.rsplit_once("::").map(|s| s.0));
+    if_only!((
+        preceded(
+            alt((
+                tag::<&str, &str, ()>("https://github.com/"),
+                tag::<&str, &str, ()>("http://github.com/"),
+            )),
+            terminated(is_not("/"), tag("/")),
+        ),
+        map(is_not("#"), |i: &str| i.strip_suffix(".git").unwrap_or(i)),
+        rest,
+    )
+        .parse(one)
+        .is_ok_and(|o| Some(o)
+            == (
+                preceded(
+                    tag::<&str, &str, ()>("github:"),
+                    terminated(is_not("/"), tag("/")),
+                ),
+                is_not("#"),
+                rest
+            )
+                .parse(other)
+                .ok()));
 
     false
 }
