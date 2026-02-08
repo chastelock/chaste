@@ -138,7 +138,8 @@ pub(crate) fn is_same_svs_zpm(one: &str, other: &str) -> bool {
         preceded(
             alt((
                 tag::<&str, &str, ()>("https://github.com/"),
-                tag::<&str, &str, ()>("http://github.com/"),
+                tag("http://github.com/"),
+                tag("ssh://git@github.com/"),
             )),
             terminated(is_not("/"), tag("/")),
         ),
@@ -160,11 +161,12 @@ pub(crate) fn is_same_svs_zpm(one: &str, other: &str) -> bool {
     if_only!(Some(one) == other.strip_prefix("github:"));
     if_only!((
         preceded(
-            alt((
+            opt(alt((
                 tag::<&str, &str, ()>("https://github.com/"),
-                tag::<&str, &str, ()>("http://github.com/"),
+                tag("http://github.com/"),
+                tag("ssh://git@github.com/"),
                 tag("github:"),
-            )),
+            ))),
             terminated(is_not("/"), tag("/")),
         ),
         map(is_not("#"), |i: &str| i.strip_suffix(".git").unwrap_or(i)),
@@ -174,10 +176,13 @@ pub(crate) fn is_same_svs_zpm(one: &str, other: &str) -> bool {
         .is_ok_and(|o| Some(o)
             == (
                 preceded(
-                    tag::<&str, &str, ()>("github:"),
+                    alt((
+                        tag::<&str, &str, ()>("github:"),
+                        tag("ssh://git@github.com/"),
+                    )),
                     terminated(is_not("/"), tag("/")),
                 ),
-                is_not("#"),
+                map(is_not("#"), |i: &str| i.strip_suffix(".git").unwrap_or(i)),
                 preceded(tag("#semver="), rest),
             )
                 .parse(other)
