@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder, DependencyKind,
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
-    SourceVersionSpecifier, ROOT_MODULE_PATH,
+    PackageSource, PackageSourceType, PackageVersion, SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
 
 use crate::btree_candidates::Candidates;
@@ -63,6 +63,10 @@ where
 
     let mut spec_to_pid: BTreeMap<(&'y str, &'y str), PackageID> = BTreeMap::new();
     let mut ekey_to_pid: BTreeMap<&'y str, PackageID> = BTreeMap::new();
+    let mut pid_to_entry: HashMap<PackageID, &types::Entry<'_>> =
+        HashMap::with_capacity(lockfile.entries.len());
+    let mut package_sources: HashMap<PackageID, PackageSource> =
+        HashMap::with_capacity(lockfile.entries.len());
     for (key, entry) in lockfile.entries.iter() {
         let specifiers = mjam::specifiers(key)?;
         let (name, resolved) = mjam::resolved(entry.resolution.resolution)?;
@@ -72,7 +76,9 @@ where
         );
         let mut workspace_path = None;
         match resolved {
-            mjam::Resolved::Remote(src) => pkg.source(src),
+            mjam::Resolved::Remote(ref src) => {
+                pkg.source(src.clone());
+            }
             mjam::Resolved::Workspace(path) => {
                 workspace_path = Some(path);
             }
@@ -96,6 +102,10 @@ where
             }
         }
         ekey_to_pid.insert(key, pid);
+        pid_to_entry.insert(pid, entry);
+        if let mjam::Resolved::Remote(src) = resolved {
+            package_sources.insert(pid, src);
+        }
     }
 
     let mut dep_children: HashMap<PackageID, Vec<PackageID>> = HashMap::new();
@@ -124,6 +134,8 @@ where
                 &[],
                 &spec_to_pid,
                 &dep_children,
+                &package_sources,
+                &pid_to_entry,
             )? {
                 if !kind.is_peer() {
                     dep_children
@@ -172,6 +184,8 @@ where
                     &parent_specifiers,
                     &spec_to_pid,
                     &dep_children,
+                    &package_sources,
+                    &pid_to_entry,
                 )? {
                     if !kind.is_peer() {
                         dep_children
@@ -190,7 +204,7 @@ where
     chastefile.build().map_err(Error::ChasteError)
 }
 
-fn resolve_dependency(
+fn resolve_dependency<'y>(
     (dep_name, dep_svs): (&str, &str),
     kind: DependencyKind,
     resolutions: &Resolutions,
@@ -198,6 +212,8 @@ fn resolve_dependency(
     parent_specifiers: &[(&str, &str)],
     spec_to_pid: &BTreeMap<(&str, &str), PackageID>,
     dep_children: &HashMap<PackageID, Vec<PackageID>>,
+    package_sources: &HashMap<PackageID, PackageSource>,
+    pid_to_entry: &HashMap<PackageID, &'y types::Entry<'y>>,
 ) -> Result<Option<Dependency>> {
     let override_spec = resolutions.find((dep_name, dep_svs), || parent_specifiers);
     let evaluated_spec = override_spec.unwrap_or(dep_svs);
@@ -227,6 +243,8 @@ fn resolve_dependency(
             candidates.collect(),
             dep_children,
             from_pid,
+            package_sources,
+            pid_to_entry,
         )?
     } else {
         let mut candidates = candidates.filter(|((_, s), _)| is_same_svs_zpm(alias_spec, s));
@@ -252,12 +270,14 @@ fn resolve_dependency(
 }
 
 fn resolve_peer_dependency<'y>(
-    (dep_name, dep_svs): (&'y str, &'y str),
+    (_dep_name, dep_svs): (&'y str, &'y str),
     override_spec: Option<&'y str>,
     override_svs: &SourceVersionSpecifier,
     candidate_entries: Vec<(&(&'y str, &'y str), &PackageID)>,
     dep_children: &HashMap<PackageID, Vec<PackageID>>,
     from_pid: PackageID,
+    package_sources: &HashMap<PackageID, PackageSource>,
+    pid_to_entry: &HashMap<PackageID, &'y types::Entry<'y>>,
 ) -> Result<Option<PackageID>> {
     // If there's just one candidate to consider, it's easy.
     if let [(_, pid)] = *candidate_entries {
@@ -313,6 +333,36 @@ fn resolve_peer_dependency<'y>(
         .is_some()
     {
         return Ok(Some(from_pid));
+    }
+
+    // Finally, check which candidates satisfy the version requirement.
+    if let Some(range) = override_svs.npm_range() {
+        let mut satisfying_candidates = candidate_entries
+            .iter()
+            .filter_map(|(_, pid)| {
+                if package_sources
+                    .get(pid)
+                    .is_some_and(|s| s.source_type() == PackageSourceType::Npm)
+                {
+                    let entry = pid_to_entry.get(*pid).unwrap();
+                    Some((
+                        pid,
+                        PackageVersion::parse(entry.resolution.version).unwrap(),
+                    ))
+                    .filter(|(_, v)| v.satisfies(&range))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        if let [(pid, _)] = *satisfying_candidates {
+            return Ok(Some(**pid));
+        }
+        // If there are more than 2 matching candidates, choose the one with higher version.
+        if satisfying_candidates.len() > 1 {
+            satisfying_candidates.sort_by(|a, b| a.1.cmp(&b.1));
+            return Ok(Some(**satisfying_candidates.last().unwrap().0));
+        }
     }
 
     // A dependency may be unmet. That's ok. In fact, upstream allows that. Everyone ignores the
