@@ -489,7 +489,7 @@ test_workspaces!(peer_resolutions, |chastefile: Chastefile<Meta>, lv: u8| {
             panic!();
         };
         assert_eq!(buf9_regular_dep.kind, DependencyKind::Dependency);
-        assert_eq!(buf9_peer_dep.kind, DependencyKind::PeerDependency);
+        assert_eq!(buf9_peer_dep.kind, DependencyKind::OptionalPeerDependency);
         assert_eq!(buf9_peer_dep.on, buf9_regular_dep.on);
         assert_ne!(buf0_dep.on, buf9_peer_dep.on);
         assert_eq!(buf9_pkg.version().unwrap().to_string(), "1.9.0");
