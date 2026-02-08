@@ -6,8 +6,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, Dependency, DependencyBuilder, DependencyKind,
-    InstallationBuilder, ModulePath, PackageBuilder, PackageID, PackageName,
+    ssri, Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder, DependencyKind,
+    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
     SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
 
@@ -76,6 +76,12 @@ where
             mjam::Resolved::Workspace(path) => {
                 workspace_path = Some(path);
             }
+        }
+        if let Some(checksum) = entry.checksum {
+            pkg.checksums(Checksums::RepackZip(Integrity::from_hex(
+                checksum,
+                ssri::Sha512,
+            )?));
         }
         let pid = chastefile.add_package(pkg.build()?)?;
         if let Some(path) = workspace_path {
