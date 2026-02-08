@@ -29,7 +29,7 @@ pub enum Implementation {
     #[cfg(feature = "pnpm")]
     Pnpm,
 
-    #[cfg(any(feature = "yarn-classic", feature = "yarn-berry"))]
+    #[cfg(any(feature = "yarn-classic", feature = "yarn-berry", feature = "yarn-zpm"))]
     Yarn,
 }
 
@@ -43,14 +43,15 @@ impl Implementation {
             Npm => "npm",
             #[cfg(feature = "pnpm")]
             Pnpm => "pnpm",
-            #[cfg(any(feature = "yarn-classic", feature = "yarn-berry"))]
+            #[cfg(any(feature = "yarn-classic", feature = "yarn-berry", feature = "yarn-zpm"))]
             Yarn => "yarn",
             #[cfg(not(any(
                 feature = "bun",
                 feature = "npm",
                 feature = "pnpm",
                 feature = "yarn-classic",
-                feature = "yarn-berry"
+                feature = "yarn-berry",
+                feature = "yarn-zpm",
             )))]
             _ => unreachable!(),
         }
@@ -64,7 +65,7 @@ impl Implementation {
             "npm" => Some(Npm),
             #[cfg(feature = "pnpm")]
             "pnpm" => Some(Pnpm),
-            #[cfg(any(feature = "yarn-classic", feature = "yarn-berry"))]
+            #[cfg(any(feature = "yarn-classic", feature = "yarn-berry", feature = "yarn-zpm"))]
             "yarn" => Some(Yarn),
             _ => None,
         }
@@ -82,7 +83,7 @@ pub enum Meta {
     #[cfg(feature = "pnpm")]
     Pnpm(pnpm::Meta),
 
-    #[cfg(any(feature = "yarn-classic", feature = "yarn-berry"))]
+    #[cfg(any(feature = "yarn-classic", feature = "yarn-berry", feature = "yarn-zpm"))]
     Yarn(yarn::Meta),
 }
 
@@ -105,7 +106,8 @@ impl Meta {
                 feature = "npm",
                 feature = "pnpm",
                 feature = "yarn-classic",
-                feature = "yarn-berry"
+                feature = "yarn-berry",
+                feature = "yarn-zpm",
             )))]
             _ => unreachable!(),
         }
@@ -143,7 +145,7 @@ where
         Pnpm => pnpm::parse(root_path)
             .map(|c| c.map_meta(Meta::Pnpm))
             .map_err(Error::PnpmError),
-        #[cfg(any(feature = "yarn-classic", feature = "yarn-berry"))]
+        #[cfg(any(feature = "yarn-classic", feature = "yarn-berry", feature = "yarn-zpm"))]
         Yarn => yarn::parse(root_path)
             .map(|c| c.map_meta(Meta::Yarn))
             .map_err(Error::YarnError),
@@ -152,7 +154,8 @@ where
             feature = "npm",
             feature = "pnpm",
             feature = "yarn-classic",
-            feature = "yarn-berry"
+            feature = "yarn-berry",
+            feature = "yarn-zpm",
         )))]
         _ => unreachable!(),
     }
@@ -190,7 +193,7 @@ where
         }
     }
 
-    #[cfg(any(feature = "yarn-berry", feature = "yarn-classic"))]
+    #[cfg(any(feature = "yarn-berry", feature = "yarn-classic", feature = "yarn-zpm"))]
     {
         if root_path.join(yarn::LOCKFILE_NAME).exists() {
             impls_found.push(Yarn);
