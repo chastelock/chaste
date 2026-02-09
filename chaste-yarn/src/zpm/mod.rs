@@ -10,7 +10,9 @@ use chaste_types::{
     InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
     PackageSource, PackageSourceType, PackageVersion, SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
+
 use globreeks::Globreeks;
+use itertools::Itertools as _;
 use walkdir::WalkDir;
 use yoke::Yoke;
 
@@ -346,17 +348,17 @@ fn resolve_dependency<'y>(
             pid_to_entry,
         )?
     } else {
-        let mut candidates = candidates.filter(|((_, s), _)| is_same_svs_zpm(alias_spec, s));
-        let Some((_, pid)) = candidates.next() else {
-            if kind.is_optional() {
-                return Ok(None);
-            }
-            return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}")));
-        };
-        if candidates.next().is_some() {
-            return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}")));
+        let candidates: Vec<_> = candidates
+            .filter(|((_, s), _)| is_same_svs_zpm(alias_spec, s))
+            .map(|(_, pid)| *pid)
+            .unique()
+            .collect();
+        match *candidates {
+            [] if kind.is_optional() => return Ok(None),
+            [] => return Err(Error::DependencyNotFound(format!("{dep_name}@{dep_svs}"))),
+            [pid] => Some(pid),
+            [..] => return Err(Error::AmbiguousResolution(format!("{dep_name}@{dep_svs}"))),
         }
-        Some(*pid)
     }) else {
         return Ok(None);
     };
@@ -378,9 +380,15 @@ fn resolve_peer_dependency<'y>(
     package_sources: &HashMap<PackageID, PackageSource>,
     pid_to_entry: &HashMap<PackageID, &'y types::Entry<'y>>,
 ) -> Result<Option<PackageID>> {
+    let candidate_pids: Vec<PackageID> = candidate_entries
+        .iter()
+        .map(|(_, pid)| **pid)
+        .unique()
+        .collect();
+
     // If there's just one candidate to consider, it's easy.
-    if let [(_, pid)] = *candidate_entries {
-        return Ok(Some(*pid));
+    if let [pid] = *candidate_pids {
+        return Ok(Some(pid));
     }
     // Peer dependencies can be optional.
     // TODO: also check peerDependenciesMeta
@@ -393,6 +401,7 @@ fn resolve_peer_dependency<'y>(
         if let [(_, pid)] = *candidate_entries
             .iter()
             .filter(|((_, d_s), _)| is_same_svs_zpm(evaluated_svs, d_s))
+            .unique_by(|(_, pid)| **pid)
             .collect::<Vec<_>>()
         {
             return Ok(Some(**pid));
@@ -411,6 +420,7 @@ fn resolve_peer_dependency<'y>(
     let candidate_siblings = siblings_packages
         .iter()
         .filter(|sib| candidate_entries.iter().any(|(_, cand)| sib == cand))
+        .unique()
         .collect::<Vec<_>>();
     if let [pid] = *candidate_siblings {
         return Ok(Some(*pid));
@@ -420,6 +430,7 @@ fn resolve_peer_dependency<'y>(
     let same_spec_candidates = candidate_entries
         .iter()
         .filter(|((_, s), _)| is_same_svs_zpm(dep_svs, s))
+        .unique_by(|(_, pid)| **pid)
         .collect::<Vec<_>>();
     if let [(_, pid)] = *same_spec_candidates {
         return Ok(Some(**pid));
@@ -438,6 +449,7 @@ fn resolve_peer_dependency<'y>(
     if let Some(range) = override_svs.npm_range() {
         let mut satisfying_candidates = candidate_entries
             .iter()
+            .unique_by(|(_, pid)| **pid)
             .filter_map(|(_, pid)| {
                 if package_sources
                     .get(pid)
