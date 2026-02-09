@@ -61,11 +61,11 @@ pub enum Error {
     YarnParserError(#[from] yarn_lock_parser::YarnLockError),
 
     #[error("Glob error: {0:?}")]
-    #[cfg(feature = "classic")]
+    #[cfg(any(feature = "classic", feature = "zpm"))]
     GlobreeksError(#[from] globreeks::Error),
 
     #[error("Walkdir error: {0:?}")]
-    #[cfg(feature = "classic")]
+    #[cfg(any(feature = "classic", feature = "zpm"))]
     WalkdirError(#[from] walkdir::Error),
 
     #[error("Yarn state parser error: {0:?}")]
