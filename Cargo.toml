@@ -51,10 +51,7 @@ serde_norway = "0.9"
 ssri = { version = "9.2", default-features = false }
 thiserror = "2.0"
 walkdir = "2.5.0"
-yarn-lock-parser = "0.13.0"
-
-[patch.crates-io]
-yarn-lock-parser = { git = "https://github.com/selfisekai/yarn-lock-parser.git", branch = "double-quoted-name-meta" }
+yarn-lock-parser = "0.14.0"
 
 [profile.release]
 lto = true
