@@ -10,11 +10,11 @@ matrix:
   feature_flags:
     - ''
     - '--no-default-features'
-    - '--no-default-features -p chaste-cli -F npm'
-    - '--no-default-features -p chaste-cli -F yarn-classic'
-    - '--no-default-features -p chaste-yarn -F berry'
-    - '--no-default-features -p chaste-yarn -F classic'
-    - '--no-default-features -p chaste-yarn -F zpm'
+    - '--no-default-features -p chaste-cli --features npm'
+    - '--no-default-features -p chaste-cli --features yarn-classic'
+    - '--no-default-features -p chaste-yarn --features berry'
+    - '--no-default-features -p chaste-yarn --features classic'
+    - '--no-default-features -p chaste-yarn --features zpm'
 
 steps:
   test:
