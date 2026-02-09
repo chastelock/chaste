@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: CC0-1.0
 
 when:
-  event: [push, pull_request]
+  - event: pull_request
+  - event: push
+    branch: ${CI_REPO_DEFAULT_BRANCH}
 
 steps:
   test:
