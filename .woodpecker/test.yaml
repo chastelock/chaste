@@ -24,7 +24,6 @@ steps:
       RUSTFLAGS: "-Ctarget-feature=-crt-static"
       feature_flags: ${feature_flags}
     commands:
-      - cargo check --locked $feature_flags
       - cargo nextest run --locked $feature_flags
       - |
         if [ "$feature_flags" == "$${feature_flags/-p chaste-cli}" ]; then
