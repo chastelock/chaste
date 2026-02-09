@@ -5,6 +5,7 @@ use anyhow::Result;
 use assert_cmd::Command;
 
 #[test]
+#[cfg(feature = "npm")]
 fn npm_v3_infinite_recursion() -> Result<()> {
     Command::cargo_bin("chaste")?
         .args(["why", "@chastelock/recursion-a"])
@@ -24,6 +25,7 @@ fn npm_v3_infinite_recursion() -> Result<()> {
 }
 
 #[test]
+#[cfg(feature = "yarn-classic")]
 fn yarn_v1_infinite_recursion() -> Result<()> {
     Command::cargo_bin("chaste")?
         .args(["why", "@chastelock/recursion-a"])
