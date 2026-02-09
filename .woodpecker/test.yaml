@@ -6,6 +6,28 @@ when:
   - event: push
     branch: ${CI_REPO_DEFAULT_BRANCH}
 
+matrix:
+  feature_flags:
+    - ''
+    - '--no-default-features'
+    - '--no-default-features -p chaste -F bun'
+    - '--no-default-features -p chaste -F npm'
+    - '--no-default-features -p chaste -F pnpm'
+    - '--no-default-features -p chaste -F yarn'
+    - '--no-default-features -p chaste -F yarn-berry'
+    - '--no-default-features -p chaste -F yarn-classic'
+    - '--no-default-features -p chaste -F yarn-zpm'
+    - '--no-default-features -p chaste-cli -F bun'
+    - '--no-default-features -p chaste-cli -F npm'
+    - '--no-default-features -p chaste-cli -F pnpm'
+    - '--no-default-features -p chaste-cli -F yarn'
+    - '--no-default-features -p chaste-cli -F yarn-berry'
+    - '--no-default-features -p chaste-cli -F yarn-classic'
+    - '--no-default-features -p chaste-cli -F yarn-zpm'
+    - '--no-default-features -p chaste-yarn -F berry'
+    - '--no-default-features -p chaste-yarn -F classic'
+    - '--no-default-features -p chaste-yarn -F zpm'
+
 steps:
   test:
     image: codeberg.org/chaste/rust:1.93.0-alpine3.23-nextest0.9.124-tarpaulin0.35.1
@@ -13,10 +35,10 @@ steps:
       CARGO_TERM_COLOR: always
       RUSTFLAGS: "-Ctarget-feature=-crt-static"
     commands:
-      - cargo check --locked
-      - cargo nextest run --locked
-      - cargo test --locked --doc
-      - cargo tarpaulin --engine llvm --out xml --locked
+      - cargo check --locked ${feature_flags}
+      - cargo nextest run --locked ${feature_flags}
+      - cargo test --locked --doc ${feature_flags}
+      - cargo tarpaulin --engine llvm --out xml --locked ${feature_flags}
 
   codecov:
     image: woodpeckerci/plugin-codecov
