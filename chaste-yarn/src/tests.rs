@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 
 use chaste_types::{
-    Chastefile, Checksums, Dependency, DependencyKind, Package, PackageDerivation, PackageID,
-    PackageSourceType,
+    Chastefile, Checksums, Dependency, DependencyKind, LockfileVersion, Package, PackageDerivation,
+    PackageID, PackageSourceType, ProviderMeta as _,
 };
 use concat_idents::concat_idents;
 
@@ -20,7 +20,9 @@ macro_rules! test_workspace {
         concat_idents!(fn_name = v, $v, _, $name {
             #[test]
             fn fn_name() -> Result<()> {
-                ($solver)(parse(TEST_WORKSPACES.join(format!("v{}_{}", $v, stringify!($name))))?, $v)
+                let chastefile = parse(TEST_WORKSPACES.join(format!("v{}_{}", $v, stringify!($name))))?;
+                assert_eq!(chastefile.meta().lockfile_version().unwrap(), LockfileVersion::U8($v));
+                ($solver)(chastefile, $v)
             }
         });
     };

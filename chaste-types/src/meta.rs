@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum LockfileVersion<'m> {
     U8(u8),
     Str(&'m str),
