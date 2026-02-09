@@ -10,6 +10,7 @@ use nom::bytes::streaming::tag;
 use nom::character::complete::space0;
 use nom::sequence::preceded;
 use nom::Parser;
+#[cfg(any(feature = "classic", feature = "berry"))]
 use yarn_lock_parser as yarn;
 
 pub use crate::error::{Error, Result};
@@ -77,6 +78,7 @@ where
     )
     .parse(lockfile_contents)
     {
+        #[cfg(any(feature = "classic", feature = "berry"))]
         Ok((_, Format::Indented)) => {
             let yarn_lock: yarn::Lockfile = yarn::parse_str(&lockfile_contents)?;
             match yarn_lock.version {
@@ -87,6 +89,8 @@ where
                 _ => Err(Error::UnknownLockfileVersion(yarn_lock.version)),
             }
         }
+        #[cfg(not(any(feature = "classic", feature = "berry")))]
+        Ok((_, Format::Indented)) => Err(Error::UnknownFormat),
         #[cfg(feature = "zpm")]
         Ok((_, Format::Json)) => zpm::resolve(lockfile_contents, root_dir, file_getter),
         #[cfg(not(feature = "zpm"))]

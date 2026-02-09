@@ -57,6 +57,7 @@ pub enum Error {
     Utf8Error(#[from] str::Utf8Error),
 
     #[error("Yarn parser error: {0:?}")]
+    #[cfg(any(feature = "classic", feature = "berry"))]
     YarnParserError(#[from] yarn_lock_parser::YarnLockError),
 
     #[error("Glob error: {0:?}")]
