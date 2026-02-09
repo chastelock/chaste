@@ -187,6 +187,8 @@ pub(crate) fn is_same_svs_zpm(one: &str, other: &str) -> bool {
             )
                 .parse(other)
                 .ok()));
+    // An empty string is added (by chaste) for workspace members
+    if_only!(other.is_empty());
 
     false
 }

@@ -100,6 +100,11 @@ where
         InstallationBuilder::new(root_pid, ROOT_MODULE_PATH.clone()).build()?,
     );
 
+    let mut spec_to_pid: BTreeMap<(&str, &str), PackageID> = BTreeMap::new();
+    if let Some(pn) = &root_package_json.name {
+        spec_to_pid.insert((pn, ""), root_pid);
+    }
+
     for (idx, (workspace_path, package_json)) in member_package_jsons
         .iter()
         .map(|(path, y)| (path, y.get()))
@@ -116,6 +121,9 @@ where
             )
             .build()?,
         )?;
+        if let Some(pn) = &package_json.name {
+            spec_to_pid.insert((pn, ""), pid);
+        }
         mpj_idx_to_pid.insert(idx, pid);
         chastefile.set_as_workspace_member(pid)?;
         chastefile.add_package_installation(
@@ -123,7 +131,6 @@ where
         );
     }
 
-    let mut spec_to_pid: BTreeMap<(&'y str, &'y str), PackageID> = BTreeMap::new();
     let mut ekey_to_pid: BTreeMap<&'y str, PackageID> = BTreeMap::new();
     let mut pid_to_entry: HashMap<PackageID, &types::Entry<'_>> =
         HashMap::with_capacity(lockfile.entries.len());
