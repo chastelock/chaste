@@ -4,3 +4,30 @@
 codecov:
   ci:
     - ci.codeberg.org
+
+component_management:
+  individual_components:
+    - component_id: crate_chaste
+      name: chaste
+      paths:
+        - chaste/**
+    - component_id: crate_chaste_bun
+      name: chaste-bun
+      paths:
+        - chaste-bun/**
+    - component_id: crate_chaste_npm
+      name: chaste-npm
+      paths:
+        - chaste-npm/**
+    - component_id: crate_chaste_pnpm
+      name: chaste-pnpm
+      paths:
+        - chaste-pnpm/**
+    - component_id: crate_chaste_yarn
+      name: chaste-yarn
+      paths:
+        - chaste-yarn/**
+    - component_id: crate_yarn_state
+      name: yarn-state
+      paths:
+        - yarn-state/**
