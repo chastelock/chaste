@@ -124,9 +124,13 @@ fn parse_package(entry: &yarn::Entry) -> Result<PackageBuilder> {
         .descriptors
         .iter()
         .filter(|(_, svs)| svs.starts_with("npm:"))
-        .map(|desc| {
-            SourceVersionSpecifier::with_quirks(desc.1.to_string(), QUIRKS).map(|svs| (desc, svs))
-        })
+        .flat_map(
+            |desc| match SourceVersionSpecifier::with_quirks(desc.1.to_string(), QUIRKS) {
+                Ok(svs) if svs.aliased_package_name().is_some() => Some(Ok((desc, svs))),
+                Ok(_) => None,
+                Err(e) => Some(Err(e)),
+            },
+        )
         .collect::<Result<Vec<_>, chaste_types::Error>>()?;
     let aliased_package_name = alias_descriptors
         .first()
