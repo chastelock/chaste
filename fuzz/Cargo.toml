@@ -18,7 +18,12 @@ chaste-bun = { workspace = true, features = ["fuzzing"] }
 chaste-npm = { workspace = true, features = ["fuzzing"] }
 chaste-pnpm = { workspace = true, features = ["fuzzing"] }
 chaste-types.workspace = true
-chaste-yarn = { workspace = true, features = ["berry", "classic", "fuzzing"] }
+chaste-yarn = { workspace = true, features = [
+    "berry",
+    "classic",
+    "zpm",
+    "fuzzing",
+] }
 
 [[bin]]
 name = "bun-parse"
