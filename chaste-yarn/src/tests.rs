@@ -323,7 +323,6 @@ test_workspaces_berry!(patch, |chastefile: Chastefile<Meta>, _lv: u8| {
     Ok(())
 });
 
-// TODO: https://codeberg.org/selfisekai/chaste/issues/62
 test_workspaces!(
     peer_conflict_indirect,
     |chastefile: Chastefile<Meta>, lv: u8| {
