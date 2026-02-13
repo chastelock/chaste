@@ -15,8 +15,8 @@ use super::{parse, Meta, Result};
 
 static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test_workspaces"));
 
-macro_rules! test_workspace {
-    ([$v:expr], $name:ident, $solver:expr) => {
+macro_rules! test_workspace_ {
+    ($v:expr, $name:ident, $solver:expr) => {
         concat_idents!(fn_name = v, $v, _, $name {
             #[test]
             fn fn_name() -> Result<()> {
@@ -26,25 +26,50 @@ macro_rules! test_workspace {
             }
         });
     };
-    ([$v:expr, $($vothers:expr),+], $name:ident, $solver:expr) => {
-        test_workspace!([$v], $name, $solver);
-        test_workspace!([$($vothers),+], $name, $solver);
+}
+macro_rules! test_workspace {
+    (1, $name:ident, $solver:expr) => {
+        #[cfg(feature = "classic")]
+        test_workspace_!(1, $name, $solver);
+    };
+    (4, $name:ident, $solver:expr) => {
+        #[cfg(feature = "berry")]
+        test_workspace_!(4, $name, $solver);
+    };
+    (6, $name:ident, $solver:expr) => {
+        #[cfg(feature = "berry")]
+        test_workspace_!(6, $name, $solver);
+    };
+    (8, $name:ident, $solver:expr) => {
+        #[cfg(feature = "berry")]
+        test_workspace_!(8, $name, $solver);
+    };
+    (9, $name:ident, $solver:expr) => {
+        #[cfg(feature = "zpm")]
+        test_workspace_!(9, $name, $solver);
     };
 }
 macro_rules! test_workspaces {
     ($name:ident, $solver:expr) => {
-        #[cfg(feature = "classic")]
-        test_workspace!([1], $name, $solver);
-        #[cfg(feature = "berry")]
-        test_workspace!([4, 6, 8], $name, $solver);
-        #[cfg(feature = "zpm")]
-        test_workspace!([9], $name, $solver);
+        test_workspace!(1, $name, $solver);
+        test_workspace!(4, $name, $solver);
+        test_workspace!(6, $name, $solver);
+        test_workspace!(8, $name, $solver);
+        test_workspace!(9, $name, $solver);
     };
-}
-macro_rules! test_workspaces_berry {
-    ($name:ident, $solver:expr) => {
-        #[cfg(feature = "berry")]
-        test_workspace!([4, 6, 8], $name, $solver);
+
+    // Variadics are a lie.
+    ([1], $name:ident, $solver:expr) => {
+        test_workspace!(1, $name, $solver);
+    };
+    ([4, 6, 8], $name:ident, $solver:expr) => {
+        test_workspace!(4, $name, $solver);
+        test_workspace!(6, $name, $solver);
+        test_workspace!(8, $name, $solver);
+    };
+    ([6, 8], $name:ident, $solver:expr) => {
+        test_workspace!(6, $name, $solver);
+        test_workspace!(8, $name, $solver);
     };
 }
 
@@ -163,8 +188,7 @@ test_workspaces!(github_ref, |chastefile: Chastefile<Meta>, lv: u8| {
     Ok(())
 });
 
-#[cfg(feature = "classic")]
-test_workspace!(
+test_workspaces!(
     [1],
     npm_alias_duplicate,
     |chastefile: Chastefile<Meta>, _lv: u8| {
@@ -295,7 +319,7 @@ test_workspaces!(optional_deps, |chastefile: Chastefile<Meta>, _lv: u8| {
     Ok(())
 });
 
-test_workspaces_berry!(patch, |chastefile: Chastefile<Meta>, _lv: u8| {
+test_workspaces!([4, 6, 8], patch, |chastefile: Chastefile<Meta>, _lv: u8| {
     let [rec_a_dep] = *chastefile.root_package_dependencies() else {
         panic!();
     };
@@ -557,8 +581,7 @@ test_workspaces!(resolutions, |chastefile: Chastefile<Meta>, lv: u8| {
     Ok(())
 });
 
-#[cfg(feature = "berry")]
-test_workspace!(
+test_workspaces!(
     [6, 8],
     resolutions_svs_scoped,
     |chastefile: Chastefile<Meta>, lv: u8| {
