@@ -5,14 +5,15 @@ use std::ops::{Range, RangeFrom};
 
 pub use nodejs_semver::Range as VersionRange;
 use nom::branch::alt;
-use nom::bytes::complete::{tag, take_while, take_while1};
+use nom::bytes::complete::{is_not, tag, take_while, take_while1};
 use nom::character::complete::digit1;
 use nom::combinator::{eof, map_res, opt, recognize, rest, verify};
 use nom::sequence::{pair, preceded, terminated};
 use nom::Parser;
+use percent_encoding::{percent_decode_str, PercentDecode};
 
 use crate::error::{Error, Result};
-use crate::name::{package_name, PackageNameBorrowed, PackageNamePositions};
+use crate::name::{package_name, package_name_str, PackageNameBorrowed, PackageNamePositions};
 use crate::quirks::QuirksMode;
 
 /// Source/version specifier. It is a constraint defined by a specific [`crate::Dependency`],
@@ -53,6 +54,11 @@ enum SourceVersionSpecifierPositions {
     },
     GitHub {
         type_prefix_end: usize,
+    },
+    Patch {
+        type_prefix_end: usize,
+        package_name_end: usize,
+        nested_svs_end: usize,
     },
 }
 
@@ -153,6 +159,24 @@ fn github(input: &str) -> Option<SourceVersionSpecifierPositions> {
         )
 }
 
+fn patch(input: &str) -> Option<SourceVersionSpecifierPositions> {
+    (
+        tag("patch:"),
+        terminated(package_name_str, tag("@")),
+        is_not("#"),
+        preceded(tag("#"), rest),
+    )
+        .parse(input)
+        .ok()
+        .map(|(_, (prefix, nested_pkg_name, nested_svs, _))| {
+            SourceVersionSpecifierPositions::Patch {
+                type_prefix_end: prefix.len(),
+                package_name_end: prefix.len() + nested_pkg_name.len(),
+                nested_svs_end: prefix.len() + nested_pkg_name.len() + nested_svs.len() + 1,
+            }
+        })
+}
+
 fn npm_tag(input: &str) -> Option<SourceVersionSpecifierPositions> {
     preceded(
         take_while(|c: char| c.is_ascii() && !c.is_ascii_control()),
@@ -176,6 +200,13 @@ impl SourceVersionSpecifierPositions {
                             .map(|r| &svs[r])
                             .is_none_or(|sep| sep == "/")
                 })
+            })
+            .or_else(|| {
+                if matches!(quirks, Some(QuirksMode::Yarn(2..))) {
+                    patch(svs)
+                } else {
+                    None
+                }
             })
             .or_else(|| npm_tag(svs))
             .ok_or_else(|| Error::InvalidSVS(svs.to_string()))
@@ -436,6 +467,48 @@ impl SourceVersionSpecifier {
     pub fn ssh_path_sep(&self) -> Option<&str> {
         self.positions.ssh_path_sep().map(|r| &self.inner[r])
     }
+
+    pub fn is_patch(&self) -> bool {
+        matches!(
+            self.positions,
+            SourceVersionSpecifierPositions::Patch { .. }
+        )
+    }
+
+    pub fn patched_package_name_raw(&self) -> Option<&str> {
+        match self.positions {
+            SourceVersionSpecifierPositions::Patch {
+                type_prefix_end,
+                package_name_end,
+                ..
+            } => Some(&self.inner[type_prefix_end..package_name_end]),
+            _ => None,
+        }
+    }
+
+    pub fn patched_svs_raw(&self) -> Option<&str> {
+        match self.positions {
+            SourceVersionSpecifierPositions::Patch {
+                package_name_end,
+                nested_svs_end,
+                ..
+            } => Some(&self.inner[package_name_end + 1..nested_svs_end]),
+            _ => None,
+        }
+    }
+
+    pub fn patched_svs_decoded(&self) -> Option<PercentDecode<'_>> {
+        self.patched_svs_raw().map(percent_decode_str)
+    }
+
+    pub fn patch_path(&self) -> Option<&str> {
+        match self.positions {
+            SourceVersionSpecifierPositions::Patch { nested_svs_end, .. } => {
+                Some(&self.inner[nested_svs_end + 1..])
+            }
+            _ => None,
+        }
+    }
 }
 
 #[non_exhaustive]
@@ -451,6 +524,8 @@ pub enum SourceVersionSpecifierKind {
     /// GitHub repository. No, not the same as [`SourceVersionSpecifierKind::Git`], it's papa's special boy.
     /// <https://docs.npmjs.com/cli/v10/configuring-npm/package-json#git-urls-as-dependencies>
     GitHub,
+    /// Patched package. Derived from another source.
+    Patch,
 }
 
 impl SourceVersionSpecifier {
@@ -463,6 +538,7 @@ impl SourceVersionSpecifier {
             }
             SourceVersionSpecifierPositions::Git { .. } => SourceVersionSpecifierKind::Git,
             SourceVersionSpecifierPositions::GitHub { .. } => SourceVersionSpecifierKind::GitHub,
+            SourceVersionSpecifierPositions::Patch { .. } => SourceVersionSpecifierKind::Patch,
         }
     }
 }
@@ -471,6 +547,7 @@ impl SourceVersionSpecifier {
 mod tests {
     use super::SourceVersionSpecifier;
     use crate::error::Result;
+    use crate::quirks::QuirksMode;
 
     #[test]
     fn npm_svs_basic() -> Result<()> {
@@ -627,6 +704,48 @@ mod tests {
     fn github_svs_semver() -> Result<()> {
         let svs = SourceVersionSpecifier::new("npm/node-semver#semver:^7.5.0".to_string())?;
         assert!(svs.is_github());
+        Ok(())
+    }
+
+    #[test]
+    fn patch_unencoded() -> Result<()> {
+        let svs = SourceVersionSpecifier::with_quirks(
+            "patch:string-hash@npm:1.1.3#~/.yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch"
+                .to_string(),
+            QuirksMode::Yarn(2),
+        )?;
+        assert!(svs.is_patch());
+        assert_eq!(svs.patched_package_name_raw(), Some("string-hash"));
+        assert_eq!(svs.patched_svs_raw(), Some("npm:1.1.3"));
+        assert_eq!(
+            svs.patched_svs_decoded().unwrap().decode_utf8().as_deref(),
+            Ok("npm:1.1.3")
+        );
+        assert_eq!(
+            svs.patch_path(),
+            Some("~/.yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn patch_encoded() -> Result<()> {
+        let svs = SourceVersionSpecifier::with_quirks(
+            "patch:@chastelock/pakig@npm%3A1.1.2#./patches/pakig-npm-1.1.2-000000000a.patch"
+                .to_string(),
+            QuirksMode::Yarn(2),
+        )?;
+        assert!(svs.is_patch());
+        assert_eq!(svs.patched_package_name_raw(), Some("@chastelock/pakig"));
+        assert_eq!(svs.patched_svs_raw(), Some("npm%3A1.1.2"));
+        assert_eq!(
+            svs.patched_svs_decoded().unwrap().decode_utf8().as_deref(),
+            Ok("npm:1.1.2")
+        );
+        assert_eq!(
+            svs.patch_path(),
+            Some("./patches/pakig-npm-1.1.2-000000000a.patch")
+        );
         Ok(())
     }
 }

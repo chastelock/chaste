@@ -209,6 +209,7 @@ version = "0.6.0"
 dependencies = [
  "nodejs-semver",
  "nom",
+ "percent-encoding",
  "ssri",
  "thiserror 2.0.17",
 ]
