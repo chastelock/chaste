@@ -149,7 +149,7 @@ where
                     .find(|(_, (p, _))| p == path)
                     .map(|(idx, _)| *mpj_idx_to_pid.get(&idx).unwrap())
                 else {
-                    todo!();
+                    return Err(Error::UnrecognizedWorkspaceMember(path.to_string()));
                 };
                 for spec in specifiers {
                     if spec_to_pid.insert(spec, pid).is_some() {

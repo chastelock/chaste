@@ -44,6 +44,9 @@ pub enum Error {
     #[error("Invalid entry key: {0:?}")]
     InvalidEntryKey(String),
 
+    #[error("Unrecognized workspace member path: {0:?}")]
+    UnrecognizedWorkspaceMember(String),
+
     #[error("Chaste error: {0:?}")]
     ChasteError(#[from] chaste_types::Error),
 
