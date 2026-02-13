@@ -117,8 +117,7 @@ where
     if let [(_, pid)] = *candidate_entries {
         return Ok(Some(*pid));
     }
-    // Peer dependencies can be optional.
-    // TODO: also check peerDependenciesMeta
+    // Peer dependencies can be optional or unfulfilled.
     if candidate_entries.len() == 0 {
         return Ok(None);
     }
