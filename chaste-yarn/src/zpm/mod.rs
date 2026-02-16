@@ -5,6 +5,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder, DependencyKind,
@@ -298,8 +299,7 @@ where
                 _ => unreachable!(),
             };
             let &from_pid = ekey_to_pid.get(key).unwrap();
-            // XXX: this is pointlessly run even if there are no relevant resolutions
-            let parent_specifiers = mjam::specifiers(key)?;
+            let parent_specifiers = LazyLock::new(|| mjam::specifiers(key).unwrap());
             for (dep_name, dep_svs) in dependencies {
                 let kind = match (kind_, optional_deps.contains(dep_name)) {
                     (DependencyKind::Dependency, false) => DependencyKind::Dependency,
