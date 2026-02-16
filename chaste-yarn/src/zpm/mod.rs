@@ -1,14 +1,16 @@
 // SPDX-FileCopyrightText: 2026 The Chaste Authors
 // SPDX-License-Identifier: BSD-2-Clause
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 use std::path::{Path, PathBuf};
 
 use chaste_types::{
     ssri, Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageID, PackageName,
-    PackageSource, PackageSourceType, PackageVersion, SourceVersionSpecifier, ROOT_MODULE_PATH,
+    InstallationBuilder, Integrity, ModulePath, PackageBuilder, PackageDerivation,
+    PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
+    PackageSourceType, PackageVersion, SourceVersionSpecifier, ROOT_MODULE_PATH,
 };
 
 use globreeks::Globreeks;
@@ -43,8 +45,21 @@ where
     let root_package_json: types::PackageJson = serde_json::from_str(&root_package_contents)?;
 
     let mut resolutions = Resolutions::new();
+    let mut package_builder_copy: HashMap<(&str, &str), PackageBuilder> = HashMap::new();
+    let mut patched_packages: HashMap<(Cow<'_, str>, Cow<'_, str>), (&str, &str)> = HashMap::new();
     for (key, value) in &root_package_json.resolutions {
         resolutions.insert(key, value)?;
+
+        if let Some((patched_spec, patch_path)) = mjam::patched_spec(value) {
+            let Ok((_, (spec_pn, spec_sv))) = mjam::specifier(&patched_spec) else {
+                // Ok should be guaranteed if we got Some earlier, by how mjam::patched_spec is done
+                unreachable!();
+            };
+            patched_packages.insert(
+                (spec_pn.to_string().into(), spec_sv.to_string().into()),
+                (patch_path, value),
+            );
+        }
     }
 
     let mut chastefile = ChastefileBuilder::new(Meta {
@@ -179,6 +194,11 @@ where
                 ssri::Sha512,
             )?));
         }
+        for spec in &specifiers {
+            if patched_packages.contains_key(&(Cow::Borrowed(spec.0), Cow::Borrowed(spec.1))) {
+                package_builder_copy.insert((spec.0, spec.1), pkg.clone());
+            }
+        }
         let pid = chastefile.add_package(pkg.build()?)?;
         for spec in specifiers {
             if spec_to_pid.insert(spec, pid).is_some() {
@@ -190,6 +210,19 @@ where
         if let Some(mjam::Resolved::Remote(src)) = resolved {
             package_sources.insert(pid, src);
         }
+    }
+
+    for ((patched_name, patched_sv), (patch_path, patch_sv)) in &patched_packages {
+        let og_pid = spec_to_pid.get(&(patched_name, patched_sv)).unwrap();
+        let mut pkg = package_builder_copy
+            .remove(&(&patched_name, &patched_sv))
+            .unwrap();
+        let patch = PackagePatchBuilder::new(patch_path.to_string()).build()?;
+        let deriv_meta =
+            PackageDerivationMetaBuilder::new(PackageDerivation::Patch(patch), *og_pid);
+        pkg.derived(deriv_meta.build()?);
+        let patched_pid = chastefile.add_package(pkg.build()?)?;
+        spec_to_pid.insert((patched_name, patch_sv), patched_pid);
     }
 
     let mut dep_children: HashMap<PackageID, Vec<PackageID>> = HashMap::new();

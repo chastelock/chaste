@@ -67,9 +67,10 @@ macro_rules! test_workspaces {
         test_workspace!(6, $name, $solver);
         test_workspace!(8, $name, $solver);
     };
-    ([6, 8], $name:ident, $solver:expr) => {
+    ([6, 8, 9], $name:ident, $solver:expr) => {
         test_workspace!(6, $name, $solver);
         test_workspace!(8, $name, $solver);
+        test_workspace!(9, $name, $solver);
     };
 }
 
@@ -582,7 +583,7 @@ test_workspaces!(resolutions, |chastefile: Chastefile<Meta>, lv: u8| {
 });
 
 test_workspaces!(
-    [6, 8],
+    [6, 8, 9],
     resolutions_svs_scoped,
     |chastefile: Chastefile<Meta>, lv: u8| {
         let mut stringhashes = chastefile
@@ -604,7 +605,7 @@ test_workspaces!(
             match lv {
                 6 => ".yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
                 // XXX: tilde here refers to package root, not user dir
-                8 => "~/.yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
+                8 | 9 => "~/.yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
                 _ => unreachable!(),
             }
         );
@@ -615,7 +616,14 @@ test_workspaces!(
         };
         // This is the SVS defined by the package, not the "patch:" one actually matched,
         // which was overridden by a resolution
-        assert_eq!(mc_pkg_dep.svs().unwrap(), "npm:^1.1.3");
+        assert_eq!(
+            mc_pkg_dep.svs().unwrap(),
+            match lv {
+                6 | 8 => "npm:^1.1.3",
+                9 => "^1.1.3",
+                _ => unreachable!(),
+            }
+        );
         let mc_pkg = chastefile.package(mc_pkg_dep.from);
         assert_eq!(mc_pkg.name().unwrap(), "maitred-cache");
 

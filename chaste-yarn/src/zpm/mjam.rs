@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2026 The Chaste Authors
 // SPDX-License-Identifier: BSD-2-Clause
 
+use std::borrow::Cow;
+
 use chaste_types::{package_name_str, PackageSource};
 
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag};
-use nom::combinator::{eof, map, opt, peek, rest, verify};
+use nom::combinator::{eof, map, map_opt, opt, peek, rest, verify};
 use nom::multi::separated_list1;
 use nom::sequence::{preceded, terminated};
 use nom::{IResult, Parser as _};
@@ -59,4 +61,17 @@ pub fn resolved<'a>(input: &'a str) -> Result<(&'a str, Option<Resolved<'a>>)> {
         .parse(input)
         .map(|(_, r)| r)
         .map_err(|_| Error::InvalidResolved(input.to_owned()))
+}
+
+pub fn patched_spec<'a>(input: &'a str) -> Option<(Cow<'a, str>, &'a str)> {
+    (
+        map_opt(
+            preceded(tag::<&str, &str, ()>("patch:"), is_not("#")),
+            |s| percent_encoding::percent_decode_str(s).decode_utf8().ok(),
+        ),
+        preceded(tag("#"), rest),
+    )
+        .parse(input)
+        .ok()
+        .map(|(_, r)| r)
 }
