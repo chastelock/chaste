@@ -77,6 +77,7 @@ impl PartialOrd for Package {
     }
 }
 
+#[derive(Clone)]
 pub struct PackageBuilder {
     name: Option<PackageName>,
     version: Option<String>,
