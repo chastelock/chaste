@@ -23,7 +23,13 @@ berry = [
     "dep:itertools",
     "dep:yarn-lock-parser",
 ]
-zpm = ["dep:globreeks", "dep:itertools", "dep:walkdir", "dep:yoke"]
+zpm = [
+    "dep:globreeks",
+    "dep:itertools",
+    "dep:percent-encoding",
+    "dep:walkdir",
+    "dep:yoke",
+]
 
 fuzzing = []
 
