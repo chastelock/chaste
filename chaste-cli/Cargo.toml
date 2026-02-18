@@ -28,6 +28,9 @@ yarn-zpm = ["chaste/yarn-zpm"]
 yarn-berry = ["chaste/yarn-berry"]
 yarn-classic = ["chaste/yarn-classic"]
 
+snelleutf = ["chaste/snelleutf"]
+snelleutf-static = ["chaste/snelleutf-static"]
+
 [dependencies]
 anyhow.workspace = true
 argh.workspace = true

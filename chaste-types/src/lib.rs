@@ -16,6 +16,7 @@ pub use crate::package::*;
 pub use crate::quirks::*;
 pub use crate::source::*;
 pub use crate::svs::*;
+pub use crate::util::*;
 
 mod chastefile;
 mod checksums;
@@ -31,3 +32,4 @@ mod package;
 mod quirks;
 mod source;
 mod svs;
+mod util;

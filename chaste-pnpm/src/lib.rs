@@ -3,14 +3,15 @@
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::io;
 use std::path::{Path, PathBuf};
-use std::{fs, io};
 
 use chaste_types::{
-    package_name_str, ssri, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder,
-    DependencyKind, InstallationBuilder, Integrity, LockfileVersion, ModulePath, PackageBuilder,
-    PackageDerivation, PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder,
-    PackageSource, ProviderMeta, SourceVersionSpecifier, PACKAGE_JSON_FILENAME,
+    package_name_str, read_file_to_string, ssri, Chastefile, ChastefileBuilder, Checksums,
+    DependencyBuilder, DependencyKind, InstallationBuilder, Integrity, LockfileVersion, ModulePath,
+    PackageBuilder, PackageDerivation, PackageDerivationMetaBuilder, PackageID, PackageName,
+    PackagePatchBuilder, PackageSource, ProviderMeta, SourceVersionSpecifier,
+    PACKAGE_JSON_FILENAME,
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take};
@@ -123,10 +124,10 @@ where
 {
     let root_dir = root_dir.as_ref();
 
-    let lockfile_contents = fs::read_to_string(root_dir.join(LOCKFILE_NAME))?;
+    let lockfile_contents = read_file_to_string(root_dir.join(LOCKFILE_NAME))?;
     let lockfile: types::Lockfile = serde_norway::from_str(&lockfile_contents)?;
 
-    parse_real(root_dir, lockfile, &fs::read_to_string)
+    parse_real(root_dir, lockfile, &read_file_to_string)
 }
 
 fn parse_real<FG>(

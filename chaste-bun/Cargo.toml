@@ -15,6 +15,8 @@ exclude.workspace = true
 
 [features]
 fuzzing = ["dep:arbitrary"]
+snelleutf = ["chaste-types/snelleutf"]
+snelleutf-static = ["chaste-types/snelleutf-static"]
 
 [dependencies]
 chaste-types.workspace = true

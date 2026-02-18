@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::Path;
 
 use chaste_types::{
-    package_name_str, Chastefile, ChastefileBuilder, Checksums, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, LockfileVersion, ModulePath, PackageBuilder, PackageDerivation,
-    PackageDerivationMetaBuilder, PackageID, PackageName, PackagePatchBuilder, PackageSource,
-    ProviderMeta, SourceVersionSpecifier, SourceVersionSpecifierKind,
+    package_name_str, read_file_to_string, Chastefile, ChastefileBuilder, Checksums,
+    DependencyBuilder, DependencyKind, InstallationBuilder, Integrity, LockfileVersion, ModulePath,
+    PackageBuilder, PackageDerivation, PackageDerivationMetaBuilder, PackageID, PackageName,
+    PackagePatchBuilder, PackageSource, ProviderMeta, SourceVersionSpecifier,
+    SourceVersionSpecifierKind,
 };
 use nom::{
     bytes::complete::tag,
@@ -83,7 +83,7 @@ pub fn parse<P>(root_dir: P) -> Result<Chastefile<Meta>>
 where
     P: AsRef<Path>,
 {
-    let bun_lock_contents = fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?;
+    let bun_lock_contents = read_file_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?;
     let bun_lock: BunLock = json5::from_str(&bun_lock_contents)?;
     parse_contents(bun_lock)
 }

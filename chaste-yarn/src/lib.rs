@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR BSD-2-Clause
 
 use std::path::{Path, PathBuf};
-use std::{fs, io, str};
+use std::{io, str};
 
-use chaste_types::{Chastefile, LockfileVersion, ProviderMeta};
+use chaste_types::{read_file_to_string, Chastefile, LockfileVersion, ProviderMeta};
 use nom::branch::alt;
 use nom::bytes::streaming::tag;
 use nom::character::complete::space0;
@@ -53,8 +53,8 @@ where
 {
     let root_dir = root_dir.as_ref();
 
-    let lockfile_contents = fs::read_to_string(root_dir.join(LOCKFILE_NAME))?;
-    parse_real(&lockfile_contents, root_dir, &fs::read_to_string)
+    let lockfile_contents = read_file_to_string(root_dir.join(LOCKFILE_NAME))?;
+    parse_real(&lockfile_contents, root_dir, &read_file_to_string)
 }
 
 fn parse_real<FG>(

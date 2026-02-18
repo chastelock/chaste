@@ -3,13 +3,13 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::io;
 use std::path::Path;
-use std::{fs, io};
 
 use chaste_types::{
-    Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder, DependencyKind,
-    InstallationBuilder, Integrity, LockfileVersion, ModulePath, PackageBuilder, PackageID,
-    PackageName, PackageSource, ProviderMeta, SourceVersionSpecifier,
+    read_file_to_string, Chastefile, ChastefileBuilder, Checksums, Dependency, DependencyBuilder,
+    DependencyKind, InstallationBuilder, Integrity, LockfileVersion, ModulePath, PackageBuilder,
+    PackageID, PackageName, PackageSource, ProviderMeta, SourceVersionSpecifier,
 };
 
 pub use crate::error::{Error, Result};
@@ -285,10 +285,10 @@ pub fn parse<P>(root_dir: P) -> Result<Chastefile<Meta>>
 where
     P: AsRef<Path>,
 {
-    let lockfile_contents = match fs::read_to_string(root_dir.as_ref().join(SHRINKWRAP_NAME)) {
+    let lockfile_contents = match read_file_to_string(root_dir.as_ref().join(SHRINKWRAP_NAME)) {
         Ok(c) => c,
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            fs::read_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?
+            read_file_to_string(root_dir.as_ref().join(LOCKFILE_NAME))?
         }
         Err(e) => return Err(Error::IoError(e)),
     };

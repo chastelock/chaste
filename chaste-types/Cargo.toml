@@ -12,9 +12,18 @@ license.workspace = true
 categories.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+
+snelleutf-static = ["snelleutf", "snelleutf/static-link"]
+
 [dependencies]
 nodejs-semver.workspace = true
 nom.workspace = true
 percent-encoding.workspace = true
 ssri.workspace = true
 thiserror.workspace = true
+
+[dependencies.snelleutf]
+workspace = true
+optional = true

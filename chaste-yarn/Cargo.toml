@@ -32,6 +32,8 @@ zpm = [
 ]
 
 fuzzing = []
+snelleutf = ["chaste-types/snelleutf"]
+snelleutf-static = ["chaste-types/snelleutf-static"]
 
 [dependencies]
 chaste-types.workspace = true

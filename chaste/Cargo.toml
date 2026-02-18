@@ -24,6 +24,9 @@ yarn-zpm = ["dep:chaste-yarn", "chaste-yarn/zpm"]
 yarn-berry = ["dep:chaste-yarn", "chaste-yarn/berry"]
 yarn-classic = ["dep:chaste-yarn", "chaste-yarn/classic"]
 
+snelleutf = ["chaste-types/snelleutf"]
+snelleutf-static = ["chaste-types/snelleutf-static"]
+
 [dependencies]
 chaste-types.workspace = true
 thiserror.workspace = true
