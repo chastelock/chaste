@@ -14,7 +14,7 @@ use chaste_types::{
 };
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take};
-use nom::combinator::{eof, recognize, rest};
+use nom::combinator::{eof, recognize, rest, verify};
 use nom::sequence::{delimited, terminated};
 use nom::Parser;
 
@@ -295,6 +295,26 @@ where
                     continue 'queue;
                 }
                 peers_suffix = suff;
+            }
+            if let Ok(_) = terminated(
+                delimited(
+                    tag::<_, _, ()>("("),
+                    verify(take(32usize), |hash: &str| {
+                        hash.as_bytes()
+                            .iter()
+                            .all(|b| matches!(b, b'a'..=b'f' | b'0'..=b'9'))
+                    }),
+                    tag(")"),
+                ),
+                eof,
+            )
+            .parse(peers_suffix)
+            {
+                // When the key suffix is longer than peersSuffixMaxLength, it's replaced with a hash
+
+                snap_pid.insert(pkg_desc, pid);
+                lap_i = 0;
+                continue 'queue;
             }
             // Now we handle the "(react-dom@19.0.0(react@19.0.0))(react@19.0.0)" part.
             // These are matches not with packages, but with other snapshots.
