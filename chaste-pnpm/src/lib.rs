@@ -313,6 +313,7 @@ where
                 // When the key suffix is longer than peersSuffixMaxLength, it's replaced with a hash
 
                 snap_pid.insert(pkg_desc, pid);
+                pid_peers.insert(pid, (peer_deps, peers_meta));
                 lap_i = 0;
                 continue 'queue;
             }
