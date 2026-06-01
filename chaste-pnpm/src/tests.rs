@@ -130,6 +130,7 @@ fn v9_npm_tag() -> Result<()> {
     let nop = chastefile.package(nop_dep.on);
     assert_eq!(nop.name().unwrap(), "nop");
     assert!(nop_dep.svs().unwrap().is_npm_tag());
+    assert_eq!(nop.source_type(), Some(PackageSourceType::Npm));
 
     Ok(())
 }
