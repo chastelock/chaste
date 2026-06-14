@@ -31,15 +31,34 @@ mod zpm;
 
 pub static LOCKFILE_NAME: &str = "yarn.lock";
 
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub enum Implem {
+    Classic,
+    Berry,
+    Zpm,
+}
+
+impl Implem {
+    pub fn implem_name(self) -> &'static str {
+        match self {
+            Implem::Classic => "yarn-classic",
+            Implem::Berry => "yarn-berry",
+            Implem::Zpm => "yarn-zpm",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct Meta {
+    pub implem: Implem,
     pub lockfile_version: u8,
 }
 
 impl ProviderMeta for Meta {
     fn provider_name(&self) -> &'static str {
-        "yarn"
+        self.implem.implem_name()
     }
 
     fn lockfile_version<'m>(&'m self) -> Option<LockfileVersion<'m>> {

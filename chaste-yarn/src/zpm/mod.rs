@@ -22,7 +22,7 @@ use yoke::Yoke;
 use crate::btree_candidates::Candidates;
 use crate::error::Result;
 use crate::resolutions::{is_same_svs_zpm, Resolutions};
-use crate::{Error, Meta};
+use crate::{Error, Implem, Meta};
 
 mod mjam;
 mod types;
@@ -64,6 +64,7 @@ where
     }
 
     let mut chastefile = ChastefileBuilder::new(Meta {
+        implem: Implem::Zpm,
         lockfile_version: lockfile.metadata.version,
     });
 

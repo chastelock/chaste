@@ -23,7 +23,7 @@ use crate::berry::types::PackageJson;
 use crate::btree_candidates::Candidates;
 use crate::error::{Error, Result};
 use crate::resolutions::{is_same_svs, Resolutions};
-use crate::Meta;
+use crate::{Implem, Meta};
 
 mod mjam;
 mod types;
@@ -222,6 +222,7 @@ where
     }
 
     let mut chastefile_builder = ChastefileBuilder::new(Meta {
+        implem: Implem::Berry,
         lockfile_version: yarn_lock.version,
     });
     let mut descriptor_to_pid: BTreeMap<(&'y str, &'y str), PackageID> = BTreeMap::new();

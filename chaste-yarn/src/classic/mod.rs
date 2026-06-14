@@ -22,7 +22,7 @@ use yarn_lock_parser as yarn;
 
 use crate::classic::types::PackageJson;
 use crate::error::{Error, Result};
-use crate::Meta;
+use crate::{Implem, Meta};
 
 mod types;
 
@@ -282,6 +282,7 @@ where
     let mut mpj_idx_to_pid: HashMap<usize, PackageID> = HashMap::new();
 
     let mut chastefile_builder = ChastefileBuilder::new(Meta {
+        implem: Implem::Classic,
         lockfile_version: yarn_lock.version,
     });
     let mut index_to_pid: HashMap<usize, PackageID> =
