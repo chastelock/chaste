@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: 2026 The Chaste Authors
+# SPDX-License-Identifier: CC0-1.0
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  reuse:
+    runs-on: codeberg-tiny
+    container:
+      image: fsfe/reuse:6
+    steps:
+      - run: reuse lint
