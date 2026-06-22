@@ -13,4 +13,5 @@ jobs:
     container:
       image: fsfe/reuse:6
     steps:
+      - uses: actions/checkout@v6
       - run: reuse lint

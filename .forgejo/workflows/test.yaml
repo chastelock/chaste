@@ -23,6 +23,7 @@ jobs:
           - '--no-default-features -p chaste-yarn --features classic'
           - '--no-default-features -p chaste-yarn --features zpm'
     steps:
+      - uses: actions/checkout@v6
       - name: Run lib/bin tests
         run: cargo nextest run --locked $feature_flags
       - name: Run doc tests
