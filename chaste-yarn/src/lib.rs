@@ -31,7 +31,7 @@ mod zpm;
 
 pub static LOCKFILE_NAME: &str = "yarn.lock";
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Implem {
     Classic,
