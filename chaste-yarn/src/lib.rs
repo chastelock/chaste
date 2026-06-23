@@ -104,7 +104,7 @@ where
                 #[cfg(feature = "classic")]
                 1 => classic::resolve(yarn_lock, root_dir, file_getter),
                 #[cfg(feature = "berry")]
-                2..=8 => berry::resolve(yarn_lock, root_dir, file_getter),
+                2..=10 => berry::resolve(yarn_lock, root_dir, file_getter),
                 _ => Err(Error::UnknownLockfileVersion(yarn_lock.version)),
             }
         }
