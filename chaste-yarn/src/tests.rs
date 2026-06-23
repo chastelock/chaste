@@ -55,6 +55,8 @@ macro_rules! test_workspaces {
         test_workspace!(Berry(4), $name, $solver);
         test_workspace!(Berry(6), $name, $solver);
         test_workspace!(Berry(8), $name, $solver);
+        test_workspace!(Berry(9), $name, $solver);
+        test_workspace!(Berry(10), $name, $solver);
         test_workspace!(Zpm(9), $name, $solver);
     };
 
@@ -62,10 +64,12 @@ macro_rules! test_workspaces {
     ([Classic(1)], $name:ident, $solver:expr) => {
         test_workspace!(Classic(1), $name, $solver);
     };
-    ([Berry(4), Berry(6), Berry(8)], $name:ident, $solver:expr) => {
+    ([Berry(4), Berry(6), Berry(8), Berry(9), Berry(10)], $name:ident, $solver:expr) => {
         test_workspace!(Berry(4), $name, $solver);
         test_workspace!(Berry(6), $name, $solver);
         test_workspace!(Berry(8), $name, $solver);
+        test_workspace!(Berry(9), $name, $solver);
+        test_workspace!(Berry(10), $name, $solver);
     };
     ([Berry(6), Berry(8), Zpm(9)], $name:ident, $solver:expr) => {
         test_workspace!(Berry(6), $name, $solver);
@@ -241,7 +245,7 @@ test_workspaces!(
 
 test_workspaces!(
     npm_alias_resolution,
-    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+    |chastefile: Chastefile<Meta>, lv: u8, implem: Implem| {
         // Note: In yarn v2 (lockfile v4), npm alias in resolutions is ignored,
         // so its test case uses a URL tarball on registry.yarnpkg.com.
         let [even_dep] = *chastefile.root_package_dependencies() else {
@@ -252,7 +256,7 @@ test_workspaces!(
         };
         // is-even requests is-odd, this is only overridden via resolutions
         assert_eq!(odd_dep.alias_name(), None);
-        if lv == 8 {
+        if implem == Berry && lv >= 8 {
             assert_eq!(odd_dep.svs().unwrap(), "npm:^0.1.2");
         } else {
             assert_eq!(odd_dep.svs().unwrap(), "^0.1.2");
@@ -337,7 +341,7 @@ test_workspaces!(
 );
 
 test_workspaces!(
-    [Berry(4), Berry(6), Berry(8)],
+    [Berry(4), Berry(6), Berry(8), Berry(9), Berry(10)],
     patch,
     |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
         let [rec_a_dep] = *chastefile.root_package_dependencies() else {
@@ -571,7 +575,7 @@ test_workspaces!(
 
 test_workspaces!(
     resolutions,
-    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+    |chastefile: Chastefile<Meta>, lv: u8, implem: Implem| {
         let [(path_pid, path_pkg)] = *chastefile
             .packages_with_ids()
             .into_iter()
@@ -587,7 +591,7 @@ test_workspaces!(
             .into_iter()
             .map(|d| d.svs().unwrap().as_ref())
             .collect::<Vec<&str>>();
-        assert_eq!(path_svss, [if lv == 8 { "npm:0.1.10" } else { "0.1.10" }]);
+        assert_eq!(path_svss, [if implem == Berry && lv >= 8 { "npm:0.1.10" } else { "0.1.10" }]);
 
         let [(scwm_pid, scwm_pkg)] = *chastefile
             .packages_with_ids()
@@ -612,7 +616,7 @@ test_workspaces!(
             .into_iter()
             .map(|d| d.svs().unwrap().as_ref())
             .collect::<Vec<&str>>();
-        assert_eq!(scwm_svss, [if lv == 8 { "npm:^1.0.2" } else { "^1.0.2" }]);
+        assert_eq!(scwm_svss, [if implem == Berry && lv >= 8 { "npm:^1.0.2" } else { "^1.0.2" }]);
 
         Ok(())
     }
@@ -718,7 +722,7 @@ test_workspaces!(
 
 test_workspaces!(
     workspace_basic,
-    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+    |chastefile: Chastefile<Meta>, _lv: u8, implem: Implem| {
         assert_eq!(chastefile.packages().len(), 4);
         let [(balls_pid, _balls_pkg)] = *chastefile
             .packages_with_ids()
@@ -749,7 +753,7 @@ test_workspaces!(
         balls_install_paths.sort_unstable();
         // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
         // In classic and zpm, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
-        if lv == 1 || lv > 8 {
+        if implem != Berry {
             assert_eq!(balls_installations.len(), 1);
             assert_eq!(balls_install_paths, ["balls"]);
         } else {
@@ -766,7 +770,7 @@ test_workspaces!(
 
 test_workspaces!(
     workspace_globs,
-    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+    |chastefile: Chastefile<Meta>, _lv: u8, implem: Implem| {
         assert_eq!(chastefile.packages().len(), 4);
         let [(balls_pid, _balls_pkg)] = *chastefile
             .packages_with_ids()
@@ -797,7 +801,7 @@ test_workspaces!(
         balls_install_paths.sort_unstable();
         // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
         // In classic and zpm, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
-        if lv == 1 || lv > 8 {
+        if implem != Berry {
             assert_eq!(balls_installations.len(), 1);
             assert_eq!(balls_install_paths, ["pkgs/balls"]);
         } else {
