@@ -12,7 +12,7 @@ use chaste_types::{
 use concat_idents::concat_idents;
 
 use super::Implem::*;
-use super::{parse, Meta, Result};
+use super::{parse, Implem, Meta, Result};
 
 static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test_workspaces"));
 
@@ -30,7 +30,7 @@ macro_rules! test_workspace_ {
                 let meta = chastefile.meta();
                 assert_eq!(meta.lockfile_version().unwrap(), LockfileVersion::U8($v));
                 assert_eq!(meta.implem, $i);
-                ($solver)(chastefile, $v)
+                ($solver)(chastefile, $v, $i)
             }
         });
     };
@@ -74,7 +74,9 @@ macro_rules! test_workspaces {
     };
 }
 
-test_workspaces!(basic, |chastefile: Chastefile<Meta>, _lv: u8| {
+test_workspaces!(basic, |chastefile: Chastefile<Meta>,
+                         _lv: u8,
+                         _implem: Implem| {
     let rec_deps = chastefile.recursive_package_dependencies(chastefile.root_package_id());
     assert_eq!(rec_deps.len(), 5);
     assert!(rec_deps
@@ -84,7 +86,9 @@ test_workspaces!(basic, |chastefile: Chastefile<Meta>, _lv: u8| {
     Ok(())
 });
 
-test_workspaces!(git_ssh, |chastefile: Chastefile<Meta>, lv: u8| {
+test_workspaces!(git_ssh, |chastefile: Chastefile<Meta>,
+                           lv: u8,
+                           _implem: Implem| {
     assert_eq!(
         chastefile
             .recursive_package_dependencies(chastefile.root_package_id())
@@ -110,7 +114,9 @@ test_workspaces!(git_ssh, |chastefile: Chastefile<Meta>, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(git_url, |chastefile: Chastefile<Meta>, lv: u8| {
+test_workspaces!(git_url, |chastefile: Chastefile<Meta>,
+                           lv: u8,
+                           _implem: Implem| {
     assert_eq!(
         chastefile
             .recursive_package_dependencies(chastefile.root_package_id())
@@ -133,7 +139,9 @@ test_workspaces!(git_url, |chastefile: Chastefile<Meta>, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(github_ref, |chastefile: Chastefile<Meta>, lv: u8| {
+test_workspaces!(github_ref, |chastefile: Chastefile<Meta>,
+                              lv: u8,
+                              _implem: Implem| {
     assert_eq!(
         chastefile
             .recursive_package_dependencies(chastefile.root_package_id())
@@ -192,7 +200,7 @@ test_workspaces!(github_ref, |chastefile: Chastefile<Meta>, lv: u8| {
 test_workspaces!(
     [Classic(1)],
     npm_alias_duplicate,
-    |chastefile: Chastefile<Meta>, _lv: u8| {
+    |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
         assert_eq!(
             chastefile
                 .recursive_package_dependencies(chastefile.root_package_id())
@@ -233,7 +241,7 @@ test_workspaces!(
 
 test_workspaces!(
     npm_alias_resolution,
-    |chastefile: Chastefile<Meta>, lv: u8| {
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
         // Note: In yarn v2 (lockfile v4), npm alias in resolutions is ignored,
         // so its test case uses a URL tarball on registry.yarnpkg.com.
         let [even_dep] = *chastefile.root_package_dependencies() else {
@@ -275,28 +283,33 @@ test_workspaces!(
     }
 );
 
-test_workspaces!(npm_aliased, |chastefile: Chastefile<Meta>, lv: u8| {
-    let [pakig_dep] = *chastefile.root_package_dependencies() else {
-        panic!()
-    };
-    assert_eq!(pakig_dep.alias_name().unwrap(), "pakig");
-    assert_eq!(
-        pakig_dep.svs().unwrap().aliased_package_name().unwrap(),
-        "nop"
-    );
-    let pakig = chastefile.package(pakig_dep.on);
-    assert_eq!(pakig.name().unwrap(), "nop");
-    assert_eq!(pakig.version().unwrap().to_string(), "1.0.0");
-    assert_eq!(
-        pakig.checksums().unwrap().integrity().hashes.len(),
-        if lv == 1 { 2 } else { 1 }
-    );
-    assert_eq!(pakig.source_type(), Some(PackageSourceType::Npm));
+test_workspaces!(
+    npm_aliased,
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+        let [pakig_dep] = *chastefile.root_package_dependencies() else {
+            panic!()
+        };
+        assert_eq!(pakig_dep.alias_name().unwrap(), "pakig");
+        assert_eq!(
+            pakig_dep.svs().unwrap().aliased_package_name().unwrap(),
+            "nop"
+        );
+        let pakig = chastefile.package(pakig_dep.on);
+        assert_eq!(pakig.name().unwrap(), "nop");
+        assert_eq!(pakig.version().unwrap().to_string(), "1.0.0");
+        assert_eq!(
+            pakig.checksums().unwrap().integrity().hashes.len(),
+            if lv == 1 { 2 } else { 1 }
+        );
+        assert_eq!(pakig.source_type(), Some(PackageSourceType::Npm));
 
-    Ok(())
-});
+        Ok(())
+    }
+);
 
-test_workspaces!(npm_tag, |chastefile: Chastefile<Meta>, _lv: u8| {
+test_workspaces!(npm_tag, |chastefile: Chastefile<Meta>,
+                           _lv: u8,
+                           _implem: Implem| {
     let [nop_dep] = *chastefile.root_package_dependencies() else {
         panic!();
     };
@@ -306,24 +319,27 @@ test_workspaces!(npm_tag, |chastefile: Chastefile<Meta>, _lv: u8| {
     Ok(())
 });
 
-test_workspaces!(optional_deps, |chastefile: Chastefile<Meta>, _lv: u8| {
-    let [jf_dep] = *chastefile.root_package_dependencies() else {
-        panic!();
-    };
-    let jf_pid = jf_dep.on;
+test_workspaces!(
+    optional_deps,
+    |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
+        let [jf_dep] = *chastefile.root_package_dependencies() else {
+            panic!();
+        };
+        let jf_pid = jf_dep.on;
 
-    let [gfs_dep] = *chastefile.package_dependencies(jf_pid) else {
-        panic!()
-    };
-    assert_eq!(gfs_dep.kind, DependencyKind::OptionalDependency);
+        let [gfs_dep] = *chastefile.package_dependencies(jf_pid) else {
+            panic!()
+        };
+        assert_eq!(gfs_dep.kind, DependencyKind::OptionalDependency);
 
-    Ok(())
-});
+        Ok(())
+    }
+);
 
 test_workspaces!(
     [Berry(4), Berry(6), Berry(8)],
     patch,
-    |chastefile: Chastefile<Meta>, _lv: u8| {
+    |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
         let [rec_a_dep] = *chastefile.root_package_dependencies() else {
             panic!();
         };
@@ -354,7 +370,7 @@ test_workspaces!(
 
 test_workspaces!(
     peer_conflict_indirect,
-    |chastefile: Chastefile<Meta>, lv: u8| {
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
         let mut direct_deps = chastefile
             .root_package_dependencies()
             .into_iter()
@@ -402,7 +418,7 @@ test_workspaces!(
 
 test_workspaces!(
     peer_conflict_with_direct,
-    |chastefile: Chastefile<Meta>, _lv: u8| {
+    |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
         let mut root_deps = chastefile
             .root_package_dependencies()
             .into_iter()
@@ -442,7 +458,9 @@ test_workspaces!(
     }
 );
 
-test_workspaces!(peer_deps, |chastefile: Chastefile<Meta>, lv: u8| {
+test_workspaces!(peer_deps, |chastefile: Chastefile<Meta>,
+                             lv: u8,
+                             _implem: Implem| {
     let mut root_deps: Vec<_> = chastefile
         .root_package_dependencies()
         .into_iter()
@@ -485,111 +503,125 @@ test_workspaces!(peer_deps, |chastefile: Chastefile<Meta>, lv: u8| {
     Ok(())
 });
 
-test_workspaces!(peer_resolutions, |chastefile: Chastefile<Meta>, lv: u8| {
-    let mut root_deps = chastefile
-        .root_package_dependencies()
-        .into_iter()
-        .map(|d| (d, chastefile.package(d.on)))
-        .collect::<Vec<_>>();
-    root_deps.sort_unstable_by_key(|(d, p)| (p.name(), d.kind.is_peer()));
-    let [(buf0_dep, buf0_pkg), (genes_dep, genes_pkg)] = *root_deps else {
-        panic!();
-    };
-    assert_eq!(genes_pkg.name().unwrap(), "@bufbuild/protoc-gen-es");
-    assert_eq!(buf0_pkg.name().unwrap(), "@bufbuild/protobuf");
-    assert_eq!(buf0_pkg.version().unwrap().to_string(), "1.0.0");
-
-    let mut buf9_deps = chastefile
-        .package_dependencies(genes_dep.on)
-        .into_iter()
-        .map(|d| (d, chastefile.package(d.on)))
-        .filter(|(_, p)| p.name().is_some_and(|n| n == "@bufbuild/protobuf"))
-        .collect::<Vec<_>>();
-    buf9_deps.sort_unstable_by_key(|(d, _)| d.kind.is_peer());
-    if lv == 1 {
-        // in v1, peer dependencies are not listed in the lockfile
-        let [(buf9_dep, buf9_pkg)] = *buf9_deps else {
+test_workspaces!(
+    peer_resolutions,
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+        let mut root_deps = chastefile
+            .root_package_dependencies()
+            .into_iter()
+            .map(|d| (d, chastefile.package(d.on)))
+            .collect::<Vec<_>>();
+        root_deps.sort_unstable_by_key(|(d, p)| (p.name(), d.kind.is_peer()));
+        let [(buf0_dep, buf0_pkg), (genes_dep, genes_pkg)] = *root_deps else {
             panic!();
         };
-        assert_eq!(buf9_dep.kind, DependencyKind::Dependency);
-        assert_ne!(buf0_dep.on, buf9_dep.on);
-        assert_eq!(buf9_pkg.version().unwrap().to_string(), "1.9.0");
-    } else {
-        let [(buf9_regular_dep, buf9_pkg), (buf9_peer_dep, _buf9_pkg)] = *buf9_deps else {
-            panic!();
-        };
-        assert_eq!(buf9_regular_dep.kind, DependencyKind::Dependency);
-        assert_eq!(buf9_peer_dep.kind, DependencyKind::OptionalPeerDependency);
-        assert_eq!(buf9_peer_dep.on, buf9_regular_dep.on);
-        assert_ne!(buf0_dep.on, buf9_peer_dep.on);
-        assert_eq!(buf9_pkg.version().unwrap().to_string(), "1.9.0");
-    }
+        assert_eq!(genes_pkg.name().unwrap(), "@bufbuild/protoc-gen-es");
+        assert_eq!(buf0_pkg.name().unwrap(), "@bufbuild/protobuf");
+        assert_eq!(buf0_pkg.version().unwrap().to_string(), "1.0.0");
 
-    Ok(())
-});
-
-test_workspaces!(peer_unlocked, |chastefile: Chastefile<Meta>, _lv: u8| {
-    assert!(chastefile.root_package_dependencies().is_empty());
-    Ok(())
-});
-
-test_workspaces!(peer_unsatisfied, |chastefile: Chastefile<Meta>, _lv: u8| {
-    assert!(!chastefile.packages().into_iter().any(|p| p
-        .name()
-        .is_some_and(|n| n == "@bazel/bazelisk" || n == "@bazel/concatjs" || n == "typescript")));
-    Ok(())
-});
-
-test_workspaces!(resolutions, |chastefile: Chastefile<Meta>, lv: u8| {
-    let [(path_pid, path_pkg)] = *chastefile
-        .packages_with_ids()
-        .into_iter()
-        .filter(|(_pid, p)| p.name().is_some_and(|n| n == "path-to-regexp"))
-        .collect::<Vec<(PackageID, &Package)>>()
-    else {
-        panic!();
-    };
-    assert_eq!(path_pkg.version().unwrap().to_string(), "0.1.12");
-    assert_eq!(path_pkg.source_type(), Some(PackageSourceType::Npm));
-    let path_svss = chastefile
-        .package_dependents(path_pid)
-        .into_iter()
-        .map(|d| d.svs().unwrap().as_ref())
-        .collect::<Vec<&str>>();
-    assert_eq!(path_svss, [if lv == 8 { "npm:0.1.10" } else { "0.1.10" }]);
-
-    let [(scwm_pid, scwm_pkg)] = *chastefile
-        .packages_with_ids()
-        .into_iter()
-        .filter(|(_pid, p)| p.name().is_some_and(|n| n == "side-channel-weakmap"))
-        .collect::<Vec<(PackageID, &Package)>>()
-    else {
-        panic!();
-    };
-    assert_eq!(scwm_pkg.version().unwrap().to_string(), "1.0.1");
-    assert_eq!(
-        scwm_pkg.source_type(),
+        let mut buf9_deps = chastefile
+            .package_dependencies(genes_dep.on)
+            .into_iter()
+            .map(|d| (d, chastefile.package(d.on)))
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "@bufbuild/protobuf"))
+            .collect::<Vec<_>>();
+        buf9_deps.sort_unstable_by_key(|(d, _)| d.kind.is_peer());
         if lv == 1 {
-            // TODO: Recognize as tarball
-            None
+            // in v1, peer dependencies are not listed in the lockfile
+            let [(buf9_dep, buf9_pkg)] = *buf9_deps else {
+                panic!();
+            };
+            assert_eq!(buf9_dep.kind, DependencyKind::Dependency);
+            assert_ne!(buf0_dep.on, buf9_dep.on);
+            assert_eq!(buf9_pkg.version().unwrap().to_string(), "1.9.0");
         } else {
-            Some(PackageSourceType::TarballURL)
+            let [(buf9_regular_dep, buf9_pkg), (buf9_peer_dep, _buf9_pkg)] = *buf9_deps else {
+                panic!();
+            };
+            assert_eq!(buf9_regular_dep.kind, DependencyKind::Dependency);
+            assert_eq!(buf9_peer_dep.kind, DependencyKind::OptionalPeerDependency);
+            assert_eq!(buf9_peer_dep.on, buf9_regular_dep.on);
+            assert_ne!(buf0_dep.on, buf9_peer_dep.on);
+            assert_eq!(buf9_pkg.version().unwrap().to_string(), "1.9.0");
         }
-    );
-    let scwm_svss = chastefile
-        .package_dependents(scwm_pid)
-        .into_iter()
-        .map(|d| d.svs().unwrap().as_ref())
-        .collect::<Vec<&str>>();
-    assert_eq!(scwm_svss, [if lv == 8 { "npm:^1.0.2" } else { "^1.0.2" }]);
 
-    Ok(())
-});
+        Ok(())
+    }
+);
+
+test_workspaces!(
+    peer_unlocked,
+    |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
+        assert!(chastefile.root_package_dependencies().is_empty());
+        Ok(())
+    }
+);
+
+test_workspaces!(
+    peer_unsatisfied,
+    |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
+        assert!(!chastefile.packages().into_iter().any(|p| p
+            .name()
+            .is_some_and(|n| n == "@bazel/bazelisk"
+                || n == "@bazel/concatjs"
+                || n == "typescript")));
+        Ok(())
+    }
+);
+
+test_workspaces!(
+    resolutions,
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+        let [(path_pid, path_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "path-to-regexp"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(path_pkg.version().unwrap().to_string(), "0.1.12");
+        assert_eq!(path_pkg.source_type(), Some(PackageSourceType::Npm));
+        let path_svss = chastefile
+            .package_dependents(path_pid)
+            .into_iter()
+            .map(|d| d.svs().unwrap().as_ref())
+            .collect::<Vec<&str>>();
+        assert_eq!(path_svss, [if lv == 8 { "npm:0.1.10" } else { "0.1.10" }]);
+
+        let [(scwm_pid, scwm_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_pid, p)| p.name().is_some_and(|n| n == "side-channel-weakmap"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        assert_eq!(scwm_pkg.version().unwrap().to_string(), "1.0.1");
+        assert_eq!(
+            scwm_pkg.source_type(),
+            if lv == 1 {
+                // TODO: Recognize as tarball
+                None
+            } else {
+                Some(PackageSourceType::TarballURL)
+            }
+        );
+        let scwm_svss = chastefile
+            .package_dependents(scwm_pid)
+            .into_iter()
+            .map(|d| d.svs().unwrap().as_ref())
+            .collect::<Vec<&str>>();
+        assert_eq!(scwm_svss, [if lv == 8 { "npm:^1.0.2" } else { "^1.0.2" }]);
+
+        Ok(())
+    }
+);
 
 test_workspaces!(
     [Berry(6), Berry(8), Zpm(9)],
     resolutions_svs_scoped,
-    |chastefile: Chastefile<Meta>, lv: u8| {
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
         let mut stringhashes = chastefile
             .packages_with_ids()
             .into_iter()
@@ -637,23 +669,26 @@ test_workspaces!(
     }
 );
 
-test_workspaces!(scope_registry, |chastefile: Chastefile<Meta>, lv: u8| {
-    let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
-    let empty_pkg = chastefile.package(empty_pid);
-    assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
-    assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
-    assert_eq!(
-        empty_pkg.checksums().unwrap().integrity().hashes.len(),
-        if lv == 1 { 2 } else { 1 }
-    );
-    assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::Npm));
+test_workspaces!(
+    scope_registry,
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+        let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
+        let empty_pkg = chastefile.package(empty_pid);
+        assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
+        assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
+        assert_eq!(
+            empty_pkg.checksums().unwrap().integrity().hashes.len(),
+            if lv == 1 { 2 } else { 1 }
+        );
+        assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::Npm));
 
-    Ok(())
-});
+        Ok(())
+    }
+);
 
 test_workspaces!(
     special_chars_name,
-    |chastefile: Chastefile<Meta>, _lv: u8| {
+    |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
         let root_pkg = chastefile.root_package();
         assert_eq!(root_pkg.name().unwrap(), "verboden(root)(name~'!*)");
         let [a_dep] = *chastefile.root_package_dependencies() else {
@@ -667,99 +702,112 @@ test_workspaces!(
     }
 );
 
-test_workspaces!(tarball_url, |chastefile: Chastefile<Meta>, _lv: u8| {
-    let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
-    let empty_pkg = chastefile.package(empty_pid);
-    assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
-    assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
-    assert_eq!(empty_pkg.checksums().unwrap().integrity().hashes.len(), 1);
-    assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::TarballURL));
+test_workspaces!(
+    tarball_url,
+    |chastefile: Chastefile<Meta>, _lv: u8, _implem: Implem| {
+        let empty_pid = chastefile.root_package_dependencies().first().unwrap().on;
+        let empty_pkg = chastefile.package(empty_pid);
+        assert_eq!(empty_pkg.name().unwrap(), "@a/empty");
+        assert_eq!(empty_pkg.version().unwrap().to_string(), "0.0.1");
+        assert_eq!(empty_pkg.checksums().unwrap().integrity().hashes.len(), 1);
+        assert_eq!(empty_pkg.source_type(), Some(PackageSourceType::TarballURL));
 
-    Ok(())
-});
-
-test_workspaces!(workspace_basic, |chastefile: Chastefile<Meta>, lv: u8| {
-    assert_eq!(chastefile.packages().len(), 4);
-    let [(balls_pid, _balls_pkg)] = *chastefile
-        .packages_with_ids()
-        .into_iter()
-        .filter(|(_, p)| p.name().is_some_and(|n| n == "@chastelock/balls"))
-        .collect::<Vec<(PackageID, &Package)>>()
-    else {
-        panic!();
-    };
-    let [(ligma_pid, _ligma_pkg)] = *chastefile
-        .packages_with_ids()
-        .into_iter()
-        .filter(|(_, p)| p.name().is_some_and(|n| n == "ligma-api"))
-        .collect::<Vec<(PackageID, &Package)>>()
-    else {
-        panic!();
-    };
-    let workspace_member_ids = chastefile.workspace_member_ids();
-    assert_eq!(workspace_member_ids.len(), 2);
-    assert!(workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid));
-    let balls_installations = chastefile.package_installations(balls_pid);
-    let mut balls_install_paths = balls_installations
-        .iter()
-        .map(|i| i.path().as_ref())
-        .collect::<Vec<&str>>();
-    balls_install_paths.sort_unstable();
-    // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
-    // In classic and zpm, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
-    if lv == 1 || lv > 8 {
-        assert_eq!(balls_installations.len(), 1);
-        assert_eq!(balls_install_paths, ["balls"]);
-    } else {
-        assert_eq!(balls_installations.len(), 2);
-        assert_eq!(
-            balls_install_paths,
-            ["balls", "node_modules/@chastelock/balls"]
-        );
+        Ok(())
     }
+);
 
-    Ok(())
-});
-
-test_workspaces!(workspace_globs, |chastefile: Chastefile<Meta>, lv: u8| {
-    assert_eq!(chastefile.packages().len(), 4);
-    let [(balls_pid, _balls_pkg)] = *chastefile
-        .packages_with_ids()
-        .into_iter()
-        .filter(|(_, p)| p.name().is_some_and(|n| n == "@chastelock/balls"))
-        .collect::<Vec<(PackageID, &Package)>>()
-    else {
-        panic!();
-    };
-    let [(ligma_pid, _ligma_pkg)] = *chastefile
-        .packages_with_ids()
-        .into_iter()
-        .filter(|(_, p)| p.name().is_some_and(|n| n == "ligma-api"))
-        .collect::<Vec<(PackageID, &Package)>>()
-    else {
-        panic!();
-    };
-    let workspace_member_ids = chastefile.workspace_member_ids();
-    assert_eq!(workspace_member_ids.len(), 2);
-    assert!(workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid));
-    let balls_installations = chastefile.package_installations(balls_pid);
-    let mut balls_install_paths = balls_installations
-        .iter()
-        .map(|i| i.path().as_ref())
-        .collect::<Vec<&str>>();
-    balls_install_paths.sort_unstable();
-    // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
-    // In classic and zpm, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
-    if lv == 1 || lv > 8 {
-        assert_eq!(balls_installations.len(), 1);
-        assert_eq!(balls_install_paths, ["pkgs/balls"]);
-    } else {
-        assert_eq!(balls_installations.len(), 2);
-        assert_eq!(
-            balls_install_paths,
-            ["node_modules/@chastelock/balls", "pkgs/balls"]
+test_workspaces!(
+    workspace_basic,
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+        assert_eq!(chastefile.packages().len(), 4);
+        let [(balls_pid, _balls_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "@chastelock/balls"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        let [(ligma_pid, _ligma_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "ligma-api"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        let workspace_member_ids = chastefile.workspace_member_ids();
+        assert_eq!(workspace_member_ids.len(), 2);
+        assert!(
+            workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid)
         );
-    }
+        let balls_installations = chastefile.package_installations(balls_pid);
+        let mut balls_install_paths = balls_installations
+            .iter()
+            .map(|i| i.path().as_ref())
+            .collect::<Vec<&str>>();
+        balls_install_paths.sort_unstable();
+        // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
+        // In classic and zpm, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
+        if lv == 1 || lv > 8 {
+            assert_eq!(balls_installations.len(), 1);
+            assert_eq!(balls_install_paths, ["balls"]);
+        } else {
+            assert_eq!(balls_installations.len(), 2);
+            assert_eq!(
+                balls_install_paths,
+                ["balls", "node_modules/@chastelock/balls"]
+            );
+        }
 
-    Ok(())
-});
+        Ok(())
+    }
+);
+
+test_workspaces!(
+    workspace_globs,
+    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+        assert_eq!(chastefile.packages().len(), 4);
+        let [(balls_pid, _balls_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "@chastelock/balls"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        let [(ligma_pid, _ligma_pkg)] = *chastefile
+            .packages_with_ids()
+            .into_iter()
+            .filter(|(_, p)| p.name().is_some_and(|n| n == "ligma-api"))
+            .collect::<Vec<(PackageID, &Package)>>()
+        else {
+            panic!();
+        };
+        let workspace_member_ids = chastefile.workspace_member_ids();
+        assert_eq!(workspace_member_ids.len(), 2);
+        assert!(
+            workspace_member_ids.contains(&balls_pid) && workspace_member_ids.contains(&ligma_pid)
+        );
+        let balls_installations = chastefile.package_installations(balls_pid);
+        let mut balls_install_paths = balls_installations
+            .iter()
+            .map(|i| i.path().as_ref())
+            .collect::<Vec<&str>>();
+        balls_install_paths.sort_unstable();
+        // There are 2: where the package is, and a link in "node_modules/{pkg.name}".
+        // In classic and zpm, only the former is currently tracked, in berry, the latter is tracked if yarn-state is present.
+        if lv == 1 || lv > 8 {
+            assert_eq!(balls_installations.len(), 1);
+            assert_eq!(balls_install_paths, ["pkgs/balls"]);
+        } else {
+            assert_eq!(balls_installations.len(), 2);
+            assert_eq!(
+                balls_install_paths,
+                ["node_modules/@chastelock/balls", "pkgs/balls"]
+            );
+        }
+
+        Ok(())
+    }
+);
