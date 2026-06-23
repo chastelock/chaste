@@ -18,10 +18,15 @@ static TEST_WORKSPACES: LazyLock<PathBuf> = LazyLock::new(|| PathBuf::from("test
 
 macro_rules! test_workspace_ {
     ($i:expr, $v:expr, $name:ident, $solver:expr) => {
-        concat_idents!(fn_name = v, $v, _, $name {
+        concat_idents!(fn_name = $i, $v, _, $name {
             #[test]
+            #[allow(non_snake_case)]
             fn fn_name() -> Result<()> {
-                let chastefile = parse(TEST_WORKSPACES.join(format!("v{}_{}", $v, stringify!($name))))?;
+                let chastefile = parse(TEST_WORKSPACES.join(format!("{}{}_{}", match $i {
+                    Classic => "c",
+                    Berry => "b",
+                    Zpm => "z",
+                }, $v, stringify!($name))))?;
                 let meta = chastefile.meta();
                 assert_eq!(meta.lockfile_version().unwrap(), LockfileVersion::U8($v));
                 assert_eq!(meta.implem, $i);
