@@ -26,8 +26,12 @@ jobs:
       - uses: actions/checkout@v6
       - name: Run lib/bin tests
         run: cargo nextest run --locked $feature_flags
+        env:
+          feature_flags: ${{ matrix.feature_flags }}
       - name: Run doc tests
         run: |
           if [ "$feature_flags" == "${feature_flags/-p chaste-cli}" ]; then
             cargo test --locked --doc $feature_flags
           fi
+        env:
+          feature_flags: ${{ matrix.feature_flags }}
