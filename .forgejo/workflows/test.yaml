@@ -35,3 +35,13 @@ jobs:
           fi
         env:
           feature_flags: ${{ matrix.feature_flags }}
+      - name: Generate test coverage
+        if: ${{ secrets.CODECOV_TOKEN }}
+        run: cargo tarpaulin --engine llvm --out xml --locked $feature_flags
+        env:
+          feature_flags: ${{ matrix.feature_flags }}
+      - name: Upload coverage
+        if: ${{ secrets.CODECOV_TOKEN }}
+        uses: https://github.com/codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
