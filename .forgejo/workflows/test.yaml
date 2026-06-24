@@ -42,6 +42,6 @@ jobs:
           feature_flags: ${{ matrix.feature_flags }}
       - name: Upload coverage
         if: ${{ secrets.CODECOV_TOKEN }}
-        uses: https://github.com/selfisekai/codecov-action@8ec056361b5be6cc777c8dfa2885fd65d7fcfa31
+        uses: https://github.com/selfisekai/codecov-action@7a9f571fcee3f7db12e7238f29aef721d243b063
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
