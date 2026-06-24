@@ -71,9 +71,11 @@ macro_rules! test_workspaces {
         test_workspace!(Berry(9), $name, $solver);
         test_workspace!(Berry(10), $name, $solver);
     };
-    ([Berry(6), Berry(8), Zpm(9)], $name:ident, $solver:expr) => {
+    ([Berry(6), Berry(8), Berry(9), Berry(10), Zpm(9)], $name:ident, $solver:expr) => {
         test_workspace!(Berry(6), $name, $solver);
         test_workspace!(Berry(8), $name, $solver);
+        test_workspace!(Berry(9), $name, $solver);
+        test_workspace!(Berry(10), $name, $solver);
         test_workspace!(Zpm(9), $name, $solver);
     };
 }
@@ -623,9 +625,9 @@ test_workspaces!(
 );
 
 test_workspaces!(
-    [Berry(6), Berry(8), Zpm(9)],
+    [Berry(6), Berry(8), Berry(9), Berry(10), Zpm(9)],
     resolutions_svs_scoped,
-    |chastefile: Chastefile<Meta>, lv: u8, _implem: Implem| {
+    |chastefile: Chastefile<Meta>, lv: u8, implem: Implem| {
         let mut stringhashes = chastefile
             .packages_with_ids()
             .into_iter()
@@ -642,10 +644,10 @@ test_workspaces!(
         };
         assert_eq!(
             patch.path(),
-            match lv {
-                6 => ".yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
+            match (implem, lv) {
+                (Berry, 6) => ".yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
                 // XXX: tilde here refers to package root, not user dir
-                8 | 9 => "~/.yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
+                (Berry, 8..) | (Zpm, _) => "~/.yarn/patches/string-hash-npm-1.1.3-3cb8892e7c.patch",
                 _ => unreachable!(),
             }
         );
@@ -658,9 +660,9 @@ test_workspaces!(
         // which was overridden by a resolution
         assert_eq!(
             mc_pkg_dep.svs().unwrap(),
-            match lv {
-                6 | 8 => "npm:^1.1.3",
-                9 => "^1.1.3",
+            match implem {
+                Berry => "npm:^1.1.3",
+                Zpm => "^1.1.3",
                 _ => unreachable!(),
             }
         );
