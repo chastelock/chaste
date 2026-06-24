@@ -1,0 +1,13 @@
+diff --git a/index.js b/index.js
+index 3bc4a826ba837d24ea5b36a683d13b9ed6873d53..5580e97e3673b37ba2395b942bdb414529f79450 100644
+--- a/index.js
++++ b/index.js
+@@ -1,7 +1,7 @@
+ "use strict";
+ 
+ function hash(str) {
+-  var hash = 5381,
++  var hash = 2137,
+       i    = str.length;
+ 
+   while(i) {

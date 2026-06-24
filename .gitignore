@@ -5,6 +5,7 @@ target/
 node_modules/
 !node_modules/.yarn-state.yml
 .yarn
+!.yarn/patches/
 .pnp.*
 fuzz/artifacts/
 fuzz/corpus/
